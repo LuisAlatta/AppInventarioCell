@@ -1,14 +1,14 @@
 /**
- * Traspaso de mercancia entre ubicaciones.
+ * Traspaso de mercancía entre ubicaciones.
  *
  * Se arma una lista y se confirma al final, en lugar de enviar cada renglon al
  * tocarlo. Dos razones:
  *
- *   - Un traspaso a medias es peor que ninguno: dejaria mercancia que salio del
+ *   - Un traspaso a medias es peor que ninguno: dejaría mercancía que salio del
  *     almacen y nunca llego a la sucursal. Enviando todo junto, si algo falla no
  *     se mueve nada.
  *   - Se puede revisar antes de confirmar. Al repartir veinte productos, el
- *     error se ve en la lista, no despues en el reporte.
+ *     error se ve en la lista, no después en el reporte.
  *
  * Todos los renglones quedan agrupados con un mismo identificador de lote, y
  * por eso el reparto entero se puede deshacer de un toque.
@@ -43,7 +43,7 @@ export function Traspaso() {
   const { ubicaciones, activa } = useUbicacion()
 
   // El origen arranca en la ubicacion activa, que es donde esta parada la
-  // persona y de donde va a sacar la mercancia.
+  // persona y de donde va a sacar la mercancía.
   const [origenId, setOrigenId] = useState<string>(activa?.id ?? '')
   const [destinoId, setDestinoId] = useState<string>('')
   const [renglones, setRenglones] = useState<Renglon[]>([])
@@ -113,18 +113,18 @@ export function Traspaso() {
 
     setEnviando(true)
     try {
-      const { loteId, renglones: cuantos } = await api.traspaso({
+      const { loteId, renglones: cuántos } = await api.traspaso({
         origenId: origen.id,
         destinoId: destino.id,
         renglones: renglones.map((r) => ({ productoId: r.producto.id, cantidad: r.cantidad })),
       })
 
       avisos.exito(
-        `${numero(cuantos)} productos enviados a ${destino.nombre}`,
+        `${numero(cuántos)} productos enviados a ${destino.nombre}`,
         async () => {
           try {
             await api.deshacerLote(loteId)
-            avisos.informacion('Traspaso deshecho')
+            avisos.información('Traspaso deshecho')
             void cliente.invalidateQueries()
           } catch (causa) {
             avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo deshacer')
@@ -156,7 +156,7 @@ export function Traspaso() {
             excluir={destinoId}
             onCambio={(id) => {
               setOrigenId(id)
-              // Las cantidades dependian del stock del origen anterior, asi
+              // Las cantidades dependian del stock del origen anterior, así
               // que la lista deja de ser valida.
               setRenglones([])
             }}
@@ -191,7 +191,7 @@ export function Traspaso() {
 
             {renglones.length === 0 ? (
               <Vacio
-                titulo="Sin productos todavia"
+                titulo="Sin productos todavía"
                 detalle={`Escanea o busca lo que va de ${origen.nombre} a ${destino.nombre}.`}
               />
             ) : (

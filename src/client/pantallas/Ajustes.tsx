@@ -1,9 +1,9 @@
 /**
  * Ajustes: PIN, categorias, ubicaciones y salida.
  *
- * Deliberadamente corta. Cada opcion que se agrega aqui es una decision mas que
+ * Deliberadamente corta. Cada opcion que se agrega aquí es una decision mas que
  * alguien tiene que entender, y esta app la usa una sola persona que quiere
- * contar su mercancia, no configurar un sistema.
+ * contar su mercancía, no configurar un sistema.
  */
 
 import { useState } from 'react'
@@ -45,12 +45,12 @@ export function Ajustes() {
 
           <div className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
             <Fila
-              titulo="Almacen y sucursales"
+              titulo="Almacén y sucursales"
               detalle="Crear, editar, activar o desactivar"
               onClick={() => navegar('/sucursales')}
             />
             <Fila
-              titulo="Categorias"
+              titulo="Categorías"
               detalle={
                 categorias.isSuccess
                   ? `${categorias.data.categorias.length} categorias`
@@ -67,13 +67,13 @@ export function Ajustes() {
           <div className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
             <Fila
               titulo="Cambiar el PIN"
-              detalle="Los seis numeros con los que entras"
+              detalle="Los seis números con los que entras"
               onClick={() => setCambiandoPin(true)}
             />
           </div>
 
           <p className="px-1 text-[0.8125rem] leading-relaxed text-tinta-tenue">
-            Nadie puede recuperar el PIN por ti: no se guarda en ningun lado en claro. Anotalo en
+            Nadie puede recuperar el PIN por ti: no se guarda en ningun lado en claro. Anótalo en
             un lugar seguro.
           </p>
         </section>
@@ -96,7 +96,7 @@ export function Ajustes() {
       <HojaInferior
         abierta={nuevaCategoria}
         onCerrar={() => setNuevaCategoria(false)}
-        titulo="Categorias"
+        titulo="Categorías"
       >
         <Categorias onListo={() => setNuevaCategoria(false)} />
       </HojaInferior>
@@ -142,8 +142,8 @@ function CambioPin({ onListo }: { onListo: () => void }) {
 
   const guardar = async (): Promise<void> => {
     const problemas: Record<string, string> = {}
-    if (!/^[0-9]{6}$/.test(actual)) problemas.actual = 'Son 6 numeros'
-    if (!/^[0-9]{6}$/.test(nuevo)) problemas.nuevo = 'Son 6 numeros'
+    if (!/^[0-9]{6}$/.test(actual)) problemas.actual = 'Son 6 números'
+    if (!/^[0-9]{6}$/.test(nuevo)) problemas.nuevo = 'Son 6 números'
     if (nuevo !== repetido) problemas.repetido = 'No coincide con el nuevo PIN'
 
     if (Object.keys(problemas).length > 0) {
@@ -225,7 +225,7 @@ function Categorias({ onListo }: { onListo: () => void }) {
     try {
       await api.crearCategoria(nombre.trim())
       setNombre('')
-      avisos.exito('Categoria creada')
+      avisos.exito('Categoría creada')
       void cliente.invalidateQueries({ queryKey: ['categorias'] })
     } catch (causa) {
       avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo crear')
@@ -250,10 +250,10 @@ function Categorias({ onListo }: { onListo: () => void }) {
       )}
 
       <CampoTexto
-        etiqueta="Nueva categoria"
+        etiqueta="Nueva categoría"
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
-        placeholder="Audifonos"
+        placeholder="Audífonos"
         autoComplete="off"
         autoFocus
       />

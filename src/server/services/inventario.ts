@@ -139,7 +139,7 @@ export async function aplicarTraspaso(
   usuarioId: string,
 ): Promise<{ loteId: string; renglones: number }> {
   if (datos.origenId === datos.destinoId) {
-    throw new ErrorApp('regla_de_negocio', 'El origen y el destino no pueden ser la misma ubicacion')
+    throw new ErrorApp('regla_de_negocio', 'El origen y el destino no pueden ser la misma ubicación')
   }
 
   // Se comprueban las dos, aunque solo se use el nombre del origen para los
@@ -208,7 +208,7 @@ export async function revertirMovimiento(
   const original = await exigirMovimiento(db, movimientoId)
 
   if (original.revertidoEn !== null) {
-    throw new ErrorApp('conflicto', 'Ese movimiento ya se habia deshecho')
+    throw new ErrorApp('conflicto', 'Ese movimiento ya se había deshecho')
   }
 
   const comoNuevo: MovimientoNuevo = {
@@ -264,7 +264,7 @@ export async function revertirLote(
   const renglones = (await movimientosDeLote(db, loteId)).filter((m) => m.revertidoEn === null)
 
   if (renglones.length === 0) {
-    throw new ErrorApp('conflicto', 'Ese traspaso ya se habia deshecho')
+    throw new ErrorApp('conflicto', 'Ese traspaso ya se había deshecho')
   }
 
   const sentencias: D1PreparedStatement[] = []

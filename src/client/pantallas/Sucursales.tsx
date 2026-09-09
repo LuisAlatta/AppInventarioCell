@@ -3,9 +3,9 @@
  *
  * Cada ubicacion puede llevar un icono o una foto de la fachada. No es adorno:
  * el selector de ubicacion se usa docenas de veces al dia y reconocer un icono
- * es mas rapido que leer tres nombres parecidos.
+ * es mas rápido que leer tres nombres parecidos.
  *
- * Desactivar una ubicacion con mercancia dentro esta prohibido en el servidor.
+ * Desactivar una ubicacion con mercancía dentro esta prohibido en el servidor.
  * Aqui se explica antes de intentarlo, para que el rechazo no llegue como un
  * error suelto.
  */
@@ -45,7 +45,7 @@ export function Sucursales() {
   const desactivar = async (ubicacion: Ubicacion): Promise<void> => {
     try {
       await api.actualizarUbicacion(ubicacion.id, { activa: !ubicacion.activa })
-      avisos.exito(ubicacion.activa ? 'Ubicacion desactivada' : 'Ubicacion activada')
+      avisos.exito(ubicacion.activa ? 'Ubicación desactivada' : 'Ubicación activada')
       void cliente.invalidateQueries({ queryKey: ['ubicaciones'] })
     } catch (causa) {
       avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo cambiar')
@@ -111,7 +111,7 @@ export function Sucursales() {
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <p className="truncate text-[1rem] font-semibold">{ubicacion.nombre}</p>
                     <p className="text-[0.8125rem] text-tinta-tenue">
-                      {ubicacion.tipo === 'warehouse' ? 'Almacen' : 'Sucursal'}
+                      {ubicacion.tipo === 'warehouse' ? 'Almacén' : 'Sucursal'}
                       {!ubicacion.activa && ' · desactivada'}
                     </p>
                     <p className="cifras text-[0.8125rem] text-tinta-suave">
@@ -142,15 +142,15 @@ export function Sucursales() {
         )}
 
         <p className="rounded-xl bg-papel-hundido px-4 py-3 text-[0.8125rem] leading-relaxed text-tinta-tenue">
-          Una ubicacion con mercancia dentro no se puede desactivar. Traspasa lo que quede antes,
-          o el inventario dejaria de cuadrar sin ningun movimiento que lo explique.
+          Una ubicacion con mercancía dentro no se puede desactivar. Traspasa lo que quede antes,
+          o el inventario dejaría de cuadrar sin ningun movimiento que lo explique.
         </p>
       </div>
 
       <HojaInferior
         abierta={editando !== null}
         onCerrar={() => setEditando(null)}
-        titulo={editando === 'nueva' ? 'Nueva ubicacion' : 'Editar ubicacion'}
+        titulo={editando === 'nueva' ? 'Nueva ubicación' : 'Editar ubicación'}
       >
         {editando !== null && (
           <FormularioUbicacion
@@ -230,11 +230,11 @@ function FormularioUbicacion({
         try {
           await api.subirImagen('ubicacion', id, foto.archivo)
         } catch {
-          avisos.error('Se guardo la ubicacion, pero la foto no se pudo subir')
+          avisos.error('Se guardó la ubicación, pero la foto no se pudo subir')
         }
       }
 
-      avisos.exito(ubicacion === null ? 'Ubicacion creada' : 'Ubicacion actualizada')
+      avisos.exito(ubicacion === null ? 'Ubicación creada' : 'Ubicación actualizada')
       onListo()
     } catch (causa) {
       if (causa instanceof ErrorDeApi) {
@@ -251,11 +251,11 @@ function FormularioUbicacion({
   return (
     <div className="flex flex-col gap-4 pb-3">
       <div className="flex flex-col gap-2">
-        <Etiqueta>Que es</Etiqueta>
+        <Etiqueta>Qué es</Etiqueta>
         <div className="flex gap-2">
           {(
             [
-              { valor: 'warehouse' as const, texto: 'Almacen' },
+              { valor: 'warehouse' as const, texto: 'Almacén' },
               { valor: 'store' as const, texto: 'Sucursal' },
             ]
           ).map((opcion) => (
@@ -342,7 +342,7 @@ function FormularioUbicacion({
       </div>
 
       <CampoTexto
-        etiqueta="Direccion"
+        etiqueta="Dirección"
         value={direccion}
         onChange={(e) => setDireccion(e.target.value)}
         placeholder="Opcional"
@@ -350,7 +350,7 @@ function FormularioUbicacion({
       />
 
       <CampoTexto
-        etiqueta="Telefono"
+        etiqueta="Teléfono"
         value={telefono}
         onChange={(e) => setTelefono(e.target.value)}
         inputMode="tel"

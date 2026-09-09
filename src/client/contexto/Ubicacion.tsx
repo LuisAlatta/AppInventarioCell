@@ -73,7 +73,7 @@ export function ProveedorUbicacion({
   /**
    * La ubicacion guardada puede haber desaparecido: se desactivo, o el
    * telefono se uso en otro negocio. Se cae a la primera activa en lugar de
-   * dejar la app sin ubicacion, que romperia todas las acciones.
+   * dejar la app sin ubicacion, que rompería todas las acciones.
    */
   const activa = useMemo<Ubicacion | null>(() => {
     if (ubicaciones.length === 0) return null
@@ -81,12 +81,12 @@ export function ProveedorUbicacion({
     const guardada = ubicaciones.find((u) => u.id === elegidaId)
     if (guardada !== undefined) return guardada
 
-    // El almacen es el punto de partida natural: es donde entra la mercancia.
+    // El almacen es el punto de partida natural: es donde entra la mercancía.
     return ubicaciones.find((u) => u.tipo === 'warehouse') ?? ubicaciones[0] ?? null
   }, [ubicaciones, elegidaId])
 
-  // Si se cayo a otra ubicacion, se persiste para que el proximo arranque no
-  // repita la busqueda.
+  // Si se cayo a otra ubicacion, se persiste para que el próximo arranque no
+  // repita la búsqueda.
   useEffect(() => {
     if (activa !== null && activa.id !== elegidaId) {
       setElegidaId(activa.id)

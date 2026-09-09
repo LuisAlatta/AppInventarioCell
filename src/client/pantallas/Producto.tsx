@@ -2,8 +2,8 @@
  * Ficha de un producto: existencias, acciones e historial.
  *
  * El historial esta en la misma pantalla y no detras de una pestana porque es
- * donde se responde la pregunta que trae a la dueña aqui: "por que hay menos
- * de lo que deberia".
+ * donde se responde la pregunta que trae a la dueña aquí: "por que hay menos
+ * de lo que debería".
  */
 
 import { useState } from 'react'
@@ -44,7 +44,7 @@ export function Producto() {
   const deshacer = async (movimientoId: string): Promise<void> => {
     try {
       await api.deshacer(movimientoId)
-      avisos.informacion('Movimiento deshecho')
+      avisos.información('Movimiento deshecho')
       void cliente.invalidateQueries({ queryKey: ['producto', id] })
       void cliente.invalidateQueries({ queryKey: ['movimientos', id] })
       void cliente.invalidateQueries({ queryKey: ['inicio'] })
@@ -111,7 +111,7 @@ export function Producto() {
 
         {bajoMinimo && (
           <p className="rounded-xl border border-alerta/30 bg-alerta-tenue px-4 py-3 text-[0.9375rem] text-tinta">
-            Por debajo del minimo de {numero(ficha.stockMinimo)} piezas.
+            Por debajo del mínimo de {numero(ficha.stockMinimo)} piezas.
           </p>
         )}
 
@@ -145,7 +145,7 @@ export function Producto() {
           {movimientos.isPending && <Esqueleto filas={3} />}
 
           {movimientos.isSuccess && movimientos.data.movimientos.length === 0 && (
-            <Vacio titulo="Sin movimientos" detalle="Todavia no se ha registrado nada de este producto." />
+            <Vacio titulo="Sin movimientos" detalle="Todavía no se ha registrado nada de este producto." />
           )}
 
           {movimientos.isSuccess && movimientos.data.movimientos.length > 0 && (

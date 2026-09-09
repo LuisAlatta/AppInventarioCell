@@ -5,7 +5,7 @@
  * comportamiento: al escanear un codigo y al abrir la ficha del producto. Con
  * dos copias, un arreglo en el escaner no llegaria a la ficha.
  *
- * Las dos acciones frecuentes, entrada y venta, estan en botones grandes con la
+ * Las dos acciones frecuentes, entrada y venta, están en botones grandes con la
  * cantidad ya puesta en 1. Registrar una venta suelta es dos toques. Lo raro
  * (merma, ajuste, cantidades grandes) esta un nivel mas abajo, sin estorbar.
  */
@@ -22,11 +22,11 @@ import { useUbicacion } from '../contexto/Ubicacion'
 import { dinero, numero } from '../lib/formato'
 import { avisarError } from '../lib/retroalimentacion'
 
-type Modo = 'rapido' | 'entrada' | 'venta' | 'merma' | 'ajuste'
+type Modo = 'rápido' | 'entrada' | 'venta' | 'merma' | 'ajuste'
 
 interface AccionesProductoProps {
   producto: ProductoConStock
-  /** Se llama despues de cualquier movimiento aplicado o deshecho. */
+  /** Se llama después de cualquier movimiento aplicado o deshecho. */
   onCambio?: () => void
   /** Se llama al terminar, para cerrar la hoja que lo contiene. */
   onListo?: () => void
@@ -37,7 +37,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
   const avisos = useAvisos()
   const cliente = useQueryClient()
 
-  const [modo, setModo] = useState<Modo>('rapido')
+  const [modo, setModo] = useState<Modo>('rápido')
   const [cantidad, setCantidad] = useState(1)
   const [nota, setNota] = useState('')
   const [signo, setSigno] = useState<1 | -1>(1)
@@ -61,7 +61,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
    *
    * El deshacer se ofrece siempre, incluso cuando el movimiento fue correcto:
    * quien acaba de tocar es quien mejor sabe si se equivoco, y buscar el
-   * movimiento despues para revertirlo cuesta mucho mas.
+   * movimiento después para revertirlo cuesta mucho mas.
    */
   const aplicar = async (
     accion: () => Promise<{ movimiento: { id: string } }>,
@@ -74,7 +74,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
       avisos.exito(textoExito, async () => {
         try {
           await api.deshacer(movimiento.id)
-          avisos.informacion('Movimiento deshecho')
+          avisos.información('Movimiento deshecho')
           refrescar()
         } catch (causa) {
           avisarError()
@@ -83,7 +83,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
       })
 
       refrescar()
-      setModo('rapido')
+      setModo('rápido')
       setCantidad(1)
       setNota('')
       onListo?.()
@@ -96,7 +96,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
   }
 
   if (activa === null) {
-    return <p className="py-4 text-tinta-tenue">Primero crea una ubicacion.</p>
+    return <p className="py-4 text-tinta-tenue">Primero crea una ubicación.</p>
   }
 
   const entrada = (piezas: number): Promise<void> =>
@@ -164,11 +164,11 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
         <div className="flex shrink-0 flex-col items-end">
           <span className="cifras text-cifra text-tinta">{numero(enUbicacion)}</span>
-          <span className="text-[0.6875rem] text-tinta-tenue">aqui</span>
+          <span className="text-[0.6875rem] text-tinta-tenue">aquí</span>
         </div>
       </div>
 
-      {modo === 'rapido' && (
+      {modo === 'rápido' && (
         <>
           <div className="grid grid-cols-2 gap-2.5">
             <Boton tono="exito" onClick={() => void entrada(1)} disabled={enviando}>
@@ -239,7 +239,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
           </div>
 
           <div className="grid grid-cols-[1fr_2fr] gap-2.5">
-            <Boton tono="contorno" onClick={() => setModo('rapido')} disabled={enviando}>
+            <Boton tono="contorno" onClick={() => setModo('rápido')} disabled={enviando}>
               Cancelar
             </Boton>
             <Boton
@@ -276,7 +276,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
           )}
 
           <div className="flex flex-col gap-2">
-            <p className="text-[0.8125rem] font-medium text-tinta-suave">Cuantas piezas</p>
+            <p className="text-[0.8125rem] font-medium text-tinta-suave">Cuántas piezas</p>
             <SelectorCantidad
               valor={cantidad}
               onCambio={setCantidad}
@@ -293,17 +293,17 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
               setErrorNota(undefined)
             }}
             placeholder={
-              modo === 'merma' ? 'Se rompio al abrir la caja' : 'Se conto mal la semana pasada'
+              modo === 'merma' ? 'Se rompio al abrir la caja' : 'Se contó mal la semana pasada'
             }
             ayuda="Queda guardado en el historial. Sin motivo, un faltante se vuelve invisible."
           />
 
           <div className="grid grid-cols-[1fr_2fr] gap-2.5">
-            <Boton tono="contorno" onClick={() => setModo('rapido')} disabled={enviando}>
+            <Boton tono="contorno" onClick={() => setModo('rápido')} disabled={enviando}>
               Cancelar
             </Boton>
             <Boton cargando={enviando} onClick={() => void conMotivo(modo)}>
-              {modo === 'merma' ? 'Registrar merma' : 'Aplicar correccion'}
+              {modo === 'merma' ? 'Registrar merma' : 'Aplicar corrección'}
             </Boton>
           </div>
         </div>

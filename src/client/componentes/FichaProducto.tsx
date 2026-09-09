@@ -1,9 +1,9 @@
 /**
  * Piezas reutilizadas para mostrar productos.
  *
- * Estan aqui y no dentro de una pantalla porque el mismo producto se pinta en
- * la busqueda, en el escaner, en el traspaso y en el conteo. Si cada pantalla
- * lo dibujara a su manera, la misma informacion se veria distinta en cada sitio
+ * Estan aquí y no dentro de una pantalla porque el mismo producto se pinta en
+ * la búsqueda, en el escaner, en el traspaso y en el conteo. Si cada pantalla
+ * lo dibujara a su manera, la misma información se veria distinta en cada sitio
  * y costaria reconocerla.
  */
 
@@ -66,11 +66,11 @@ export function Miniatura({
   )
 }
 
-/** Insignia con el motivo por el que un resultado aparecio en la busqueda. */
+/** Insignia con el motivo por el que un resultado apareció en la búsqueda. */
 function InsigniaCoincidencia({ tipo }: { tipo: ResultadoBusqueda['coincidencia'] }) {
   if (tipo === 'texto') return null
 
-  const texto = tipo === 'codigo' ? 'Codigo exacto' : 'Parecido'
+  const texto = tipo === 'codigo' ? 'Código exacto' : 'Parecido'
   const clases =
     tipo === 'codigo' ? 'bg-exito-tenue text-exito' : 'bg-alerta-tenue text-alerta'
 
@@ -85,7 +85,7 @@ function InsigniaCoincidencia({ tipo }: { tipo: ResultadoBusqueda['coincidencia'
  * Renglon de producto para listas.
  *
  * Muestra el stock de la ubicacion activa en grande y el total en pequeno.
- * Quien esta en una sucursal necesita saber cuanto hay ahi; el total sirve para
+ * Quien esta en una sucursal necesita saber cuánto hay ahí; el total sirve para
  * decidir si vale la pena pedir un traspaso.
  */
 interface RenglonProductoProps {
@@ -184,7 +184,7 @@ export function DesgloseStock({
   if (producto.stock.length === 0) {
     return (
       <p className="rounded-xl bg-papel-hundido px-4 py-3 text-[0.9375rem] text-tinta-tenue">
-        Sin existencias en ninguna ubicacion.
+        Sin existencias en ninguna ubicación.
       </p>
     )
   }

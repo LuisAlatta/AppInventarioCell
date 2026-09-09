@@ -7,7 +7,7 @@
  *
  * Los atributos del video son obligatorios en iPhone. Sin `playsInline`,
  * Safari abre el video a pantalla completa en su propio reproductor y tapa la
- * app; sin `muted`, bloquea la reproduccion automatica.
+ * app; sin `muted`, bloquea la reproduccion automática.
  */
 
 import type { ReactNode } from 'react'
@@ -66,7 +66,7 @@ export function VistaCamara({ escaner, indicacion, onEscribirCodigo }: VistaCama
         <div className="absolute inset-0 flex flex-col justify-center gap-4 bg-papel p-5">
           <ErrorEnPantalla mensaje={problema} onReintentar={escaner.iniciar} />
           <Boton tono="contorno" ancho onClick={onEscribirCodigo}>
-            Escribir el codigo a mano
+            Escribir el código a mano
           </Boton>
         </div>
       )}

@@ -1,8 +1,8 @@
 /**
  * Reportes.
  *
- * El de mermas va primero porque es la razon por la que existe la app. Los
- * demas responden preguntas de operacion: que reponer, cuanto vale el
+ * El de mermas va primero porque es la razón por la que existe la app. Los
+ * demas responden preguntas de operacion: que reponer, cuánto vale el
  * inventario, que dinero esta detenido en producto que no se vende.
  *
  * Nada de graficas de linea: con cuatro ubicaciones, una lista ordenada por
@@ -89,8 +89,8 @@ function Mermas() {
   if (ubicaciones.length === 0) {
     return (
       <Vacio
-        titulo="Todavia no hay conteos cerrados"
-        detalle="Haz un conteo fisico de una sucursal. Al cerrarlo, aqui apareceran los faltantes."
+        titulo="Todavía no hay conteos cerrados"
+        detalle="Haz un conteo físico de una sucursal. Al cerrarlo, aquí aparecerán los faltantes."
       />
     )
   }
@@ -140,12 +140,12 @@ function Mermas() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <Etiqueta>Por ubicacion</Etiqueta>
+        <Etiqueta>Por ubicación</Etiqueta>
 
         <ul className="flex flex-col gap-2">
           {ubicaciones.map((ubicacion) => {
             // La barra se mide contra la peor ubicacion, no contra el total:
-            // asi la comparacion entre sucursales se ve de inmediato.
+            // así la comparacion entre sucursales se ve de inmediato.
             const proporcion =
               peor === undefined || peor.dineroFaltante === 0
                 ? 0
@@ -160,8 +160,11 @@ function Mermas() {
                   <div className="flex min-w-0 flex-col">
                     <p className="truncate text-[1rem] font-semibold">{ubicacion.ubicacionNombre}</p>
                     <p className="text-[0.8125rem] text-tinta-tenue">
-                      {numero(ubicacion.conteos)} conteos ·{' '}
-                      {numero(ubicacion.piezasFaltantes)} piezas
+                      {/* Un "1 conteos" se lee como un defecto de la app. */}
+                      {numero(ubicacion.conteos)}{' '}
+                      {ubicacion.conteos === 1 ? 'conteo' : 'conteos'} ·{' '}
+                      {numero(ubicacion.piezasFaltantes)}{' '}
+                      {ubicacion.piezasFaltantes === 1 ? 'pieza' : 'piezas'}
                     </p>
                   </div>
 
@@ -194,7 +197,7 @@ function Mermas() {
 
       {productos.length > 0 && (
         <section className="flex flex-col gap-2">
-          <Etiqueta>Lo que mas se pierde</Etiqueta>
+          <Etiqueta>Lo que más se pierde</Etiqueta>
 
           <ul className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
             {productos.map((producto) => (
@@ -239,7 +242,7 @@ function Reponer() {
     return (
       <Vacio
         titulo="Nada por reponer"
-        detalle="Ningun producto esta por debajo de su minimo. Puedes fijar minimos desde la ficha de cada producto."
+        detalle="Ningún producto está por debajo de su mínimo. Puedes fijar mínimos desde la ficha de cada producto."
       />
     )
   }
@@ -314,7 +317,7 @@ function Valor() {
 
       <p className="rounded-xl bg-papel-hundido px-4 py-3 text-[0.8125rem] leading-relaxed text-tinta-tenue">
         Se valua al costo de compra, no al precio de venta. Es el dinero que esta invertido en
-        mercancia.
+        mercancía.
       </p>
     </div>
   )
@@ -360,7 +363,7 @@ function Detenido() {
       {consulta.isSuccess && consulta.data.productos.length === 0 && (
         <Vacio
           titulo="Todo se esta moviendo"
-          detalle={`Ningun producto con existencias lleva ${dias} dias sin movimiento.`}
+          detalle={`Ningún producto con existencias lleva ${dias} dias sin movimiento.`}
         />
       )}
 

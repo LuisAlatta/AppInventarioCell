@@ -2,12 +2,12 @@
  * Pantalla de escaneo.
  *
  * La camara ocupa toda la pantalla y la ficha del producto sube desde abajo.
- * Se evita cambiar de pantalla a proposito: entre dos escaneos no debe haber
+ * Se evita cambiar de pantalla a propósito: entre dos escaneos no debe haber
  * ningun "volver".
  *
  * Al leer un codigo desconocido, en lugar de un error se ofrece dar de alta el
- * producto con el codigo ya cargado. Es como se construye el catalogo en la
- * practica, escaneando lo que va apareciendo.
+ * producto con el codigo ya cargado. Es como se construye el catálogo en la
+ * práctica, escaneando lo que va apareciendo.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -56,7 +56,7 @@ export function Escanear() {
           return
         }
 
-        avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo consultar el codigo')
+        avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo consultar el código')
       } finally {
         setBuscandoCodigo(false)
       }
@@ -81,7 +81,7 @@ export function Escanear() {
 
   const cerrarHoja = (): void => {
     setHoja({ tipo: 'cerrada' })
-    // Se olvida el ultimo codigo para poder volver a escanear el mismo
+    // Se olvida el último codigo para poder volver a escanear el mismo
     // producto de inmediato: registrar tres piezas de a una es un caso normal.
     permitirRepeticion()
   }
@@ -158,9 +158,9 @@ export function Escanear() {
             onCancelar={cerrarHoja}
             onCreado={(producto) => {
               refrescarTodo()
-              avisos.exito(`${producto.nombre} agregado al catalogo`)
+              avisos.exito(`${producto.nombre} agregado al catálogo`)
               // Se pasa directo a las acciones: quien acaba de dar de alta un
-              // producto casi siempre quiere registrar cuantas piezas tiene.
+              // producto casi siempre quiere registrar cuántas piezas tiene.
               setHoja({ tipo: 'producto', producto })
             }}
           />
@@ -173,18 +173,18 @@ export function Escanear() {
           setCodigoManual('')
           cerrarHoja()
         }}
-        titulo="Escribir el codigo"
+        titulo="Escribir el código"
       >
         <div className="flex flex-col gap-4 pb-3">
           <CampoTexto
-            etiqueta="Codigo de barras"
+            etiqueta="Código de barras"
             value={codigoManual}
             onChange={(e) => setCodigoManual(e.target.value)}
             inputMode="numeric"
             autoComplete="off"
             placeholder="7501234567890"
             autoFocus
-            ayuda="Los numeros que estan debajo de las barras."
+            ayuda="Los números que están debajo de las barras."
           />
 
           <Boton

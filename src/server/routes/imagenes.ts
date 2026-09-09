@@ -38,7 +38,7 @@ async function leerImagen(peticion: Request): Promise<{ cuerpo: ArrayBuffer; tip
   const cuerpo = await peticion.arrayBuffer()
 
   if (cuerpo.byteLength === 0) {
-    throw new ErrorApp('datos_invalidos', 'La imagen llego vacia')
+    throw new ErrorApp('datos_invalidos', 'La imagen llegó vacía')
   }
   if (cuerpo.byteLength > MAXIMO_BYTES) {
     throw new ErrorApp('datos_invalidos', 'La imagen es demasiado grande')
@@ -86,7 +86,7 @@ rutasImagenes.get('/*', async (c) => {
   const clave = c.req.path.replace(/^\/api\/imagenes\//, '')
 
   if (clave === '' || clave.includes('..')) {
-    throw new ErrorApp('datos_invalidos', 'Ruta de imagen invalida')
+    throw new ErrorApp('datos_invalidos', 'Ruta de imagen inválida')
   }
 
   const objeto = await c.env.FOTOS.get(clave)

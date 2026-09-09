@@ -100,7 +100,7 @@ export const NOMBRE_MOVIMIENTO: Readonly<Record<string, string>> = {
   purchase_in: 'Entrada',
   transfer: 'Traspaso',
   sale: 'Venta',
-  return: 'Devolucion',
+  return: 'Devolución',
   loss: 'Merma',
   adjustment: 'Ajuste',
   count: 'Conteo',

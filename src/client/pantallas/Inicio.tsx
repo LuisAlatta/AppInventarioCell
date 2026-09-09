@@ -36,14 +36,18 @@ export function Inicio() {
           onClick={() => navegar('/ajustes')}
           className="flex size-11 shrink-0 items-center justify-center rounded-xl text-tinta-suave transition active:bg-papel-hundido"
         >
+          {/* Controles deslizantes, no un engrane: el engrane dibujado a este
+              tamano se confunde con un sol. */}
           <svg viewBox="0 0 24 24" className="size-6" aria-hidden="true" fill="none">
-            <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.8" />
             <path
-              d="M12 2.5v2.2M12 19.3v2.2M4.2 7.2l1.9 1.1M17.9 15.7l1.9 1.1M4.2 16.8l1.9-1.1M17.9 8.3l1.9-1.1"
+              d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h10M18 17h2"
               stroke="currentColor"
-              strokeWidth="1.8"
+              strokeWidth="1.9"
               strokeLinecap="round"
             />
+            <circle cx="16" cy="7" r="2.1" stroke="currentColor" strokeWidth="1.9" />
+            <circle cx="10" cy="12" r="2.1" stroke="currentColor" strokeWidth="1.9" />
+            <circle cx="16" cy="17" r="2.1" stroke="currentColor" strokeWidth="1.9" />
           </svg>
         </button>
       }
@@ -91,7 +95,7 @@ export function Inicio() {
         {inicio.isSuccess && inicio.data.bajoMinimo.length > 0 && (
           <section className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
-              <Etiqueta>Se esta acabando</Etiqueta>
+              <Etiqueta>Se está acabando</Etiqueta>
               <span className="cifras text-[0.8125rem] font-semibold text-alerta">
                 {numero(inicio.data.bajoMinimo.length)}
               </span>
@@ -121,7 +125,7 @@ export function Inicio() {
 
         {inicio.isSuccess && inicio.data.recientes.length > 0 && (
           <section className="flex flex-col gap-2">
-            <Etiqueta>Ultimos movimientos</Etiqueta>
+            <Etiqueta>Últimos movimientos</Etiqueta>
 
             <ul className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
               {inicio.data.recientes.slice(0, 8).map((movimiento) => (

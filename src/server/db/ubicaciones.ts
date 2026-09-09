@@ -37,7 +37,7 @@ export async function obtenerUbicacion(db: D1Database, id: string): Promise<Ubic
 /** Igual que `obtenerUbicacion` pero lanza si no existe, para usar en las rutas. */
 export async function exigirUbicacion(db: D1Database, id: string): Promise<Ubicacion> {
   const ubicacion = await obtenerUbicacion(db, id)
-  if (ubicacion === null) throw noEncontrado('la ubicacion')
+  if (ubicacion === null) throw noEncontrado('la ubicación')
   return ubicacion
 }
 

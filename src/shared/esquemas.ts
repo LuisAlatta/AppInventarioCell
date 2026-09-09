@@ -8,13 +8,13 @@
 
 import { z } from 'zod'
 
-/** Codigo de barras de fabrica: EAN-8, EAN-13, UPC-A y variantes. */
+/** Código de barras de fabrica: EAN-8, EAN-13, UPC-A y variantes. */
 export const esquemaCodigo = z
   .string()
   .trim()
-  .min(4, 'El codigo es demasiado corto')
-  .max(32, 'El codigo es demasiado largo')
-  .regex(/^[0-9A-Za-z-]+$/, 'El codigo solo puede tener numeros, letras y guiones')
+  .min(4, 'El código es demasiado corto')
+  .max(32, 'El código es demasiado largo')
+  .regex(/^[0-9A-Za-z-]+$/, 'El código solo puede tener números, letras y guiones')
 
 const textoCorto = z.string().trim().max(120)
 const nota = z.string().trim().max(500)
@@ -32,7 +32,7 @@ const dinero = z
 
 const cantidadPositiva = z
   .number()
-  .int('Debe ser un numero entero de piezas')
+  .int('Debe ser un número entero de piezas')
   .positive('La cantidad debe ser mayor que cero')
   .max(1_000_000, 'La cantidad es demasiado grande')
 
@@ -44,12 +44,12 @@ export const esquemaAcceso = z.object({
   pin: z
     .string()
     .trim()
-    .regex(/^[0-9]{6}$/, 'El PIN son 6 numeros'),
+    .regex(/^[0-9]{6}$/, 'El PIN son 6 números'),
 })
 
 export const esquemaCambioPin = z.object({
-  pinActual: z.string().trim().regex(/^[0-9]{6}$/, 'El PIN son 6 numeros'),
-  pinNuevo: z.string().trim().regex(/^[0-9]{6}$/, 'El PIN son 6 numeros'),
+  pinActual: z.string().trim().regex(/^[0-9]{6}$/, 'El PIN son 6 números'),
+  pinNuevo: z.string().trim().regex(/^[0-9]{6}$/, 'El PIN son 6 números'),
 })
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ export const esquemaAjuste = z.object({
   ubicacionId: id,
   cantidad: z
     .number()
-    .int('Debe ser un numero entero de piezas')
+    .int('Debe ser un número entero de piezas')
     .refine((n) => n !== 0, 'El ajuste no puede ser cero')
     .refine((n) => Math.abs(n) <= 1_000_000, 'La cantidad es demasiado grande'),
   nota: nota.min(3, 'Explica el motivo del ajuste'),

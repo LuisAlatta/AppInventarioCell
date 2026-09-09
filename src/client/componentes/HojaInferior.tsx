@@ -3,7 +3,7 @@
  *
  * Es el patron central de la app: al escanear un codigo, la ficha del producto
  * y sus acciones aparecen abajo, en la zona donde llega el pulgar, sin tapar la
- * camara por completo ni cambiar de pantalla. Cambiar de pantalla obligaria a
+ * camara por completo ni cambiar de pantalla. Cambiar de pantalla obligaría a
  * volver atras entre cada escaneo.
  *
  * Detalles que no son cosmeticos:
@@ -12,7 +12,7 @@
  *   - El contenido puede desplazarse pero la hoja no pasa del 88% de la
  *     pantalla, para que siempre se vea que hay algo detras.
  *   - Respeta el area segura de abajo: en iPhone, la barra de gestos se come
- *     los ultimos milimetros y ahi viven los botones.
+ *     los últimos milimetros y ahí viven los botones.
  */
 
 import { useEffect, type ReactNode } from 'react'

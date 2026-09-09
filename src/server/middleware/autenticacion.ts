@@ -21,7 +21,7 @@ export const exigirSesion = createMiddleware<{ Bindings: Env; Variables: Variabl
 
     const sesion = await leerToken(cookie, secretoDeSesion(c.env))
     if (sesion === null) {
-      throw new ErrorApp('no_autenticado', 'Tu sesion expiro. Entra otra vez.')
+      throw new ErrorApp('no_autenticado', 'Tu sesión expiró. Entra otra vez.')
     }
 
     c.set('usuarioId', sesion.usuarioId)

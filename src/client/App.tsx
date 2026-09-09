@@ -129,9 +129,9 @@ function Puerta() {
 /**
  * Carga las ubicaciones antes de mostrar cualquier pantalla.
  *
- * Todo en la app ocurre en una ubicacion, asi que sin ellas no hay nada
- * coherente que dibujar. Cargarlas aqui evita que cada pantalla tenga que
- * manejar el caso de "todavia no se cuales hay".
+ * Todo en la app ocurre en una ubicacion, así que sin ellas no hay nada
+ * coherente que dibujar. Cargarlas aquí evita que cada pantalla tenga que
+ * manejar el caso de "todavía no se cuales hay".
  */
 function Aplicacion() {
   const ubicaciones = useQuery({

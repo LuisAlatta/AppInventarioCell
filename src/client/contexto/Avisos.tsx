@@ -1,7 +1,7 @@
 /**
  * Avisos inferiores, con la opcion de deshacer.
  *
- * Es una pieza central de la app, no un adorno. Escanear rapido implica
+ * Es una pieza central de la app, no un adorno. Escanear rápido implica
  * equivocarse: registrar una venta en la sucursal equivocada, contar dos veces
  * la misma caja. Sin una forma inmediata de deshacer, cada error obliga a
  * buscar el movimiento y crear un ajuste a mano, y la dueña deja de confiar en
@@ -25,7 +25,7 @@ import { Girador } from '../componentes/Boton'
 
 const MILISEGUNDOS_VISIBLE = 5000
 
-type TonoAviso = 'exito' | 'error' | 'informacion'
+type TonoAviso = 'exito' | 'error' | 'información'
 
 interface Aviso {
   id: number
@@ -38,7 +38,7 @@ interface Aviso {
 interface Avisos {
   exito: (mensaje: string, deshacer?: () => Promise<void>) => void
   error: (mensaje: string) => void
-  informacion: (mensaje: string) => void
+  información: (mensaje: string) => void
 }
 
 const Contexto = createContext<Avisos | null>(null)
@@ -63,7 +63,7 @@ export function ProveedorAvisos({ children }: { children: ReactNode }) {
       siguienteId.current += 1
 
       setAvisos((previos) => {
-        // Solo el ultimo aviso a la vez. Una pila de avisos tapa la pantalla
+        // Solo el último aviso a la vez. Una pila de avisos tapa la pantalla
         // justo cuando se esta escaneando en rafaga.
         const nuevo: Aviso = deshacer === undefined ? { id, tono, mensaje } : { id, tono, mensaje, deshacer }
         return [...previos.slice(-1), nuevo].slice(-1)
@@ -76,7 +76,7 @@ export function ProveedorAvisos({ children }: { children: ReactNode }) {
     () => ({
       exito: (mensaje, deshacer) => agregar('exito', mensaje, deshacer),
       error: (mensaje) => agregar('error', mensaje),
-      informacion: (mensaje) => agregar('informacion', mensaje),
+      información: (mensaje) => agregar('información', mensaje),
     }),
     [agregar],
   )
@@ -100,7 +100,7 @@ export function ProveedorAvisos({ children }: { children: ReactNode }) {
 const ESTILO_TONO: Readonly<Record<TonoAviso, string>> = {
   exito: 'bg-tinta text-white',
   error: 'bg-falta text-white',
-  informacion: 'bg-tinta text-white',
+  información: 'bg-tinta text-white',
 }
 
 function TarjetaAviso({ aviso, onCerrar }: { aviso: Aviso; onCerrar: () => void }) {
@@ -109,8 +109,8 @@ function TarjetaAviso({ aviso, onCerrar }: { aviso: Aviso; onCerrar: () => void 
   cerrar.current = onCerrar
 
   useEffect(() => {
-    // Mientras se esta deshaciendo no se cierra: cerrarlo a mitad dejaria al
-    // usuario sin saber si la reversion funciono.
+    // Mientras se esta deshaciendo no se cierra: cerrarlo a mitad dejaría al
+    // usuario sin saber si la reversión funciono.
     if (deshaciendo) return
 
     const temporizador = window.setTimeout(() => cerrar.current(), MILISEGUNDOS_VISIBLE)

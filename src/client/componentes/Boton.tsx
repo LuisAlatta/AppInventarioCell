@@ -6,7 +6,7 @@
  * fallar un boton en medio de un conteo obliga a rehacer el escaneo.
  *
  * Los estados de toque son explicitos: al pulsar el boton se hunde un poco.
- * Sin esa respuesta inmediata, en una conexion lenta parece que el toque no
+ * Sin esa respuesta inmediata, en una conexión lenta parece que el toque no
  * registro y se toca dos veces.
  */
 
@@ -66,7 +66,7 @@ export function Boton({
 /**
  * Boton grande de la pantalla de inicio: icono arriba, texto abajo.
  *
- * Se distingue del boton normal a proposito. Son las cuatro acciones que se
+ * Se distingue del boton normal a propósito. Son las cuatro acciones que se
  * usan cien veces al dia y merecen ser lo mas grande de la pantalla.
  */
 interface BotonAccionProps {

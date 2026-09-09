@@ -64,7 +64,7 @@ export function Vacio({ titulo, detalle, icono, accion }: VacioProps) {
  * Error con opcion de reintentar.
  *
  * Siempre lleva el boton: un error sin salida deja al usuario atrapado y con la
- * unica opcion de cerrar la app.
+ * única opcion de cerrar la app.
  */
 interface ErrorEnPantallaProps {
   mensaje: string
@@ -95,7 +95,7 @@ export function ErrorEnPantalla({ mensaje, onReintentar }: ErrorEnPantallaProps)
   )
 }
 
-/** Etiqueta de seccion en mayusculas y espaciada. */
+/** Etiqueta de sección en mayusculas y espaciada. */
 export function Etiqueta({ children }: { children: ReactNode }) {
   return <h2 className="text-etiqueta text-tinta-tenue uppercase">{children}</h2>
 }

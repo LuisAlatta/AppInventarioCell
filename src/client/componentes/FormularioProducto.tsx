@@ -1,13 +1,13 @@
 /**
  * Alta de producto.
  *
- * Se abre cuando se escanea un codigo que no esta en el catalogo, con el codigo
- * ya cargado. Ese es el flujo natural: el catalogo no se construye de golpe
+ * Se abre cuando se escanea un codigo que no esta en el catálogo, con el codigo
+ * ya cargado. Ese es el flujo natural: el catálogo no se construye de golpe
  * sino escaneando lo que va apareciendo.
  *
  * Solo el nombre es obligatorio. Pedir precios, categoria y minimo de entrada
- * convertiria dar de alta un producto en un tramite, y a mitad del primer
- * inventario se abandonaria la app. Todo lo demas se completa despues.
+ * convertiria dar de alta un producto en un trámite, y a mitad del primer
+ * inventario se abandonaria la app. Todo lo demas se completa después.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -80,8 +80,8 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
         precioCosto: aNumero(precioCosto),
       })
 
-      // La foto se sube despues de crear el producto porque necesita su id.
-      // Si falla, el producto ya quedo guardado: se avisa pero no se pierde
+      // La foto se sube después de crear el producto porque necesita su id.
+      // Si falla, el producto ya quedó guardado: se avisa pero no se pierde
       // el alta, que es lo que costo trabajo.
       let conFoto = producto
       if (foto !== null) {
@@ -89,7 +89,7 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
           const { claveImagen } = await api.subirImagen('producto', producto.id, foto.archivo)
           conFoto = { ...producto, claveImagen }
         } catch {
-          avisos.error('El producto se guardo, pero la foto no se pudo subir')
+          avisos.error('El producto se guardó, pero la foto no se pudo subir')
         }
       }
 
@@ -109,7 +109,7 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
   return (
     <div className="flex flex-col gap-4 pb-3">
       <div className="rounded-xl bg-papel-hundido px-4 py-3">
-        <p className="text-[0.8125rem] text-tinta-suave">Codigo escaneado</p>
+        <p className="text-[0.8125rem] text-tinta-suave">Código escaneado</p>
         <p className="cifras text-[1.125rem] font-semibold">{codigo}</p>
       </div>
 
@@ -164,7 +164,7 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
         value={nombre}
         error={campos.nombre}
         onChange={(e) => setNombre(e.target.value)}
-        placeholder="Audifonos Bluetooth"
+        placeholder="Audífonos Bluetooth"
         autoFocus
         autoComplete="off"
       />

@@ -69,7 +69,7 @@ async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
 
     throw new ErrorDeApi(0, {
       codigo: 'sin_conexion',
-      mensaje: 'Sin conexion. Revisa el WiFi e intenta de nuevo.',
+      mensaje: 'Sin conexión. Revisa el WiFi e intenta de nuevo.',
     })
   }
 

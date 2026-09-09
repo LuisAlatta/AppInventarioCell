@@ -62,7 +62,7 @@ rutasCatalogo.patch('/ubicaciones/:id', zValidator('json', esquemaUbicacionParci
     if (piezas > 0) {
       throw new ErrorApp(
         'regla_de_negocio',
-        `Esa ubicacion todavia tiene ${piezas} piezas. Traspasalas antes de desactivarla.`,
+        `Esa ubicación todavía tiene ${piezas} piezas. Traspásalas antes de desactivarla.`,
       )
     }
   }
@@ -106,7 +106,7 @@ rutasCatalogo.get('/productos', zValidator('query', esquemaBusqueda), async (c) 
  */
 rutasCatalogo.get('/productos/codigo/:codigo', async (c) => {
   const producto = await buscarPorCodigo(c.env.DB, c.req.param('codigo'))
-  if (producto === null) throw noEncontrado('un producto con ese codigo')
+  if (producto === null) throw noEncontrado('un producto con ese código')
 
   const [conjunto] = await conStock(c.env.DB, [producto])
   if (conjunto === undefined) throw noEncontrado('el producto')

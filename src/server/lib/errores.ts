@@ -52,7 +52,7 @@ export class ErrorApp extends Error {
 }
 
 export function noEncontrado(que: string): ErrorApp {
-  return new ErrorApp('no_encontrado', `No se encontro ${que}`)
+  return new ErrorApp('no_encontrado', `No se encontró ${que}`)
 }
 
 export function stockInsuficiente(producto: string, ubicacion: string, hay: number): ErrorApp {
@@ -98,24 +98,24 @@ export function comoErrorApp(e: unknown): ErrorApp {
     const texto = e.message
 
     if (texto.includes('UNIQUE constraint failed: products.barcode')) {
-      return new ErrorApp('codigo_duplicado', 'Ya existe un producto con ese codigo de barras', {
-        campos: { codigo: 'Este codigo ya esta registrado' },
+      return new ErrorApp('codigo_duplicado', 'Ya existe un producto con ese código de barras', {
+        campos: { codigo: 'Este código ya está registrado' },
         causa: e,
       })
     }
     if (texto.includes('CHECK constraint failed') && texto.includes('qty')) {
       return new ErrorApp(
         'stock_insuficiente',
-        'La operacion dejaria el stock en negativo. Revisa la cantidad.',
+        'La operación dejaría el stock en negativo. Revisa la cantidad.',
         { causa: e },
       )
     }
     if (texto.includes('idx_un_conteo_abierto_por_ubicacion')) {
-      return new ErrorApp('conflicto', 'Ya hay un conteo abierto en esa ubicacion', { causa: e })
+      return new ErrorApp('conflicto', 'Ya hay un conteo abierto en esa ubicación', { causa: e })
     }
 
-    return new ErrorApp('error_interno', 'Algo fallo al guardar. Intenta de nuevo.', { causa: e })
+    return new ErrorApp('error_interno', 'Algo falló al guardar. Intenta de nuevo.', { causa: e })
   }
 
-  return new ErrorApp('error_interno', 'Algo fallo. Intenta de nuevo.', { causa: e })
+  return new ErrorApp('error_interno', 'Algo falló. Intenta de nuevo.', { causa: e })
 }

@@ -2,8 +2,8 @@
  * Redimensionado de fotos en el telefono, antes de subirlas.
  *
  * Una foto de un iPhone son entre 2 y 5 MB. Subirla entera gastaria datos,
- * tardaria en una conexion mala y obligaria a un servicio de imagenes de pago
- * para reducirla del lado del servidor. Redimensionar aqui la deja en unos
+ * tardaria en una conexión mala y obligaría a un servicio de imagenes de pago
+ * para reducirla del lado del servidor. Redimensionar aquí la deja en unos
  * 60 KB y no cuesta nada.
  *
  * Se intenta WebP primero, que pesa bastante menos, y se cae a JPEG si el

@@ -8,15 +8,15 @@
  * `zxing-wasm`, que funciona igual en todos lados y evita tener dos caminos
  * distintos que probar.
  *
- * ## Decisiones que afectan a que tan rapido lee
+ * ## Decisiones que afectan a que tan rápido lee
  *
  *   - Se decodifica una franja central del video, no el cuadro completo. El
- *     codigo se apunta a la guia de la pantalla, asi que el resto de la imagen
+ *     codigo se apunta a la guia de la pantalla, así que el resto de la imagen
  *     es trabajo tirado. Recortar sube bastante la cadencia.
- *   - Se limita a unas ocho lecturas por segundo. Mas rapido no lee mejor y
+ *   - Se limita a unas ocho lecturas por segundo. Mas rápido no lee mejor y
  *     calienta el telefono, que en una sesion de conteo larga se nota.
  *   - Solo formatos de codigo de barras de producto. Buscar QR y DataMatrix
- *     ademas gastaria tiempo en formatos que este negocio no usa.
+ *     además gastaria tiempo en formatos que este negocio no usa.
  *   - Un mismo codigo no se reporta dos veces seguidas dentro de dos segundos.
  *     La camara ve el codigo en decenas de cuadros y sin este freno una sola
  *     caja registraria veinte ventas.
@@ -67,7 +67,7 @@ export interface Escaner {
   refVideo: React.RefObject<HTMLVideoElement | null>
   iniciar: () => void
   detener: () => void
-  /** Olvida el ultimo codigo leido para poder volver a escanear el mismo. */
+  /** Olvida el último codigo leido para poder volver a escanear el mismo. */
   permitirRepeticion: () => void
 }
 
@@ -77,7 +77,7 @@ const MENSAJES: Readonly<Record<EstadoEscaner, string | null>> = {
   leyendo: null,
   sin_permiso:
     'La camara esta bloqueada. En el iPhone: Ajustes, Safari, Camara, y elige Permitir. Tambien puedes escribir el codigo a mano.',
-  sin_camara: 'No se encontro ninguna camara en este dispositivo.',
+  sin_camara: 'No se encontró ninguna camara en este dispositivo.',
   no_disponible:
     'Este navegador no puede usar la camara. Abre la app desde Safari, o escribe el codigo a mano.',
   error: 'La camara no pudo arrancar. Intenta de nuevo o escribe el codigo a mano.',
@@ -256,9 +256,9 @@ export function useEscaner(alLeer: (codigo: string) => void): Escaner {
 
       const codigo = primero.text.trim()
       const ahora = Date.now()
-      const ultimo = refUltimo.current
+      const último = refUltimo.current
 
-      if (ultimo !== null && ultimo.codigo === codigo && ahora - ultimo.cuando < MS_ANTIRREPETICION) {
+      if (último !== null && último.codigo === codigo && ahora - último.cuando < MS_ANTIRREPETICION) {
         return
       }
 

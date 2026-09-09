@@ -53,7 +53,7 @@ const EXIGEN_NOTA: ReadonlySet<TipoMovimiento> = new Set(['loss', 'adjustment'])
  */
 export function validarForma(m: MovimientoNuevo): void {
   if (!Number.isInteger(m.cantidad)) {
-    throw new ErrorRegla('La cantidad debe ser un numero entero de piezas')
+    throw new ErrorRegla('La cantidad debe ser un número entero de piezas')
   }
   if (m.cantidad <= 0) {
     throw new ErrorRegla('La cantidad debe ser mayor que cero')
@@ -68,24 +68,24 @@ export function validarForma(m: MovimientoNuevo): void {
   switch (m.tipo) {
     case 'purchase_in':
     case 'return': {
-      if (!tieneDestino) throw new ErrorRegla('Falta la ubicacion de entrada')
-      if (tieneOrigen) throw new ErrorRegla('Una entrada no puede tener ubicacion de origen')
+      if (!tieneDestino) throw new ErrorRegla('Falta la ubicación de entrada')
+      if (tieneOrigen) throw new ErrorRegla('Una entrada no puede tener ubicación de origen')
       break
     }
 
     case 'sale':
     case 'loss': {
-      if (!tieneOrigen) throw new ErrorRegla('Falta la ubicacion de donde sale')
-      if (tieneDestino) throw new ErrorRegla('Una salida no puede tener ubicacion de destino')
+      if (!tieneOrigen) throw new ErrorRegla('Falta la ubicación de donde sale')
+      if (tieneDestino) throw new ErrorRegla('Una salida no puede tener ubicación de destino')
       break
     }
 
     case 'transfer': {
       if (!tieneOrigen || !tieneDestino) {
-        throw new ErrorRegla('Un traspaso necesita ubicacion de origen y de destino')
+        throw new ErrorRegla('Un traspaso necesita ubicación de origen y de destino')
       }
       if (m.ubicacionOrigenId === m.ubicacionDestinoId) {
-        throw new ErrorRegla('El origen y el destino no pueden ser la misma ubicacion')
+        throw new ErrorRegla('El origen y el destino no pueden ser la misma ubicación')
       }
       break
     }
@@ -93,7 +93,7 @@ export function validarForma(m: MovimientoNuevo): void {
     case 'adjustment':
     case 'count': {
       if (tieneOrigen === tieneDestino) {
-        throw new ErrorRegla('Un ajuste va contra una sola ubicacion')
+        throw new ErrorRegla('Un ajuste va contra una sola ubicación')
       }
       break
     }
@@ -138,7 +138,7 @@ export function movimientoDeAjuste(
   nota: string,
 ): MovimientoNuevo {
   if (!Number.isInteger(cantidadConSigno) || cantidadConSigno === 0) {
-    throw new ErrorRegla('El ajuste debe ser un numero entero distinto de cero')
+    throw new ErrorRegla('El ajuste debe ser un número entero distinto de cero')
   }
 
   const suma = cantidadConSigno > 0
@@ -195,6 +195,6 @@ export function movimientoInverso(m: MovimientoNuevo): MovimientoNuevo {
     tipo: TIPO_DE_REVERSION[m.tipo],
     ubicacionOrigenId: m.ubicacionDestinoId,
     ubicacionDestinoId: m.ubicacionOrigenId,
-    nota: m.nota === null ? 'Reversion' : `Reversion: ${m.nota}`,
+    nota: m.nota === null ? 'Reversión' : `Reversión: ${m.nota}`,
   }
 }

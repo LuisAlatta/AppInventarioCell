@@ -1,7 +1,7 @@
 /**
- * Conteo fisico y su reporte de faltantes.
+ * Conteo físico y su reporte de faltantes.
  *
- * Es el modulo que responde la pregunta del negocio: cuanta mercancia falta y
+ * Es el modulo que responde la pregunta del negocio: cuánta mercancía falta y
  * en que sucursal. El resto de la app existe para que este numero sea creible.
  *
  * Cada escaneo se envia de inmediato al servidor, al contrario del traspaso que
@@ -46,7 +46,7 @@ export function Conteo() {
 
     try {
       const { conteo, retomado } = await api.abrirConteo(activa.id)
-      if (retomado) avisos.informacion('Continuando el conteo que quedo abierto')
+      if (retomado) avisos.información('Continuando el conteo que quedó abierto')
       cliente.setQueryData(['conteo-abierto', activa.id], { conteo })
     } catch (causa) {
       avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo abrir el conteo')
@@ -64,7 +64,7 @@ export function Conteo() {
   if (activa === null) {
     return (
       <Marco titulo="Conteo" atras>
-        <Vacio titulo="Primero crea una ubicacion" />
+        <Vacio titulo="Primero crea una ubicación" />
       </Marco>
     )
   }
@@ -97,17 +97,17 @@ export function Conteo() {
           <div className="flex flex-col gap-2 rounded-tarjeta border border-borde bg-superficie p-4">
             <h2 className="text-titulo">Contar {activa.nombre}</h2>
             <p className="text-[0.9375rem] leading-relaxed text-tinta-suave">
-              Escanea todo lo que haya fisicamente en esta ubicacion. Al terminar, la app compara
-              con lo que deberia haber y muestra que falta y cuanto vale.
+              Escanea todo lo que haya físicamente en esta ubicación. Al terminar, la app compara
+              con lo que debería haber y muestra que falta y cuánto vale.
             </p>
           </div>
 
           <div className="flex flex-col gap-2 rounded-tarjeta bg-papel-hundido p-4">
             <Etiqueta>Antes de empezar</Etiqueta>
             <ul className="flex flex-col gap-1.5 text-[0.9375rem] text-tinta-suave">
-              <li>Registra las ventas del dia que falten, o apareceran como faltantes.</li>
-              <li>Cuenta una seccion completa antes de pasar a la siguiente.</li>
-              <li>Puedes cerrar la app y continuar despues: lo escaneado se guarda.</li>
+              <li>Registra las ventas del día que falten, o aparecerán como faltantes.</li>
+              <li>Cuenta una sección completa antes de pasar a la siguiente.</li>
+              <li>Puedes cerrar la app y continuar después: lo escaneado se guarda.</li>
             </ul>
           </div>
 
@@ -166,7 +166,7 @@ function ConteoEnMarcha({
           `${renglon.productoNombre}: faltan ${numero(-diferencia)} de ${numero(renglon.cantidadEsperada)}`,
         )
       } else {
-        avisos.informacion(`${renglon.productoNombre}: sobran ${numero(diferencia)}`)
+        avisos.información(`${renglon.productoNombre}: sobran ${numero(diferencia)}`)
       }
 
       void cliente.invalidateQueries({ queryKey: ['conteo', sesion.id] })
@@ -196,7 +196,7 @@ function ConteoEnMarcha({
   const cancelar = async (): Promise<void> => {
     try {
       await api.cancelarConteo(sesion.id)
-      avisos.informacion('Conteo cancelado')
+      avisos.información('Conteo cancelado')
       void cliente.invalidateQueries({ queryKey: ['conteo-abierto'] })
     } catch (causa) {
       avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo cancelar')
@@ -249,7 +249,7 @@ function ConteoEnMarcha({
 
         {renglones.length === 0 ? (
           <Vacio
-            titulo="Nada contado todavia"
+            titulo="Nada contado todavía"
             detalle="Escanea el primer producto que tengas en la mano."
           />
         ) : (
@@ -317,7 +317,7 @@ function ConteoEnMarcha({
             pausado={pidiendo !== null}
             indicacion={`${numero(contados)} de ${numero(esperados)} contados`}
             onElegido={(producto) => {
-              // Arranca en cero a proposito: el numero lo pone quien conto, y
+              // Arranca en cero a propósito: el numero lo pone quien contó, y
               // un valor precargado se acepta por inercia y falsea el conteo.
               setCantidad(0)
               setPidiendo(producto)
@@ -334,7 +334,7 @@ function ConteoEnMarcha({
         {pidiendo !== null && (
           <div className="flex flex-col gap-4 pb-3">
             <p className="text-[0.9375rem] text-tinta-suave">
-              Cuantas piezas hay fisicamente en {sesion.ubicacionNombre}.
+              Cuántas piezas hay físicamente en {sesion.ubicacionNombre}.
             </p>
 
             <SelectorCantidad valor={cantidad} onCambio={setCantidad} minimo={0} />
@@ -394,7 +394,7 @@ function ConteoEnMarcha({
  * Reporte del conteo cerrado.
  *
  * El dinero faltante va primero y en grande. Las piezas importan, pero lo que
- * mueve una decision es cuanto dinero se fue.
+ * mueve una decision es cuánto dinero se fue.
  */
 function VistaReporte({ reporte, onCerrar }: { reporte: ReporteMerma; onCerrar: () => void }) {
   const faltantes = reporte.renglones.filter((r) => r.diferencia < 0)
@@ -428,7 +428,7 @@ function VistaReporte({ reporte, onCerrar }: { reporte: ReporteMerma; onCerrar: 
 
       {faltantes.length > 0 && (
         <section className="flex flex-col gap-2">
-          <Etiqueta>Que falta</Etiqueta>
+          <Etiqueta>Qué falta</Etiqueta>
           <ul className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
             {faltantes.map((renglon) => (
               <li key={renglon.productoId} className="flex items-center gap-3 px-3.5 py-3">
@@ -456,7 +456,7 @@ function VistaReporte({ reporte, onCerrar }: { reporte: ReporteMerma; onCerrar: 
 
       {sobrantes.length > 0 && (
         <section className="flex flex-col gap-2">
-          <Etiqueta>Que sobra</Etiqueta>
+          <Etiqueta>Qué sobra</Etiqueta>
           <p className="px-1 text-[0.8125rem] text-tinta-tenue">
             Casi siempre significa que una entrada o una venta no se registro en su momento.
           </p>

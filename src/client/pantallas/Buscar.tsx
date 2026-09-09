@@ -68,7 +68,7 @@ export function Buscar() {
             type="search"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Nombre, marca o codigo"
+            placeholder="Nombre, marca o código"
             aria-label="Buscar productos"
             enterKeyHint="search"
             autoComplete="off"
@@ -102,7 +102,7 @@ export function Buscar() {
 
         {resultados.isError && (
           <ErrorEnPantalla
-            mensaje="No se pudo buscar. Revisa la conexion."
+            mensaje="No se pudo buscar. Revisa la conexión."
             onReintentar={() => void resultados.refetch()}
           />
         )}
@@ -111,7 +111,7 @@ export function Buscar() {
 
         {resultados.isSuccess && productos.length === 0 && (
           <Vacio
-            titulo={buscando ? 'Nada con esa busqueda' : 'Todavia no hay productos'}
+            titulo={buscando ? 'Nada con esa búsqueda' : 'Todavía no hay productos'}
             detalle={
               buscando
                 ? 'Prueba con menos palabras, o escanea el codigo del producto.'
@@ -124,7 +124,7 @@ export function Buscar() {
         {productos.length > 0 && (
           <>
             {!buscando && (
-              <p className="px-1 text-etiqueta text-tinta-tenue uppercase">Ultimos productos</p>
+              <p className="px-1 text-etiqueta text-tinta-tenue uppercase">Últimos productos</p>
             )}
 
             <ul className="flex flex-col gap-2">

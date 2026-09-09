@@ -2,7 +2,7 @@
  * Campos de formulario.
  *
  * El tamano de letra nunca baja de 16px: Safari en iPhone hace zoom
- * automatico al enfocar un input mas pequeno, y ese zoom descuadra toda la
+ * automático al enfocar un input mas pequeno, y ese zoom descuadra toda la
  * pantalla y no se deshace solo.
  *
  * El error va debajo del campo y en rojo, no en un aviso aparte. Un mensaje

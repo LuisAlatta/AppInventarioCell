@@ -1,5 +1,5 @@
 /**
- * Aviso fisico al escanear: vibracion y un pitido corto.
+ * Aviso físico al escanear: vibracion y un pitido corto.
  *
  * Es lo que permite escanear sin mirar la pantalla, que es como se escanea de
  * verdad cuando hay una caja de producto en la otra mano. Sin esta senal hay
@@ -7,10 +7,10 @@
  *
  * ## El problema en iPhone
  *
- * Safari en iOS no implementa `navigator.vibrate`. La unica vibracion
+ * Safari en iOS no implementa `navigator.vibrate`. La única vibracion
  * disponible es la del motor haptico a traves de un truco: un elemento
  * `<input type="checkbox" switch>` produce un toque haptico al alternarse.
- * Es fragil y depende de la version, asi que se intenta y se sigue adelante si
+ * Es fragil y depende de la version, así que se intenta y se sigue adelante si
  * no funciona.
  *
  * El sonido si esta disponible siempre, y es el que de verdad confirma la
@@ -76,7 +76,7 @@ function vibrar(patron: number | number[]): void {
     try {
       vibrador.vibrate(patron)
     } catch {
-      // Ignorado a proposito.
+      // Ignorado a propósito.
     }
   }
 }

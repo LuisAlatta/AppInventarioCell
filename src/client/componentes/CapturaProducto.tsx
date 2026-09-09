@@ -1,9 +1,9 @@
 /**
- * Seleccion de producto por camara, busqueda o codigo escrito.
+ * Seleccion de producto por camara, búsqueda o codigo escrito.
  *
  * Lo usan el traspaso y el conteo, que necesitan lo mismo: ir agregando
  * productos uno tras otro sin salir de la pantalla. La camara viene primero
- * porque es el camino rapido; la busqueda queda a un toque para el producto sin
+ * porque es el camino rápido; la búsqueda queda a un toque para el producto sin
  * codigo legible, que siempre aparece.
  *
  * El componente no decide que hacer con el producto: lo entrega y ya. Asi el
@@ -65,10 +65,10 @@ export function CapturaProducto({ onElegido, indicacion, pausado = false }: Capt
           avisarDesconocido()
           // Aqui no se ofrece dar de alta: en medio de un traspaso o un conteo,
           // abrir un formulario de alta rompe el ritmo. Se avisa y se sigue.
-          avisos.error('Ese codigo no esta en el catalogo. Dalo de alta desde Escanear.')
+          avisos.error('Ese código no está en el catálogo. Dalo de alta desde Escanear.')
           return
         }
-        avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo consultar el codigo')
+        avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo consultar el código')
       } finally {
         setConsultando(false)
       }
@@ -84,7 +84,7 @@ export function CapturaProducto({ onElegido, indicacion, pausado = false }: Capt
   const { iniciar, detener } = escaner
 
   // La camara solo se abre en su pestana. Dejarla encendida detras de la
-  // busqueda gasta bateria y mantiene la luz prendida sin motivo.
+  // búsqueda gasta bateria y mantiene la luz prendida sin motivo.
   useEffect(() => {
     if (pestana === 'camara') {
       iniciar()
@@ -136,10 +136,10 @@ export function CapturaProducto({ onElegido, indicacion, pausado = false }: Capt
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
           <CampoTexto
-            etiqueta="Buscar en el catalogo"
+            etiqueta="Buscar en el catálogo"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Nombre, marca o codigo"
+            placeholder="Nombre, marca o código"
             autoComplete="off"
             autoFocus
           />
@@ -147,7 +147,7 @@ export function CapturaProducto({ onElegido, indicacion, pausado = false }: Capt
           {resultados.isPending && <Esqueleto filas={3} />}
 
           {resultados.isSuccess && resultados.data.productos.length === 0 && (
-            <Vacio titulo="Nada con esa busqueda" detalle="Prueba con menos palabras." />
+            <Vacio titulo="Nada con esa búsqueda" detalle="Prueba con menos palabras." />
           )}
 
           {resultados.isSuccess && resultados.data.productos.length > 0 && (
@@ -166,7 +166,7 @@ export function CapturaProducto({ onElegido, indicacion, pausado = false }: Capt
 
           <div className="mt-2 flex flex-col gap-2 border-t border-borde pt-3">
             <CampoTexto
-              etiqueta="O escribe el codigo de barras"
+              etiqueta="O escribe el código de barras"
               value={codigoManual}
               onChange={(e) => setCodigoManual(e.target.value)}
               inputMode="numeric"
@@ -184,7 +184,7 @@ export function CapturaProducto({ onElegido, indicacion, pausado = false }: Capt
                 void resolverCodigo(codigo)
               }}
             >
-              Agregar por codigo
+              Agregar por código
             </Boton>
           </div>
         </div>

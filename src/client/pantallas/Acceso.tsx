@@ -4,12 +4,12 @@
  * Teclado propio en lugar del teclado del sistema: seis teclas grandes se
  * pulsan sin mirar y no hay riesgo de que Safari haga zoom o autocomplete algo.
  *
- * La misma pantalla sirve para la primera configuracion. Distinguirlas con
+ * La misma pantalla sirve para la primera configuración. Distinguirlas con
  * `configurado` evita una pantalla de bienvenida aparte que se veria una sola
  * vez en la vida de la app.
  */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api, ErrorDeApi } from '../api/cliente'
 import { Boton } from '../componentes/Boton'
 import { ErrorEnPantalla } from '../componentes/Estados'
@@ -23,22 +23,40 @@ interface AccesoProps {
 }
 
 export function Acceso({ configurado, onEntro }: AccesoProps) {
+  /**
+   * Los digitos viven en referencias, no solo en el estado.
+   *
+   * Con el estado como única fuente, dos teclas pulsadas en el mismo fotograma
+   * leen el mismo valor anterior y la segunda sobrescribe a la primera: se
+   * pierde un digito. En un teclado de telefono eso pasa con solo teclear
+   * rápido. La referencia se actualiza al instante y el estado solo sirve para
+   * redibujar.
+   */
+  const refPin = useRef('')
+  const refConfirmacion = useRef('')
+
   const [pin, setPin] = useState('')
   const [confirmacion, setConfirmacion] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
-  // En la primera configuracion se pide dos veces: un PIN mal teclado dejaria
+  // En la primera configuración se pide dos veces: un PIN mal teclado dejaría
   // a la dueña fuera de su propia app sin forma de recuperarlo.
   const pidiendoConfirmacion = !configurado && pin.length === LARGO_PIN
   const actual = pidiendoConfirmacion ? confirmacion : pin
-  const fijar = pidiendoConfirmacion ? setConfirmacion : setPin
+
+  const limpiar = (): void => {
+    refPin.current = ''
+    refConfirmacion.current = ''
+    setPin('')
+    setConfirmacion('')
+  }
 
   const titulo = configurado
     ? 'Escribe tu PIN'
     : pidiendoConfirmacion
-      ? 'Reptelo para confirmar'
-      : 'Elige un PIN de 6 numeros'
+      ? 'Repítelo para confirmar'
+      : 'Elige un PIN de 6 números'
 
   const enviar = async (valor: string): Promise<void> => {
     setEnviando(true)
@@ -58,18 +76,27 @@ export function Acceso({ configurado, onEntro }: AccesoProps) {
       const mensaje =
         causa instanceof ErrorDeApi ? causa.message : 'Algo fallo. Intenta de nuevo.'
       setError(mensaje)
-      setPin('')
-      setConfirmacion('')
+      limpiar()
     } finally {
       setEnviando(false)
     }
   }
 
   const tocar = (digito: string): void => {
-    if (enviando || actual.length >= LARGO_PIN) return
+    if (enviando) return
 
-    const nuevo = actual + digito
-    fijar(nuevo)
+    // Se decide sobre la referencia, que ya refleja las pulsaciones anteriores
+    // aunque React todavía no haya redibujado.
+    const enConfirmacion = !configurado && refPin.current.length === LARGO_PIN
+    const referencia = enConfirmacion ? refConfirmacion : refPin
+
+    if (referencia.current.length >= LARGO_PIN) return
+
+    const nuevo = referencia.current + digito
+    referencia.current = nuevo
+
+    if (enConfirmacion) setConfirmacion(nuevo)
+    else setPin(nuevo)
     setError(null)
 
     if (nuevo.length < LARGO_PIN) return
@@ -79,20 +106,26 @@ export function Acceso({ configurado, onEntro }: AccesoProps) {
       return
     }
 
-    if (!pidiendoConfirmacion) return
+    if (!enConfirmacion) return
 
-    if (nuevo === pin) {
+    if (nuevo === refPin.current) {
       void enviar(nuevo)
     } else {
       setError('Los dos PIN no coinciden. Empieza de nuevo.')
-      setPin('')
-      setConfirmacion('')
+      limpiar()
     }
   }
 
   const borrar = (): void => {
     if (enviando) return
-    fijar(actual.slice(0, -1))
+
+    const enConfirmacion = !configurado && refPin.current.length === LARGO_PIN
+    const referencia = enConfirmacion ? refConfirmacion : refPin
+
+    referencia.current = referencia.current.slice(0, -1)
+    if (enConfirmacion) setConfirmacion(referencia.current)
+    else setPin(referencia.current)
+
     setError(null)
   }
 
@@ -105,7 +138,7 @@ export function Acceso({ configurado, onEntro }: AccesoProps) {
           <h1 className="text-titulo">{titulo}</h1>
           {!configurado && !pidiendoConfirmacion && (
             <p className="max-w-xs text-[0.9375rem] leading-relaxed text-tinta-tenue">
-              Con este PIN entras a tu inventario. Anotalo en un lugar seguro:
+              Con este PIN entras a tu inventario. Anótalo en un lugar seguro:
               nadie puede recuperarlo por ti.
             </p>
           )}

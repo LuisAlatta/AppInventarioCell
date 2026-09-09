@@ -88,7 +88,7 @@ rutasAcceso.post('/inicial', zValidator('json', esquemaAcceso), async (c) => {
     .run()
 
   if (resultado.meta.changes === 0) {
-    throw new ErrorApp('conflicto', 'La aplicacion ya esta configurada')
+    throw new ErrorApp('conflicto', 'La aplicacion ya está configurada')
   }
 
   const token = await crearToken(id, secreto)
@@ -113,7 +113,7 @@ rutasAcceso.post('/', zValidator('json', esquemaAcceso), async (c) => {
   ).first<FilaUsuario>()
 
   if (usuario === null) {
-    throw new ErrorApp('no_encontrado', 'Todavia no hay un PIN configurado')
+    throw new ErrorApp('no_encontrado', 'Todavía no hay un PIN configurado')
   }
 
   if (!yaPaso(usuario.locked_until)) {

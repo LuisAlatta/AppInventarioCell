@@ -183,7 +183,7 @@ export function secretoDeSesion(env: Env): string {
   if (typeof secreto !== 'string' || secreto.length < 32) {
     throw new ErrorApp(
       'error_interno',
-      'El servidor no esta configurado correctamente.',
+      'El servidor no está configurado correctamente.',
       { causa: new Error('SESSION_SECRET ausente o de menos de 32 caracteres') },
     )
   }

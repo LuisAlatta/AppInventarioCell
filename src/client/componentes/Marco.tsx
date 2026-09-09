@@ -65,7 +65,7 @@ export function Marco({ titulo, atras = false, sinUbicacion = false, accion, chi
 /**
  * Selector compacto de ubicacion.
  *
- * Con cuatro ubicaciones un desplegable nativo seria mas corto de escribir,
+ * Con cuatro ubicaciones un desplegable nativo sería mas corto de escribir,
  * pero en iPhone abre una rueda que tapa media pantalla y no muestra el icono
  * ni el tipo de cada una. La hoja inferior deja ver de que ubicacion se trata.
  */
@@ -80,7 +80,10 @@ function SelectorUbicacion() {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="flex h-11 max-w-[9.5rem] shrink-0 items-center gap-1.5 rounded-xl border border-borde bg-superficie px-3 transition active:bg-papel-hundido"
+        // Se le da mas ancho que al titulo a proposito: entre saber en que
+        // pantalla estas y saber en que sucursal estas registrando, lo segundo
+        // es lo que evita el error caro. El titulo puede recortarse antes.
+        className="flex h-11 max-w-[12rem] shrink-0 items-center gap-1.5 rounded-xl border border-borde bg-superficie px-3 transition active:bg-papel-hundido"
       >
         <span aria-hidden="true" className="text-base leading-none">
           {activa.icono ?? (activa.tipo === 'warehouse' ? '🏭' : '🏬')}
@@ -91,7 +94,7 @@ function SelectorUbicacion() {
         </svg>
       </button>
 
-      <HojaInferior abierta={abierto} onCerrar={() => setAbierto(false)} titulo="Donde estas">
+      <HojaInferior abierta={abierto} onCerrar={() => setAbierto(false)} titulo="Dónde estás">
         <div className="flex flex-col gap-2 pb-2">
           {ubicaciones.map((ubicacion) => {
             const esActiva = ubicacion.id === activa.id
@@ -118,7 +121,7 @@ function SelectorUbicacion() {
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[1rem] font-medium">{ubicacion.nombre}</span>
                   <span className="text-[0.8125rem] text-tinta-tenue">
-                    {ubicacion.tipo === 'warehouse' ? 'Almacen' : 'Sucursal'}
+                    {ubicacion.tipo === 'warehouse' ? 'Almacén' : 'Sucursal'}
                   </span>
                 </span>
 

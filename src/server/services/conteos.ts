@@ -140,7 +140,7 @@ export async function registrarConteo(
 ): Promise<RenglonConteo> {
   const sesion = await exigirConteo(db, sesionId)
   if (sesion.estado !== 'open') {
-    throw new ErrorApp('conflicto', 'Ese conteo ya esta cerrado')
+    throw new ErrorApp('conflicto', 'Ese conteo ya está cerrado')
   }
 
   const producto = await exigirProducto(db, productoId)
@@ -168,7 +168,7 @@ export async function registrarConteo(
     .bind(sesionId, productoId)
     .first<{ counted_qty: number; expected_qty: number; diff: number; unit_cost: number }>()
 
-  if (fila === null) throw noEncontrado('el renglon del conteo')
+  if (fila === null) throw noEncontrado('el renglón del conteo')
 
   return {
     productoId,
@@ -231,7 +231,7 @@ export async function cerrarConteo(
 ): Promise<ReporteMerma> {
   const sesion = await exigirConteo(db, sesionId)
   if (sesion.estado !== 'open') {
-    throw new ErrorApp('conflicto', 'Ese conteo ya esta cerrado')
+    throw new ErrorApp('conflicto', 'Ese conteo ya está cerrado')
   }
 
   const renglones = await renglonesDe(db, sesionId)
@@ -261,7 +261,7 @@ export async function cerrarConteo(
             suma ? null : sesion.ubicacionId,
             suma ? sesion.ubicacionId : null,
             renglon.costoUnitario,
-            `Conteo fisico en ${sesion.ubicacionNombre}`,
+            `Conteo físico en ${sesion.ubicacionNombre}`,
             sesionId,
             usuarioId,
           ),
@@ -290,7 +290,7 @@ export async function cerrarConteo(
 export async function cancelarConteo(db: D1Database, sesionId: string): Promise<void> {
   const sesion = await exigirConteo(db, sesionId)
   if (sesion.estado !== 'open') {
-    throw new ErrorApp('conflicto', 'Ese conteo ya esta cerrado')
+    throw new ErrorApp('conflicto', 'Ese conteo ya está cerrado')
   }
 
   await db

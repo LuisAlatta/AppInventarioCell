@@ -54,7 +54,7 @@ app.onError((error, c) => {
 })
 
 app.notFound((c) => {
-  const error = new ErrorApp('no_encontrado', 'Esa direccion no existe')
+  const error = new ErrorApp('no_encontrado', 'Esa dirección no existe')
   return c.json(cuerpoDeError(error), 404)
 })
 
