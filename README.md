@@ -62,6 +62,7 @@ Abre `http://localhost:5173`. La primera pantalla pide elegir un PIN de seis dí
 | `npm run typecheck` | Revisa los tipos de cliente y servidor |
 | `npm test` | Pruebas unitarias y de API (124 pruebas) |
 | `npm run db:migrar:local` | Aplica las migraciones a la base local |
+| `npm run db:sembrar:local` | Carga datos de ejemplo para probar sin capturar nada |
 | `npm run db:migrar` | Aplica las migraciones a la base en la nube |
 | `npm run tipos` | Regenera los tipos de los enlaces de Cloudflare |
 
