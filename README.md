@@ -67,23 +67,33 @@ Abre `http://localhost:5173`. La primera pantalla pide elegir un PIN de seis dí
 
 ## Desplegar a Cloudflare
 
-Este proyecto va a la cuenta **newluisalattago@gmail.com**. Verifica siempre antes de tocar la
-nube, porque la sesión de `wrangler` es global y suele quedar en la del proyecto anterior:
+Este proyecto va a la cuenta **newluisalattago@gmail.com**.
+
+Las credenciales se guardan **en el proyecto**, con un token de API, y no en la sesión global de
+`wrangler login`. Es a propósito: la sesión global es una sola para toda la máquina y suele
+quedar en la del proyecto anterior, que es la forma más fácil de desplegar en la cuenta de otro
+cliente sin darse cuenta. Con el token en el proyecto, eso no puede pasar.
+
+Copia `.env.example` como `.env` y rellena los dos valores. Ahí están los permisos exactos que
+hace falta darle al token. El archivo está en `.gitignore`.
+
+Comprueba que quedó bien:
 
 ```bash
 npx wrangler whoami
 ```
 
-Si no es la cuenta correcta, cierra e inicia sesión (abre primero el panel de la cuenta correcta
-en el navegador, o usa una ventana privada):
+Debe mostrar `newluisalattago@gmail.com`. Si muestra otra cuenta, el token o el id de cuenta del
+`.env` no corresponden.
 
-```bash
-npx wrangler logout
-```
+### Si prefieres el login interactivo
 
-```bash
-npx wrangler login
-```
+Funciona igual (`npx wrangler logout` y luego `npx wrangler login`), pero con dos advertencias.
+La sesión es global para toda la máquina, así que hay que verificar `whoami` antes de cada
+despliegue. Y **no conviene reintentarlo en ráfaga**: cada intento invalida el CSRF del anterior,
+y a partir de una docena de intentos seguidos el WAF de Cloudflare bloquea la IP en el endpoint
+de OAuth y devuelve "Sorry, you have been blocked". Ese bloqueo se levanta solo al cabo de un
+rato; el token de API no se ve afectado porque va por otro endpoint.
 
 ### Crear los recursos, una sola vez
 
