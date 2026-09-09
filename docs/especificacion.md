@@ -158,9 +158,24 @@ El propósito es convertir una sospecha en un número verificable.
 Dos pasadas sobre FTS5, sin servicios de IA:
 
 1. **Prefijo**, con el tokenizador `unicode61` y `remove_diacritics 2`. Cubre la mayoría de los
-   casos e ignora acentos.
-2. Si la primera pasada devuelve menos de tres resultados, **trigramas**, que toleran errores de
-   escritura. Así "samsng" encuentra Samsung.
+   casos e ignora acentos: "generico" encuentra "Genérico". Busca en nombre, marca, modelo,
+   código y categoría, así que "audifonos" trae toda la categoría.
+2. Si la primera pasada devuelve menos de tres resultados, **trigramas puntuados**.
+
+Sobre el segundo paso hay que ser preciso, porque es fácil suponer de más: el tokenizador
+`trigram` de SQLite hace coincidencia de **subcadena**, no distancia de edición. `MATCH 'samsng'`
+no encuentra "Samsung" — verificado contra una D1 real. La tolerancia se consigue partiendo la
+consulta en trigramas en el servidor y buscándolos con `OR`:
+
+```
+"samsng"  ->  sam, ams, msn, sng
+MATCH '"sam" OR "ams" OR "msn" OR "sng"'
+```
+
+"Samsung" comparte dos de esos cuatro trigramas, suficiente para aparecer. El orden no se deja a
+`bm25`, que premia los textos cortos y descoloca los resultados: se puntúa por **proporción de
+trigramas de la consulta que el producto contiene**, con un mínimo del 40% para descartar
+coincidencias casuales.
 
 Un código de barras escaneado o escrito completo es una búsqueda exacta y salta ambas pasadas.
 
