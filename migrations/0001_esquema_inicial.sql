@@ -201,7 +201,7 @@ CREATE VIRTUAL TABLE products_fts USING fts5 (
 CREATE VIRTUAL TABLE products_trg USING fts5 (
   product_id UNINDEXED,
   texto,
-  tokenize = "trigram"
+  tokenize = "trigram remove_diacritics 1"
 );
 
 -- Los indices se mantienen con disparadores. Si se actualizaran desde el
