@@ -46,15 +46,25 @@ iPhone — PWA instalada
     v
 Cloudflare Worker  (Hono + Zod)
   |-- D1  SQLite: catálogo, stock, movimientos, conteos
-  |-- R2  fotos de productos y sucursales
+  |-- KV  fotos de productos y sucursales
   +-- Assets estáticos de la PWA
 ```
 
 ### Por qué este stack
 
 Cloudflare cubre el caso completo dentro de su capa gratuita (100.000 peticiones al día, 5 GB de
-base de datos, 10 GB de almacenamiento) y no suspende proyectos por inactividad, a diferencia de
-otras plataformas gratuitas. Para un negocio en operación esa diferencia es decisiva.
+base de datos, 1 GB de almacenamiento para fotos) y no suspende proyectos por inactividad, a
+diferencia de otras plataformas gratuitas. Para un negocio en operación esa diferencia es decisiva.
+
+Las fotos van en **Workers KV** y no en R2, que seria la herramienta natural para archivos. El
+motivo no es técnico sino de acceso: el login OAuth de wrangler **no incluye ningún permiso de
+R2**, ese scope no existe en su lista. Usar R2 exigiría un token de API aparte y un segundo
+mecanismo de credenciales solo para las fotos. KV entra en `workers_kv:write`, que sí está en el
+login normal, así que todo el proyecto se administra con una sola sesión.
+
+El costo de esa decisión son los límites del plan gratuito de KV: 1 GB y 1000 escrituras al día.
+Con fotos de unos 60 KB eso son unas 16.000 fotos y mil altas de producto en un mismo día. Para
+este negocio sobra, y si algún día no alcanzara, el cambio a R2 toca un solo archivo.
 
 Las fotos se redimensionan **en el teléfono** antes de subirlas (canvas a WebP de 800 px, unos
 60 KB). Así se evita un servicio de imágenes de pago.
@@ -68,8 +78,9 @@ Las fotos se redimensionan **en el teléfono** antes de subirlas (canvas a WebP 
 | `server/services/` | Reglas de negocio: stock, movimientos, conteos, mermas | `server/db` |
 | `server/routes/` | Endpoints HTTP, validación y autenticación | `server/services` |
 | `client/api/` | Cliente tipado de la API | `shared` |
-| `client/features/` | Una carpeta por pantalla | `client/api` |
-| `client/scanner/` | Cámara y decodificación de códigos, aislado del resto | nada |
+| `client/pantallas/` | Un archivo por pantalla | `client/api` |
+| `client/componentes/` | Piezas compartidas entre pantallas | `client/api` |
+| `client/escaner/` | Cámara y decodificación de códigos, aislado del resto | nada |
 
 El escáner queda aislado a propósito: es la parte más dependiente del navegador y la más
 probable de tener que reemplazarse.
@@ -143,6 +154,20 @@ Esperado = traspasos recibidos + devoluciones − ventas registradas − mermas 
 Real     = lo contado escaneando en el conteo físico
 Faltante = Real − Esperado          (negativo significa mercancía perdida)
 ```
+
+Esa fórmula **explica** el número, pero no es como se calcula. El "Esperado" se toma del stock
+que la aplicación tenía en el instante del escaneo, que ya es el resultado acumulado de todos los
+movimientos. Recorrer la fórmula por separado abriría la puerta a que sumara distinto que el
+stock por olvidar un tipo de movimiento, y entonces habría dos verdades.
+
+Ese valor se **congela** en el renglón del conteo y no se recalcula nunca: si se recalculara, el
+reporte de un conteo de marzo iría cambiando con cada venta de abril y dejaría de servir como
+evidencia.
+
+Hay un segundo número que es fácil confundir con el anterior. Al cerrar el conteo ajustando el
+inventario, el movimiento de ajuste se calcula contra el stock **de ese momento**, no contra el
+congelado: el objetivo del ajuste es dejar el sistema igual a la realidad física de ahora. Son
+dos preguntas distintas, "cuánto faltó" y "en cuánto hay que dejarlo".
 
 El reporte presenta tres vistas:
 
@@ -228,8 +253,9 @@ Ningún error se descarta en silencio. Todo fallo de escritura se registra en el
 
 PIN con PBKDF2 mediante WebCrypto, sesión en cookie `httpOnly` `Secure` `SameSite=Lax`, límite de
 intentos de acceso y validación con Zod de toda entrada antes de tocar la base de datos. Los
-secretos viven en variables de entorno de Cloudflare, nunca en el código. Las imágenes en R2 se
-sirven a través del Worker y el bucket no es público.
+secretos viven en variables de entorno de Cloudflare, nunca en el código. Las fotos se sirven a
+través del Worker y exigen sesión: el almacenamiento no es público, así que una foto no queda
+accesible por una URL adivinable.
 
 ## 11. Pruebas
 

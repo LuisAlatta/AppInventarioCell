@@ -1,13 +1,26 @@
 /**
- * Fotos de productos y de sucursales, guardadas en R2.
+ * Fotos de productos y de sucursales, guardadas en Workers KV.
  *
- * El bucket no es publico: todo pasa por el Worker. Asi una foto no queda
- * accesible por una URL adivinable, y no hace falta configurar un dominio
- * aparte para el bucket.
+ * ## Por que KV y no R2
+ *
+ * R2 es la herramienta correcta para archivos, pero el login OAuth de wrangler
+ * no incluye ningun permiso de R2: ese scope no existe en su lista. Crear un
+ * bucket exigiria un token de API aparte y un segundo mecanismo de acceso solo
+ * para las fotos. KV entra en `workers_kv:write`, que si esta en el login
+ * normal, asi que todo el proyecto se administra con una sola sesion.
+ *
+ * El limite del plan gratuito son 1000 escrituras al dia y 1 GB de
+ * almacenamiento. Con fotos de unos 60 KB son unas 16.000 fotos de tope y mil
+ * altas de producto en un mismo dia: para este negocio sobra. Si algun dia no
+ * alcanzara, el cambio a R2 toca solo este archivo.
+ *
+ * KV es de consistencia eventual: una foto recien subida puede tardar unos
+ * segundos en poder leerse. No se nota, porque quien acaba de subirla ya esta
+ * viendo su propia vista previa local y el resto de la app la pide en la
+ * siguiente carga.
  *
  * El telefono redimensiona la imagen antes de subirla, asi que aqui solo se
- * comprueba el tipo y el tamano. Redimensionar en el servidor exigiria un
- * servicio de imagenes de pago.
+ * comprueba el tipo y el tamano.
  */
 
 import { Hono } from 'hono'
@@ -20,11 +33,12 @@ import type { Variables } from '../tipos_hono'
 /** Un cuarto de megabyte alcanza de sobra para una foto ya redimensionada. */
 const MAXIMO_BYTES = 256 * 1024
 
-const TIPOS_PERMITIDOS: ReadonlySet<string> = new Set([
-  'image/webp',
-  'image/jpeg',
-  'image/png',
-])
+const TIPOS_PERMITIDOS: ReadonlySet<string> = new Set(['image/webp', 'image/jpeg', 'image/png'])
+
+/** Se guarda junto al valor para poder servir la foto con su tipo correcto. */
+interface MetadatosFoto {
+  contentType: string
+}
 
 export const rutasImagenes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -53,13 +67,33 @@ function extensionDe(tipo: string): string {
   return 'jpg'
 }
 
-/** Sube la foto de un producto y la deja asociada. */
+/**
+ * Guarda la foto y devuelve su clave.
+ *
+ * La clave lleva un identificador aleatorio, asi que cada subida crea una
+ * clave nueva y una foto nunca cambia de contenido. Eso permite cachearla en
+ * el navegador para siempre.
+ */
+async function guardar(
+  env: Env,
+  prefijo: 'productos' | 'ubicaciones',
+  id: string,
+  peticion: Request,
+): Promise<string> {
+  const { cuerpo, tipo } = await leerImagen(peticion)
+
+  const sufijo = nuevoId(prefijo === 'productos' ? 'prod' : 'ubi')
+  const clave = `${prefijo}/${id}/${sufijo}.${extensionDe(tipo)}`
+
+  const metadatos: MetadatosFoto = { contentType: tipo }
+  await env.FOTOS.put(clave, cuerpo, { metadata: metadatos })
+
+  return clave
+}
+
 rutasImagenes.put('/producto/:id', async (c) => {
   const productoId = c.req.param('id')
-  const { cuerpo, tipo } = await leerImagen(c.req.raw)
-
-  const clave = `productos/${productoId}/${nuevoId('prod')}.${extensionDe(tipo)}`
-  await c.env.FOTOS.put(clave, cuerpo, { httpMetadata: { contentType: tipo } })
+  const clave = await guardar(c.env, 'productos', productoId, c.req.raw)
   await fijarImagenProducto(c.env.DB, productoId, clave)
 
   return c.json({ claveImagen: clave })
@@ -67,10 +101,7 @@ rutasImagenes.put('/producto/:id', async (c) => {
 
 rutasImagenes.put('/ubicacion/:id', async (c) => {
   const ubicacionId = c.req.param('id')
-  const { cuerpo, tipo } = await leerImagen(c.req.raw)
-
-  const clave = `ubicaciones/${ubicacionId}/${nuevoId('ubi')}.${extensionDe(tipo)}`
-  await c.env.FOTOS.put(clave, cuerpo, { httpMetadata: { contentType: tipo } })
+  const clave = await guardar(c.env, 'ubicaciones', ubicacionId, c.req.raw)
   await fijarImagenUbicacion(c.env.DB, ubicacionId, clave)
 
   return c.json({ claveImagen: clave })
@@ -89,15 +120,13 @@ rutasImagenes.get('/*', async (c) => {
     throw new ErrorApp('datos_invalidos', 'Ruta de imagen inválida')
   }
 
-  const objeto = await c.env.FOTOS.get(clave)
-  if (objeto === null) throw noEncontrado('la imagen')
+  const { value, metadata } = await c.env.FOTOS.getWithMetadata<MetadatosFoto>(clave, 'arrayBuffer')
+  if (value === null) throw noEncontrado('la imagen')
 
-  const cabeceras = new Headers()
-  objeto.writeHttpMetadata(cabeceras)
-  cabeceras.set('etag', objeto.httpEtag)
-  // La clave incluye un identificador aleatorio, asi que una foto nunca cambia
-  // de contenido: se puede cachear sin miedo y ahorra peticiones al Worker.
-  cabeceras.set('cache-control', 'private, max-age=31536000, immutable')
-
-  return new Response(objeto.body, { headers: cabeceras })
+  return new Response(value, {
+    headers: {
+      'content-type': metadata?.contentType ?? 'application/octet-stream',
+      'cache-control': 'private, max-age=31536000, immutable',
+    },
+  })
 })

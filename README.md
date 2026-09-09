@@ -23,7 +23,7 @@ La especificación completa está en [docs/especificacion.md](docs/especificacio
 | Escáner | `zxing-wasm` | Safari no trae `BarcodeDetector` |
 | API | Cloudflare Workers + Hono + Zod | Sin servidores, dentro de la capa gratuita |
 | Base de datos | Cloudflare D1 (SQLite) con FTS5 | Búsqueda instantánea sin servicios extra |
-| Fotos | Cloudflare R2 | Redimensionadas en el teléfono antes de subir |
+| Fotos | Cloudflare KV | Redimensionadas en el teléfono; KV porque el OAuth de wrangler no da acceso a R2 |
 
 Un solo Worker sirve la aplicación y la API, así que no hay CORS ni dos dominios.
 
@@ -60,7 +60,7 @@ Abre `http://localhost:5173`. La primera pantalla pide elegir un PIN de seis dí
 | `npm run dev` | Aplicación y API en local, con recarga en caliente |
 | `npm run build` | Compila para producción |
 | `npm run typecheck` | Revisa los tipos de cliente y servidor |
-| `npm test` | Pruebas unitarias y de API (114 pruebas) |
+| `npm test` | Pruebas unitarias y de API (124 pruebas) |
 | `npm run db:migrar:local` | Aplica las migraciones a la base local |
 | `npm run db:migrar` | Aplica las migraciones a la base en la nube |
 | `npm run tipos` | Regenera los tipos de los enlaces de Cloudflare |
@@ -93,8 +93,11 @@ npx wrangler d1 create inventario
 
 Copia el `database_id` que imprime y ponlo en `wrangler.jsonc`, en lugar de `PENDIENTE`.
 
+Crea el espacio KV donde viven las fotos. Copia el `id` que imprime y ponlo en `wrangler.jsonc`,
+en el bloque `kv_namespaces`:
+
 ```bash
-npx wrangler r2 bucket create inventario-fotos
+npx wrangler kv namespace create FOTOS
 ```
 
 Genera y guarda el secreto de producción. No va en ningún archivo:

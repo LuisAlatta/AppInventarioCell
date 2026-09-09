@@ -21,10 +21,15 @@
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [
+  // Las fotos van en KV y no en R2 porque el login OAuth de wrangler no tiene
+  // ningun permiso de R2: no existe ese scope. KV si esta cubierto por
+  // `workers_kv:write`, asi que todo el proyecto se administra con una sola
+  // sesion. El limite del plan gratuito son 1000 escrituras al dia y 1 GB, de
+  // sobra para fotos de producto de unos 60 KB.
+  "kv_namespaces": [
     {
       "binding": "FOTOS",
-      "bucket_name": "inventario-fotos"
+      "id": "PENDIENTE"
     }
   ]
 }
