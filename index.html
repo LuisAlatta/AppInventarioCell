@@ -2,8 +2,33 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      `viewport-fit=cover` deja que la app llegue a los bordes del iPhone; el
+      CSS se encarga de respetar el area segura donde viven la muesca y la
+      barra de gestos.
+      `maximum-scale=1` evita que Safari haga zoom al enfocar un campo, que
+      descuadra la pantalla y no se deshace solo.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+
     <title>Inventario</title>
+    <meta name="description" content="Control de inventario por codigo de barras" />
+
+    <!-- El color de la barra de estado sigue al fondo de papel de la app. -->
+    <meta name="theme-color" content="#FAF9F7" />
+
+    <!-- Instalacion en iPhone: sin esto la app abre dentro de Safari con toda
+         su barra de navegacion, y el area util se reduce bastante. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Inventario" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="/icono.svg" />
   </head>
   <body>
     <div id="raiz"></div>
