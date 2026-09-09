@@ -1,5 +1,7 @@
 # Inventario
 
+**En producción: https://inventario.luisalatta.workers.dev**
+
 Aplicación web instalable para controlar el inventario de un almacén y sus sucursales,
 escaneando códigos de barras. Detecta mermas comparando lo que debería haber contra lo que
 realmente hay, sucursal por sucursal.
@@ -96,38 +98,34 @@ y a partir de una docena de intentos seguidos el WAF de Cloudflare bloquea la IP
 de OAuth y devuelve "Sorry, you have been blocked". Ese bloqueo se levanta solo al cabo de un
 rato; el token de API no se ve afectado porque va por otro endpoint.
 
-### Crear los recursos, una sola vez
+### Los recursos ya están creados
+
+La base D1, el espacio KV, el subdominio `luisalatta.workers.dev` y el secreto `SESSION_SECRET`
+están creados y anotados en `wrangler.jsonc`. No hay que volver a crearlos.
+
+**El `SESSION_SECRET` no se debe cambiar.** Con él se firman las sesiones y se protege el PIN, y
+no se puede leer de vuelta: si se rota, la dueña queda fuera de su propia app. La recuperación
+sería borrar la fila de `users` en la base y volver a configurar el PIN desde la primera pantalla:
 
 ```bash
-npx wrangler d1 create inventario
+npx wrangler d1 execute inventario --remote --command "DELETE FROM users"
 ```
 
-Copia el `database_id` que imprime y ponlo en `wrangler.jsonc`, en lugar de `PENDIENTE`.
-
-Crea el espacio KV donde viven las fotos. Copia el `id` que imprime y ponlo en `wrangler.jsonc`,
-en el bloque `kv_namespaces`:
-
-```bash
-npx wrangler kv namespace create FOTOS
-```
-
-Genera y guarda el secreto de producción. No va en ningún archivo:
-
-```bash
-npx wrangler secret put SESSION_SECRET
-```
-
-Aplica el esquema a la base de la nube:
-
-```bash
-npm run db:migrar
-```
-
-### Publicar
+### Publicar cambios
 
 ```bash
 npm run deploy
 ```
+
+Compila y despliega usando la configuración que genera el build en `dist/inventario/`, que es la
+que trae resueltas las rutas de los archivos estáticos.
+
+### Ojo con los datos de ejemplo
+
+`datos/datos_iniciales.sql` vive **fuera** de `migrations/` a propósito. Todo `.sql` que esté en
+`migrations/` lo aplica `wrangler d1 migrations apply`, incluido el remoto: teniéndolo ahí, los
+datos de demostración acabaron una vez en la base de producción. Solo se carga a mano y solo en
+local, con `npm run db:sembrar:local`.
 
 ## Instalar en el iPhone
 

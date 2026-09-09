@@ -1,6 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "inventario",
+  // Red de seguridad: si las credenciales activas no son de esta cuenta,
+  // wrangler falla en lugar de desplegar en la de otro cliente.
+  "account_id": "0acfa25b5f619f94d581b8cf882e2eec",
   "main": "src/server/index.ts",
   "compatibility_date": "2026-08-22",
   "compatibility_flags": ["nodejs_compat"],
@@ -17,7 +20,7 @@
     {
       "binding": "DB",
       "database_name": "inventario",
-      "database_id": "PENDIENTE",
+      "database_id": "8950959d-af06-46f9-8318-eb5f021d63ad",
       "migrations_dir": "migrations"
     }
   ],
@@ -29,7 +32,7 @@
   "kv_namespaces": [
     {
       "binding": "FOTOS",
-      "id": "PENDIENTE"
+      "id": "eb5eb64bd7864949abd39433563addef"
     }
   ]
 }
