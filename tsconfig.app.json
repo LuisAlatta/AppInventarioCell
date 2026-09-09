@@ -21,11 +21,9 @@
     "allowImportingTsExtensions": false,
     "noEmit": true,
     "skipLibCheck": true,
-
-    "baseUrl": ".",
     "paths": {
-      "@compartido/*": ["src/shared/*"],
-      "@cliente/*": ["src/client/*"]
+      "@compartido/*": ["./src/shared/*"],
+      "@cliente/*": ["./src/client/*"]
     }
   },
   "include": ["src/client", "src/shared"]

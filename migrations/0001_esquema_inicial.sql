@@ -16,7 +16,11 @@ CREATE TABLE users (
   pin_salt      TEXT NOT NULL,
   role          TEXT NOT NULL DEFAULT 'owner' CHECK (role IN ('owner', 'staff')),
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  last_login_at TEXT
+  last_login_at TEXT,
+  -- Un PIN de 6 digitos son un millon de combinaciones: la defensa real no es
+  -- la fuerza del hash sino frenar los intentos.
+  failed_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until    TEXT
 );
 
 -- ---------------------------------------------------------------------------

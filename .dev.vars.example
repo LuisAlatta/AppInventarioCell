@@ -1,0 +1,9 @@
+# Secreto para firmar las sesiones y los PIN. Minimo 32 caracteres.
+# Generar uno propio con:
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+#
+# En produccion NO va en un archivo: se guarda con
+#   npx wrangler secret put SESSION_SECRET
+#
+# Cambiarlo invalida todas las sesiones y todos los PIN guardados.
+SESSION_SECRET=pon-aqui-un-secreto-de-al-menos-32-caracteres
