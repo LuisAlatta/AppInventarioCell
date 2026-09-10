@@ -27,6 +27,7 @@ import {
   buscarPorCodigo,
   conStock,
   crearProducto,
+  eliminarProducto,
   productosBajoMinimo,
   productosSinMovimiento,
   unoConStock,
@@ -131,6 +132,11 @@ rutasCatalogo.get('/productos/:id', async (c) =>
 rutasCatalogo.patch('/productos/:id', zValidator('json', esquemaProductoParcial), async (c) => {
   const producto = await actualizarProducto(c.env.DB, c.req.param('id'), c.req.valid('json'))
   return c.json({ producto: await unoConStock(c.env.DB, producto.id) })
+})
+
+rutasCatalogo.delete('/productos/:id', async (c) => {
+  await eliminarProducto(c.env.DB, c.req.param('id'))
+  return c.body(null, 204)
 })
 
 rutasCatalogo.get('/productos/:id/movimientos', async (c) =>

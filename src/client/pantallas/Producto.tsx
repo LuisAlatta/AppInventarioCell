@@ -6,10 +6,10 @@
  * de lo que debería".
  */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ErrorDeApi, api } from '../api/cliente'
+import { ErrorDeApi, api, urlDeImagen } from '../api/cliente'
 import { AccionesProducto } from '../componentes/AccionesProducto'
 import { SugerenciaReposicion } from '../componentes/SugerenciaReposicion'
 import { Boton } from '../componentes/Boton'
@@ -17,10 +17,13 @@ import { Esqueleto, ErrorEnPantalla, Etiqueta, Vacio } from '../componentes/Esta
 import { DesgloseStock, Miniatura } from '../componentes/FichaProducto'
 import { HojaInferior } from '../componentes/HojaInferior'
 import { CampoTexto } from '../componentes/Campo'
+import { Confirmacion } from '../componentes/Confirmacion'
 import { Marco } from '../componentes/Marco'
 import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { NOMBRE_MOVIMIENTO, cuandoFue, dinero, fechaLarga, numero } from '../lib/formato'
+import { prepararFoto } from '../lib/imagen'
+import type { ProductoConStock } from '@compartido/tipos'
 
 export function Producto() {
   const { id = '' } = useParams()
@@ -31,6 +34,11 @@ export function Producto() {
 
   const [acciones, setAcciones] = useState(false)
   const [altaEquipo, setAltaEquipo] = useState(false)
+  const [administrar, setAdministrar] = useState(false)
+  const [accionProducto, setAccionProducto] = useState<'desactivar' | 'eliminar' | null>(null)
+  const [imagenPorQuitar, setImagenPorQuitar] = useState<{ id: string; clave: string } | null>(null)
+  const [subiendoImagen, setSubiendoImagen] = useState(false)
+  const refFotos = useRef<HTMLInputElement>(null)
 
   const producto = useQuery({
     queryKey: ['producto', id],
@@ -49,6 +57,8 @@ export function Producto() {
     queryFn: () => api.equiposDeProducto(id),
     enabled: id !== '',
   })
+
+  const galeria = useQuery({ queryKey: ['imagenes', id], queryFn: () => api.imagenesDeProducto(id), enabled: id !== '' })
 
   const deshacer = async (movimientoId: string): Promise<void> => {
     try {
@@ -116,6 +126,7 @@ export function Producto() {
             </span>
             <span className="text-[0.6875rem] text-tinta-tenue">en total</span>
           </div>
+          <button type="button" aria-label={`Administrar ${ficha.nombre}`} onClick={() => setAdministrar(true)} className="-mt-1 flex size-10 shrink-0 items-center justify-center rounded-xl text-accion active:bg-accion-tenue"><svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></button>
         </section>
 
         {bajoMinimo && (
@@ -133,6 +144,15 @@ export function Producto() {
         <section className="flex flex-col gap-2">
           <Etiqueta>Existencias</Etiqueta>
           <DesgloseStock producto={ficha} ubicacionActivaId={activa?.id} />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between"><Etiqueta>Fotos del producto</Etiqueta><span className="text-[0.75rem] text-tinta-tenue">{galeria.data?.imagenes.length ?? 0}/5</span></div>
+          <div className="grid grid-cols-3 gap-2">
+            {(galeria.data?.imagenes ?? []).map((imagen) => <div key={imagen.id} className="relative aspect-square overflow-hidden rounded-2xl border border-borde bg-papel-hundido"><img src={urlDeImagen(imagen.clave) ?? ''} alt={`Foto ${imagen.posicion + 1} de ${ficha.nombre}`} className="size-full object-cover" /><button type="button" aria-label={`Quitar foto ${imagen.posicion + 1}`} onClick={() => setImagenPorQuitar(imagen)} className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-tinta/70 text-white">×</button></div>)}
+            {(galeria.data?.imagenes.length ?? 0) < 5 && <button type="button" disabled={subiendoImagen} onClick={() => refFotos.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-accion/40 bg-accion-tenue text-[0.8125rem] font-semibold text-accion disabled:opacity-50">{subiendoImagen ? 'Subiendo…' : '+ Foto'}</button>}
+          </div>
+          <input ref={refFotos} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const archivo = e.target.files?.[0]; e.target.value = ''; if (archivo === undefined) return; void (async () => { setSubiendoImagen(true); try { const preparada = await prepararFoto(archivo); await api.agregarImagenProducto(ficha.id, preparada.archivo); void cliente.invalidateQueries({ queryKey: ['imagenes', id] }); avisos.exito('Foto agregada') } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo agregar la foto') } finally { setSubiendoImagen(false) } })() }} />
         </section>
 
         <section className="flex flex-col gap-2">
@@ -254,6 +274,14 @@ export function Producto() {
         <FormularioAltaEquipo productoId={ficha.id} productoNombre={ficha.nombre} onListo={() => { setAltaEquipo(false); void cliente.invalidateQueries({ queryKey: ['equipos', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos', id] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
       </HojaInferior>
 
+      <HojaInferior abierta={administrar} onCerrar={() => setAdministrar(false)} titulo={`Administrar · ${ficha.nombre}`}>
+        <FormularioEdicionProducto producto={ficha} onCerrar={() => setAdministrar(false)} onDesactivar={() => setAccionProducto('desactivar')} onEliminar={() => setAccionProducto('eliminar')} onGuardado={() => { setAdministrar(false); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['buscar'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
+      </HojaInferior>
+
+      <Confirmacion abierta={imagenPorQuitar !== null} titulo={`¿Quitar foto de ${ficha.nombre}?`} detalle={`La imagen se eliminará de ${ficha.nombre}. Esta acción no se puede deshacer.`} confirmar="Quitar foto" peligro onCancelar={() => setImagenPorQuitar(null)} onConfirmar={() => { if (imagenPorQuitar === null) return; void (async () => { try { await api.quitarImagenProducto(ficha.id, imagenPorQuitar.id); void cliente.invalidateQueries({ queryKey: ['imagenes', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); avisos.exito('Foto eliminada') } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo quitar la foto') } finally { setImagenPorQuitar(null) } })() }} />
+
+      <Confirmacion abierta={accionProducto !== null} titulo={accionProducto === 'eliminar' ? `¿Eliminar ${ficha.nombre}?` : `¿Desactivar ${ficha.nombre}?`} detalle={accionProducto === 'eliminar' ? `${ficha.nombre} solo se eliminará si no tiene historial. Si ya se registraron movimientos o IMEI, podrás desactivarlo para conservar la información.` : `${ficha.nombre} dejará de aparecer en las búsquedas y se conservará su historial.`} confirmar={accionProducto === 'eliminar' ? 'Eliminar producto' : 'Desactivar'} peligro onCancelar={() => setAccionProducto(null)} onConfirmar={() => { if (accionProducto === null) return; void (async () => { try { if (accionProducto === 'eliminar') { await api.eliminarProducto(ficha.id); avisos.exito(`${ficha.nombre} eliminado`); navegar('/buscar') } else { await api.actualizarProducto(ficha.id, { activo: false }); avisos.exito(`${ficha.nombre} desactivado`); setAdministrar(false); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['buscar'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) } } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo guardar el cambio') } finally { setAccionProducto(null) } })() }} />
+
       {ficha.notas !== null && ficha.notas !== '' && (
         <p className="mt-4 rounded-xl bg-papel-hundido px-4 py-3 text-[0.9375rem] text-tinta-suave">
           {ficha.notas}
@@ -290,6 +318,22 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
     } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo registrar el equipo') } finally { setEnviando(false) }
   }
   return <div className="flex flex-col gap-4 pb-3"><p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.875rem] text-tinta-suave">Entrada de una unidad en <strong>{activa?.nombre ?? 'sin ubicación'}</strong>.</p><div className="grid grid-cols-2 gap-3"><CampoTexto etiqueta="IMEI 1" value={imei1} onChange={(e) => setImei1(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="15 dígitos" autoFocus /><CampoTexto etiqueta="IMEI 2" value={imei2} onChange={(e) => setImei2(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="Opcional" /></div><SelectorEquipo etiqueta="Lista blanca" valor={listaBlanca} opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]} onChange={setListaBlanca} /><SelectorEquipo etiqueta="Condición" valor={condicion} opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]} onChange={setCondicion} /><CampoTexto etiqueta="Nota u observación" value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Opcional" /><Boton ancho cargando={enviando} onClick={() => void guardar()}>Guardar equipo</Boton></div>
+}
+
+function FormularioEdicionProducto({ producto, onCerrar, onDesactivar, onEliminar, onGuardado }: { producto: ProductoConStock; onCerrar: () => void; onDesactivar: () => void; onEliminar: () => void; onGuardado: () => void }) {
+  const avisos = useAvisos()
+  const [nombre, setNombre] = useState(producto.nombre)
+  const [marca, setMarca] = useState(producto.marca ?? '')
+  const [modelo, setModelo] = useState(producto.modelo ?? '')
+  const [venta, setVenta] = useState(String(producto.precioVenta || ''))
+  const [costo, setCosto] = useState(String(producto.precioCosto || ''))
+  const [minimo, setMinimo] = useState(String(producto.stockMinimo || ''))
+  const [notas, setNotas] = useState(producto.notas ?? '')
+  const [confirmando, setConfirmando] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const numeroSeguro = (valor: string) => { const numero = Number(valor.replace(',', '.')); return Number.isFinite(numero) && numero >= 0 ? numero : 0 }
+  const guardar = async () => { if (!nombre.trim()) { avisos.error('Escribe el nombre del producto'); return } setEnviando(true); try { await api.actualizarProducto(producto.id, { nombre: nombre.trim(), marca: marca.trim() || null, modelo: modelo.trim() || null, precioVenta: numeroSeguro(venta), precioCosto: numeroSeguro(costo), stockMinimo: Math.trunc(numeroSeguro(minimo)), notas: notas.trim() || null }); avisos.exito(`${nombre.trim()} actualizado`); onGuardado() } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo actualizar') } finally { setEnviando(false) } }
+  return <div className="flex flex-col gap-3 pb-3"><CampoTexto etiqueta="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus /><div className="grid grid-cols-2 gap-3"><CampoTexto etiqueta="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} /><CampoTexto etiqueta="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} /></div><div className="grid grid-cols-2 gap-3"><CampoTexto etiqueta="Precio venta" value={venta} onChange={(e) => setVenta(e.target.value)} inputMode="decimal" sufijo="S/" /><CampoTexto etiqueta="Costo" value={costo} onChange={(e) => setCosto(e.target.value)} inputMode="decimal" sufijo="S/" /></div><CampoTexto etiqueta="Stock mínimo" value={minimo} onChange={(e) => setMinimo(e.target.value.replace(/\D/g, ''))} inputMode="numeric" /><CampoTexto etiqueta="Notas u observaciones" value={notas} onChange={(e) => setNotas(e.target.value)} /><div className="grid grid-cols-2 gap-2"><Boton tono="contorno" onClick={onCerrar}>Cancelar</Boton><Boton cargando={enviando} onClick={() => setConfirmando(true)}>Guardar cambios</Boton></div><div className="mt-2 border-t border-borde pt-3"><button type="button" onClick={onDesactivar} className="min-h-11 w-full rounded-xl text-[0.9375rem] font-semibold text-alerta active:bg-alerta-tenue">Desactivar producto</button><button type="button" onClick={onEliminar} className="min-h-11 w-full rounded-xl text-[0.9375rem] font-semibold text-falta active:bg-falta-tenue">Eliminar producto</button></div><Confirmacion abierta={confirmando} titulo={`¿Guardar cambios de ${nombre.trim() || producto.nombre}?`} detalle={`Confirma la edición de ${nombre.trim() || producto.nombre}.`} confirmar="Guardar cambios" onCancelar={() => setConfirmando(false)} onConfirmar={() => { setConfirmando(false); void guardar() }} /></div>
 }
 
 function SelectorEquipo<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string])[]; onChange: (valor: T) => void }) {

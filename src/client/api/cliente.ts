@@ -185,6 +185,8 @@ export const api = {
   ): Promise<{ producto: ProductoConStock }> =>
     pedir(`/productos/${id}`, { metodo: 'PATCH', cuerpo: datos }),
 
+  eliminarProducto: (id: string): Promise<void> => pedir(`/productos/${id}`, { metodo: 'DELETE' }),
+
   movimientosDeProducto: (id: string): Promise<{ movimientos: Movimiento[] }> =>
     pedir(`/productos/${id}/movimientos`),
 
@@ -369,6 +371,18 @@ export const api = {
 
     return (await respuesta.json()) as { claveImagen: string }
   },
+
+  imagenesDeProducto: (id: string): Promise<{ imagenes: import('@compartido/tipos').ImagenProducto[] }> =>
+    pedir(`/imagenes/producto/${id}`),
+
+  agregarImagenProducto: async (id: string, archivo: Blob): Promise<{ imagen: import('@compartido/tipos').ImagenProducto }> => {
+    const respuesta = await fetch(`/api/imagenes/producto/${id}`, { method: 'POST', headers: { 'content-type': archivo.type }, body: archivo, credentials: 'same-origin' })
+    if (!respuesta.ok) { const cuerpo = (await respuesta.json().catch(() => ({}))) as { error?: ErrorDeApiDetalle }; throw new ErrorDeApi(respuesta.status, cuerpo.error ?? { codigo: 'error_interno', mensaje: 'No se pudo subir la foto.' }) }
+    return respuesta.json() as Promise<{ imagen: import('@compartido/tipos').ImagenProducto }>
+  },
+
+  quitarImagenProducto: (productoId: string, imagenId: string): Promise<void> =>
+    pedir(`/imagenes/producto/${productoId}/${imagenId}`, { metodo: 'DELETE' }),
 }
 
 /** URL para mostrar una imagen guardada en R2. */

@@ -5,7 +5,7 @@
 import type { Producto, ProductoConStock, StockPorUbicacion } from '@compartido/tipos'
 import type { DatosProducto, DatosProductoParcial } from '@compartido/esquemas'
 import { nuevoId } from '../lib/id'
-import { noEncontrado } from '../lib/errores'
+import { ErrorApp, noEncontrado } from '../lib/errores'
 import { aProducto, aStock, type FilaProducto, type FilaStock } from './mapeo'
 import { cantidadStock } from './filtro_stock'
 import type { ResumenStock } from '@compartido/tipos'
@@ -168,6 +168,19 @@ export async function actualizarProducto(
   }
 
   return exigirProducto(db, id)
+}
+
+/** Borra solo un catálogo sin historial ni unidades físicas asociadas. */
+export async function eliminarProducto(db: D1Database, id: string): Promise<void> {
+  const producto = await exigirProducto(db, id)
+  const [movimientos, equipos] = await Promise.all([
+    db.prepare('SELECT COUNT(*) AS total FROM movements WHERE product_id = ?').bind(id).first<{ total: number }>(),
+    db.prepare('SELECT COUNT(*) AS total FROM devices WHERE product_id = ?').bind(id).first<{ total: number }>(),
+  ])
+  if ((movimientos?.total ?? 0) > 0 || (equipos?.total ?? 0) > 0) {
+    throw new ErrorApp('regla_de_negocio', `${producto.nombre} tiene historial. Puedes desactivarlo para conservar sus registros.`)
+  }
+  await db.prepare('DELETE FROM products WHERE id = ?').bind(id).run()
 }
 
 export async function fijarImagenProducto(

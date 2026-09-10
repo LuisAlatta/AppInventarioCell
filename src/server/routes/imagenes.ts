@@ -26,7 +26,9 @@
 import { Hono } from 'hono'
 import { ErrorApp, noEncontrado } from '../lib/errores'
 import { fijarImagenProducto } from '../db/productos'
+import { agregarImagenProducto, imagenesDeProducto, quitarImagenProducto, reemplazarImagenPrincipal } from '../db/imagenes_producto'
 import { fijarImagenUbicacion } from '../db/ubicaciones'
+import { exigirProducto } from '../db/productos'
 import { nuevoId } from '../lib/id'
 import type { Variables } from '../tipos_hono'
 
@@ -93,10 +95,35 @@ async function guardar(
 
 rutasImagenes.put('/producto/:id', async (c) => {
   const productoId = c.req.param('id')
+  await exigirProducto(c.env.DB, productoId)
   const clave = await guardar(c.env, 'productos', productoId, c.req.raw)
+  await reemplazarImagenPrincipal(c.env.DB, productoId, clave)
   await fijarImagenProducto(c.env.DB, productoId, clave)
 
   return c.json({ claveImagen: clave })
+})
+
+rutasImagenes.get('/producto/:id', async (c) => {
+  const productoId = c.req.param('id')
+  await exigirProducto(c.env.DB, productoId)
+  return c.json({ imagenes: await imagenesDeProducto(c.env.DB, productoId) })
+})
+
+rutasImagenes.post('/producto/:id', async (c) => {
+  const productoId = c.req.param('id')
+  await exigirProducto(c.env.DB, productoId)
+  const clave = await guardar(c.env, 'productos', productoId, c.req.raw)
+  const imagen = await agregarImagenProducto(c.env.DB, productoId, clave)
+  if (imagen.posicion === 0) await fijarImagenProducto(c.env.DB, productoId, clave)
+  return c.json({ imagen }, 201)
+})
+
+rutasImagenes.delete('/producto/:id/:imagenId', async (c) => {
+  const productoId = c.req.param('id')
+  await exigirProducto(c.env.DB, productoId)
+  const clave = await quitarImagenProducto(c.env.DB, productoId, c.req.param('imagenId'))
+  await c.env.FOTOS.delete(clave)
+  return c.body(null, 204)
 })
 
 rutasImagenes.put('/ubicacion/:id', async (c) => {

@@ -134,6 +134,23 @@ describe('fotos', () => {
     expect(claveA).not.toBe(claveB)
   })
 
+  test('mantiene una galería de hasta cinco fotos y deja quitar una', async () => {
+    const agregar = () => app.fetch(new Request(url(`/api/imagenes/producto/${productoId}`), {
+      method: 'POST', headers: { cookie, 'content-type': 'image/png' }, body: PNG_1X1,
+    }), env)
+    const primera = await agregar()
+    expect(primera.status).toBe(201)
+    const { imagen } = (await primera.json()) as { imagen: { id: string } }
+    for (let i = 0; i < 4; i += 1) expect((await agregar()).status).toBe(201)
+    expect((await agregar()).status).toBe(422)
+
+    const lista = await app.fetch(new Request(url(`/api/imagenes/producto/${productoId}`), { headers: { cookie } }), env)
+    expect(((await lista.json()) as { imagenes: unknown[] }).imagenes).toHaveLength(5)
+
+    const quitar = await app.fetch(new Request(url(`/api/imagenes/producto/${productoId}/${imagen.id}`), { method: 'DELETE', headers: { cookie } }), env)
+    expect(quitar.status).toBe(204)
+  })
+
   test('rechaza un tipo que no es imagen', async () => {
     const respuesta = await subir(
       cookie,
