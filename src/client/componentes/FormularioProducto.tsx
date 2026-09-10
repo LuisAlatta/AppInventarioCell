@@ -69,6 +69,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [enviando, setEnviando] = useState(false)
 
   const refArchivo = useRef<HTMLInputElement | null>(null)
+  const refBusquedaModelo = useRef<HTMLDivElement | null>(null)
   const marcas = useQuery({ queryKey: ['marcas'], queryFn: api.marcas })
   const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
   const modelosExistentes = useQuery({
@@ -85,6 +86,17 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, [campo]: lectura.valor.replace(/\D/g, '') } : equipo))
     }
   }, [lectura])
+
+  useEffect(() => {
+    if (!mostrarModelos) return
+
+    const cerrarAlTocarFuera = (evento: PointerEvent): void => {
+      if (evento.target instanceof Node && !refBusquedaModelo.current?.contains(evento.target)) setMostrarModelos(false)
+    }
+
+    document.addEventListener('pointerdown', cerrarAlTocarFuera)
+    return () => document.removeEventListener('pointerdown', cerrarAlTocarFuera)
+  }, [mostrarModelos])
 
   useEffect(() => {
     const codigoLimpio = codigo.trim()
@@ -222,7 +234,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         ayuda="El escaneo completa este campo automáticamente."
       />
 
-      <div className="relative flex flex-col gap-1.5">
+      <div ref={refBusquedaModelo} className="relative flex flex-col gap-1.5">
         <label htmlFor="buscar-modelo" className="text-[0.8125rem] font-semibold text-tinta-suave">O busca un modelo existente</label>
         <div className="relative">
           <Search aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 my-auto size-5 text-tinta-tenue" strokeWidth={2} />
