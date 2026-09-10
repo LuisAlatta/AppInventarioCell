@@ -4,19 +4,16 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Camera, PackagePlus } from 'lucide-react'
-import { FormularioProducto } from '../componentes/FormularioProducto'
+import { FormularioProducto, type CampoEscaneable } from '../componentes/FormularioProducto'
 import { HojaInferior } from '../componentes/HojaInferior'
 import { Marco } from '../componentes/Marco'
 import { useAvisos } from '../contexto/Avisos'
 import { VistaCamara } from '../escaner/VistaCamara'
 import { useEscaner } from '../escaner/useEscaner'
 
-type CampoEscaneable = 'codigo' | 'imei1' | 'imei2'
-
-const NOMBRE_CAMPO: Record<CampoEscaneable, string> = {
-  codigo: 'código de barras',
-  imei1: 'IMEI 1',
-  imei2: 'IMEI 2',
+function nombreCampo(campo: CampoEscaneable): string {
+  if (campo === 'codigo') return 'código de barras'
+  return campo.startsWith('imei1:') ? 'IMEI 1' : 'IMEI 2'
 }
 
 export function Escanear() {
@@ -67,9 +64,9 @@ export function Escanear() {
         />
       </div>
 
-      <HojaInferior abierta={campo !== null} onCerrar={() => setCampo(null)} titulo={campo === null ? 'Escanear' : `Escanear ${NOMBRE_CAMPO[campo]}`}>
+      <HojaInferior abierta={campo !== null} onCerrar={() => setCampo(null)} titulo={campo === null ? 'Escanear' : `Escanear ${nombreCampo(campo)}`}>
         <div className="-mx-5 flex h-[65vh] flex-col overflow-hidden bg-tinta">
-          <VistaCamara escaner={escaner} indicacion={campo === null ? undefined : `Apunta al ${NOMBRE_CAMPO[campo]}`} onEscribirCodigo={() => setCampo(null)} />
+          <VistaCamara escaner={escaner} indicacion={campo === null ? undefined : `Apunta al ${nombreCampo(campo)}`} onEscribirCodigo={() => setCampo(null)} />
           <div className="flex shrink-0 items-center gap-2 bg-tinta px-4 py-3 text-[0.8125rem] text-white/80"><Camera aria-hidden="true" className="size-4" strokeWidth={2} /><span>La lectura se colocará en el campo abierto.</span></div>
         </div>
       </HojaInferior>

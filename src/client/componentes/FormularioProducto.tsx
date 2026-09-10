@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, ScanLine } from 'lucide-react'
+import { Check, Plus, ScanLine, Trash2 } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -21,10 +21,30 @@ import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { useUbicacion } from '../contexto/Ubicacion'
 
+export type CampoEscaneable = 'codigo' | `imei1:${string}` | `imei2:${string}`
+
+interface DatosEquipoNuevo {
+  id: string
+  imei1: string
+  imei2: string
+  listaBlanca: 'registered' | 'not_registered'
+  condicion: 'new' | 'used'
+}
+
+function equipoVacio(): DatosEquipoNuevo {
+  return {
+    id: crypto.randomUUID(),
+    imei1: '',
+    imei2: '',
+    listaBlanca: 'not_registered',
+    condicion: 'new',
+  }
+}
+
 interface FormularioProductoProps {
   codigoInicial?: string
-  onEscanear?: (campo: 'codigo' | 'imei1' | 'imei2') => void
-  lectura?: { campo: 'codigo' | 'imei1' | 'imei2'; valor: string } | null
+  onEscanear?: (campo: CampoEscaneable) => void
+  lectura?: { campo: CampoEscaneable; valor: string } | null
   onCreado: (producto: ProductoConStock) => void
   onCancelar: () => void
 }
@@ -38,10 +58,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [marca, setMarca] = useState('')
   const [modelo, setModelo] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
-  const [imei1, setImei1] = useState('')
-  const [imei2, setImei2] = useState('')
-  const [registrado, setRegistrado] = useState(false)
-  const [nuevo, setNuevo] = useState(true)
+  const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>([equipoVacio()])
   const [precioVenta, setPrecioVenta] = useState('')
   const [precioCosto, setPrecioCosto] = useState('')
   const [foto, setFoto] = useState<{ archivo: Blob; vista: string } | null>(null)
@@ -55,9 +72,15 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   useEffect(() => {
     if (lectura === null) return
     if (lectura.campo === 'codigo') setCodigo(lectura.valor)
-    if (lectura.campo === 'imei1') setImei1(lectura.valor.replace(/\D/g, ''))
-    if (lectura.campo === 'imei2') setImei2(lectura.valor.replace(/\D/g, ''))
+    if (lectura.campo !== 'codigo') {
+      const [campo, id] = lectura.campo.split(':') as ['imei1' | 'imei2', string]
+      setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, [campo]: lectura.valor.replace(/\D/g, '') } : equipo))
+    }
   }, [lectura])
+
+  const actualizarEquipo = (id: string, cambio: Partial<DatosEquipoNuevo>): void => {
+    setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, ...cambio } : equipo))
+  }
 
   // Las URL de vista previa hay que liberarlas o se acumulan en memoria
   // durante una sesion de altas.
@@ -109,17 +132,18 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         precioCosto: aNumero(precioCosto),
       })
 
-      const hayImei = imei1.trim() !== '' || imei2.trim() !== ''
+      const equiposConImei = equipos.filter((equipo) => equipo.imei1.trim() !== '' || equipo.imei2.trim() !== '')
+      const hayImei = equiposConImei.length > 0
       if (hayImei && activa !== null) {
         await api.registrarEquipos({
           productoId: producto.id,
           ubicacionId: activa.id,
-          equipos: [{
-            imei1: imei1.trim() === '' ? null : imei1.trim(),
-            imei2: imei2.trim() === '' ? null : imei2.trim(),
-            listaBlanca: registrado ? 'registered' : 'not_registered',
-            condicion: nuevo ? 'new' : 'used',
-          }],
+          equipos: equiposConImei.map((equipo) => ({
+            imei1: equipo.imei1.trim() === '' ? null : equipo.imei1.trim(),
+            imei2: equipo.imei2.trim() === '' ? null : equipo.imei2.trim(),
+            listaBlanca: equipo.listaBlanca,
+            condicion: equipo.condicion,
+          })),
         })
       }
 
@@ -167,18 +191,15 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       />
 
       <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
-        <div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
           <p className="font-semibold">Datos del equipo</p>
-          <p className="text-[0.8125rem] text-tinta-suave">Opcional. Se guarda como una unidad individual en {activa?.nombre ?? 'la ubicación que elijas después'}.</p>
+          <p className="text-[0.8125rem] text-tinta-suave">Cada IMEI es una unidad individual en {activa?.nombre ?? 'la ubicación que elijas después'}.</p>
+          </div>
+          <span className="cifras rounded-lg bg-superficie px-2 py-1 text-[0.75rem] font-semibold text-accion">{equipos.length}/50</span>
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
-          <CampoConEscaner etiqueta="IMEI 1" value={imei1} onChange={(valor) => setImei1(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei1')} inputMode="numeric" placeholder="Opcional" />
-          <CampoConEscaner etiqueta="IMEI 2" value={imei2} onChange={(valor) => setImei2(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei2')} inputMode="numeric" placeholder="Opcional" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <GrupoChecks etiqueta="Lista blanca" valor={registrado ? 'registered' : 'not_registered'} opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]} onChange={(valor) => setRegistrado(valor === 'registered')} />
-          <GrupoChecks etiqueta="Condición" valor={nuevo ? 'new' : 'used'} opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]} onChange={(valor) => setNuevo(valor === 'new')} />
-        </div>
+        {equipos.map((equipo, indice) => <fieldset key={equipo.id} className="flex flex-col gap-3 rounded-xl border border-accion/20 bg-superficie p-3"><div className="flex items-center justify-between gap-2"><legend className="text-[0.8125rem] font-semibold text-tinta">Equipo {indice + 1}</legend>{equipos.length > 1 && <button type="button" onClick={() => setEquipos((anteriores) => anteriores.filter((actual) => actual.id !== equipo.id))} aria-label={`Quitar equipo ${indice + 1}`} className="flex size-9 items-center justify-center rounded-lg text-falta active:bg-falta-tenue"><Trash2 aria-hidden="true" className="size-4" strokeWidth={2} /></button>}</div><div className="grid grid-cols-2 gap-2.5"><CampoConEscaner etiqueta="IMEI 1" value={equipo.imei1} onChange={(valor) => actualizarEquipo(equipo.id, { imei1: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)} inputMode="numeric" placeholder="Opcional" /><CampoConEscaner etiqueta="IMEI 2" value={equipo.imei2} onChange={(valor) => actualizarEquipo(equipo.id, { imei2: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)} inputMode="numeric" placeholder="Opcional" /></div><div className="grid grid-cols-2 gap-3"><GrupoChecks etiqueta="Lista blanca" valor={equipo.listaBlanca} opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { listaBlanca: valor })} /><GrupoChecks etiqueta="Condición" valor={equipo.condicion} opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { condicion: valor })} /></div></fieldset>)}
+        <button type="button" disabled={equipos.length >= 50} onClick={() => setEquipos((anteriores) => [...anteriores, equipoVacio()])} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-accion/45 bg-superficie px-3 text-[0.875rem] font-semibold text-accion active:bg-accion/10 disabled:opacity-40"><Plus aria-hidden="true" className="size-4" strokeWidth={2.3} />Agregar otro equipo</button>
       </section>
 
       <div className="flex items-center gap-3">
@@ -306,10 +327,11 @@ function CampoConEscaner({ etiqueta, value, onChange, onEscanear, error, ayuda, 
 }
 
 function GrupoChecks<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string, 'exito' | 'falta' | 'accion' | 'alerta'])[]; onChange: (valor: T) => void }) {
-  return <fieldset className="min-w-0"><legend className="mb-1.5 text-[0.75rem] font-semibold text-tinta-suave">{etiqueta}</legend><div className="grid grid-cols-1 gap-1.5">{opciones.map(([id, texto, tono]) => <OpcionCheck key={id} texto={texto} marcada={valor === id} tono={tono} onChange={() => onChange(id)} />)}</div></fieldset>
+  const nombre = useId()
+  return <fieldset className="min-w-0"><legend className="mb-1.5 text-[0.75rem] font-semibold text-tinta-suave">{etiqueta}</legend><div className="grid grid-cols-1 gap-1.5">{opciones.map(([id, texto, tono]) => <OpcionCheck key={id} nombre={nombre} texto={texto} marcada={valor === id} tono={tono} onChange={() => onChange(id)} />)}</div></fieldset>
 }
 
-function OpcionCheck({ texto, marcada, tono, onChange }: { texto: string; marcada: boolean; tono: 'exito' | 'falta' | 'accion' | 'alerta'; onChange: () => void }) {
+function OpcionCheck({ nombre, texto, marcada, tono, onChange }: { nombre: string; texto: string; marcada: boolean; tono: 'exito' | 'falta' | 'accion' | 'alerta'; onChange: () => void }) {
   const color = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : tono === 'falta' ? 'border-falta bg-falta-tenue text-falta' : tono === 'alerta' ? 'border-alerta bg-alerta-tenue text-alerta' : 'border-accion bg-accion-tenue text-accion'
-  return <label className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-[0.75rem] font-semibold transition ${marcada ? color : 'border-borde bg-superficie text-tinta-suave'}`}><input type="checkbox" className="sr-only" checked={marcada} onChange={onChange} /><span aria-hidden="true" className={`flex size-4 shrink-0 items-center justify-center rounded border ${marcada ? 'border-current bg-current text-white' : 'border-borde-fuerte'}`}>{marcada && <Check className="size-3" strokeWidth={3} />}</span>{texto}</label>
+  return <label className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-[0.75rem] font-semibold transition ${marcada ? color : 'border-borde bg-superficie text-tinta-suave'}`}><input type="radio" name={nombre} className="sr-only" checked={marcada} onChange={onChange} /><span aria-hidden="true" className={`flex size-4 shrink-0 items-center justify-center rounded-full border ${marcada ? 'border-current bg-current text-white' : 'border-borde-fuerte'}`}>{marcada && <Check className="size-3" strokeWidth={3} />}</span>{texto}</label>
 }
