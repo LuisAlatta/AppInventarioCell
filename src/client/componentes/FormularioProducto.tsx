@@ -11,12 +11,14 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
+import { useUbicacion } from '../contexto/Ubicacion'
 
 interface FormularioProductoProps {
   codigo: string
@@ -26,9 +28,16 @@ interface FormularioProductoProps {
 
 export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioProductoProps) {
   const avisos = useAvisos()
+  const { activa } = useUbicacion()
 
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
+  const [modelo, setModelo] = useState('')
+  const [categoriaId, setCategoriaId] = useState('')
+  const [imei1, setImei1] = useState('')
+  const [imei2, setImei2] = useState('')
+  const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>('not_registered')
+  const [condicion, setCondicion] = useState<'new' | 'used'>('new')
   const [precioVenta, setPrecioVenta] = useState('')
   const [precioCosto, setPrecioCosto] = useState('')
   const [foto, setFoto] = useState<{ archivo: Blob; vista: string } | null>(null)
@@ -36,6 +45,8 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
   const [enviando, setEnviando] = useState(false)
 
   const refArchivo = useRef<HTMLInputElement | null>(null)
+  const marcas = useQuery({ queryKey: ['marcas'], queryFn: api.marcas })
+  const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
 
   // Las URL de vista previa hay que liberarlas o se acumulan en memoria
   // durante una sesion de altas.
@@ -76,9 +87,25 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
         codigo,
         nombre: nombre.trim(),
         marca: marca.trim() === '' ? null : marca.trim(),
+        modelo: modelo.trim() === '' ? null : modelo.trim(),
+        categoriaId: categoriaId === '' ? null : categoriaId,
         precioVenta: aNumero(precioVenta),
         precioCosto: aNumero(precioCosto),
       })
+
+      const hayImei = imei1.trim() !== '' || imei2.trim() !== ''
+      if (hayImei && activa !== null) {
+        await api.registrarEquipos({
+          productoId: producto.id,
+          ubicacionId: activa.id,
+          equipos: [{
+            imei1: imei1.trim() === '' ? null : imei1.trim(),
+            imei2: imei2.trim() === '' ? null : imei2.trim(),
+            listaBlanca,
+            condicion,
+          }],
+        })
+      }
 
       // La foto se sube después de crear el producto porque necesita su id.
       // Si falla, el producto ya quedó guardado: se avisa pero no se pierde
@@ -94,6 +121,9 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
       }
 
       onCreado(conFoto)
+      if (hayImei && activa === null) {
+        avisos.información('Producto creado. Elige una ubicación para registrar sus IMEI.')
+      }
     } catch (causa) {
       if (causa instanceof ErrorDeApi) {
         setCampos(causa.campos ?? {})
@@ -170,12 +200,47 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
       />
 
       <CampoTexto
+        etiqueta="Modelo"
+        value={modelo}
+        onChange={(e) => setModelo(e.target.value)}
+        placeholder="Galaxy S25"
+        autoComplete="off"
+      />
+
+      <CampoTexto
         etiqueta="Marca"
         value={marca}
         onChange={(e) => setMarca(e.target.value)}
         placeholder="Samsung"
         autoComplete="off"
+        list="marcas-registradas"
       />
+      <datalist id="marcas-registradas">
+        {(marcas.data?.marcas ?? []).map((opcion) => <option key={opcion.id} value={opcion.nombre} />)}
+      </datalist>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[0.8125rem] font-semibold text-tinta-suave">Categoría</span>
+        <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="min-h-toque rounded-xl border border-borde bg-superficie px-3 text-[1rem]">
+          <option value="">Sin categoría</option>
+          {(categorias.data?.categorias ?? []).map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.nombre}</option>)}
+        </select>
+      </label>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
+        <div>
+          <p className="font-semibold">Datos del equipo</p>
+          <p className="text-[0.8125rem] text-tinta-suave">Opcional. Se guarda como una unidad individual en {activa?.nombre ?? 'la ubicación que elijas después'}.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <CampoTexto etiqueta="IMEI 1" value={imei1} onChange={(e) => setImei1(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="15 dígitos" />
+          <CampoTexto etiqueta="IMEI 2" value={imei2} onChange={(e) => setImei2(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="Opcional" />
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <SelectorVisual etiqueta="Lista blanca" opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]} valor={listaBlanca} onChange={setListaBlanca} tono="exito" />
+          <SelectorVisual etiqueta="Estado" opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]} valor={condicion} onChange={setCondicion} tono="alerta" />
+        </div>
+      </section>
 
       <div className="grid grid-cols-2 gap-3">
         <CampoTexto
@@ -184,7 +249,7 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
           onChange={(e) => setPrecioVenta(e.target.value)}
           inputMode="decimal"
           placeholder="0"
-          sufijo="$"
+          sufijo="S/"
         />
         <CampoTexto
           etiqueta="Costo"
@@ -192,7 +257,7 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
           onChange={(e) => setPrecioCosto(e.target.value)}
           inputMode="decimal"
           placeholder="0"
-          sufijo="$"
+          sufijo="S/"
           ayuda="Se usa para valuar mermas"
         />
       </div>
@@ -207,4 +272,17 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
       </div>
     </div>
   )
+}
+
+function SelectorVisual<T extends string>({
+  etiqueta, opciones, valor, onChange, tono,
+}: {
+  etiqueta: string
+  opciones: readonly (readonly [T, string])[]
+  valor: T
+  onChange: (valor: T) => void
+  tono: 'exito' | 'alerta'
+}) {
+  const activo = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : 'border-alerta bg-alerta-tenue text-alerta'
+  return <fieldset className="min-w-0"><legend className="mb-1.5 text-[0.75rem] font-semibold text-tinta-suave">{etiqueta}</legend><div className="flex flex-col gap-1">{opciones.map(([id, texto]) => <button key={id} type="button" aria-pressed={valor === id} onClick={() => onChange(id)} className={`min-h-9 rounded-lg border px-2 text-left text-[0.75rem] font-semibold ${valor === id ? activo : 'border-borde bg-superficie text-tinta-suave'}`}>{texto}</button>)}</div></fieldset>
 }

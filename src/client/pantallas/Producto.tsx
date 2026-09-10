@@ -16,6 +16,7 @@ import { Boton } from '../componentes/Boton'
 import { Esqueleto, ErrorEnPantalla, Etiqueta, Vacio } from '../componentes/Estados'
 import { DesgloseStock, Miniatura } from '../componentes/FichaProducto'
 import { HojaInferior } from '../componentes/HojaInferior'
+import { CampoTexto } from '../componentes/Campo'
 import { Marco } from '../componentes/Marco'
 import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
@@ -29,6 +30,7 @@ export function Producto() {
   const { activa } = useUbicacion()
 
   const [acciones, setAcciones] = useState(false)
+  const [altaEquipo, setAltaEquipo] = useState(false)
 
   const producto = useQuery({
     queryKey: ['producto', id],
@@ -39,6 +41,12 @@ export function Producto() {
   const movimientos = useQuery({
     queryKey: ['movimientos', id],
     queryFn: () => api.movimientosDeProducto(id),
+    enabled: id !== '',
+  })
+
+  const equipos = useQuery({
+    queryKey: ['equipos', id],
+    queryFn: () => api.equiposDeProducto(id),
     enabled: id !== '',
   })
 
@@ -125,6 +133,18 @@ export function Producto() {
         <section className="flex flex-col gap-2">
           <Etiqueta>Existencias</Etiqueta>
           <DesgloseStock producto={ficha} ubicacionActivaId={activa?.id} />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <Etiqueta>Equipos individuales</Etiqueta>
+            <button type="button" onClick={() => setAltaEquipo(true)} className="min-h-11 rounded-xl bg-accion-tenue px-3 text-[0.875rem] font-semibold text-accion">
+              + Registrar equipo
+            </button>
+          </div>
+          {equipos.isPending && <Esqueleto filas={2} />}
+          {equipos.isSuccess && equipos.data.equipos.length === 0 && <p className="rounded-xl bg-papel-hundido px-4 py-3 text-[0.875rem] text-tinta-tenue">Este modelo aún no tiene IMEI registrados.</p>}
+          {equipos.isSuccess && equipos.data.equipos.length > 0 && <ul className="flex flex-col gap-2">{equipos.data.equipos.map((equipo) => <li key={equipo.id} className="rounded-2xl border border-borde bg-superficie p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'}</p>{equipo.imei2 !== null && <p className="cifras mt-0.5 text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</p>}<p className="mt-1 text-[0.75rem] text-tinta-tenue" title={fechaLarga(equipo.creadoEn)}>Agregado {fechaLarga(equipo.creadoEn)}</p></div><div className="flex shrink-0 flex-col items-end gap-1"><span className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${equipo.listaBlanca === 'registered' ? 'bg-exito-tenue text-exito' : 'bg-falta-tenue text-falta'}`}>{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}</span><span className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${equipo.condicion === 'new' ? 'bg-accion-tenue text-accion' : 'bg-alerta-tenue text-alerta'}`}>{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span></div></div></li>)}</ul>}
         </section>
 
         {(ficha.precioVenta > 0 || ficha.precioCosto > 0) && (
@@ -230,6 +250,10 @@ export function Producto() {
         />
       </HojaInferior>
 
+      <HojaInferior abierta={altaEquipo} onCerrar={() => setAltaEquipo(false)} titulo={`Registrar equipo · ${ficha.nombre}`}>
+        <FormularioAltaEquipo productoId={ficha.id} productoNombre={ficha.nombre} onListo={() => { setAltaEquipo(false); void cliente.invalidateQueries({ queryKey: ['equipos', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos', id] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
+      </HojaInferior>
+
       {ficha.notas !== null && ficha.notas !== '' && (
         <p className="mt-4 rounded-xl bg-papel-hundido px-4 py-3 text-[0.9375rem] text-tinta-suave">
           {ficha.notas}
@@ -245,6 +269,31 @@ export function Producto() {
       </button>
     </Marco>
   )
+}
+
+function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { productoId: string; productoNombre: string; onListo: () => void }) {
+  const avisos = useAvisos()
+  const { activa } = useUbicacion()
+  const [imei1, setImei1] = useState('')
+  const [imei2, setImei2] = useState('')
+  const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>('not_registered')
+  const [condicion, setCondicion] = useState<'new' | 'used'>('new')
+  const [notas, setNotas] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const guardar = async (): Promise<void> => {
+    if (activa === null) { avisos.error('Elige una ubicación antes de registrar el equipo'); return }
+    setEnviando(true)
+    try {
+      await api.registrarEquipos({ productoId, ubicacionId: activa.id, equipos: [{ imei1: imei1 || null, imei2: imei2 || null, listaBlanca, condicion, notas: notas.trim() || null }] })
+      avisos.exito(`${productoNombre} registrado en ${activa.nombre}`)
+      onListo()
+    } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo registrar el equipo') } finally { setEnviando(false) }
+  }
+  return <div className="flex flex-col gap-4 pb-3"><p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.875rem] text-tinta-suave">Entrada de una unidad en <strong>{activa?.nombre ?? 'sin ubicación'}</strong>.</p><div className="grid grid-cols-2 gap-3"><CampoTexto etiqueta="IMEI 1" value={imei1} onChange={(e) => setImei1(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="15 dígitos" autoFocus /><CampoTexto etiqueta="IMEI 2" value={imei2} onChange={(e) => setImei2(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="Opcional" /></div><SelectorEquipo etiqueta="Lista blanca" valor={listaBlanca} opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]} onChange={setListaBlanca} /><SelectorEquipo etiqueta="Condición" valor={condicion} opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]} onChange={setCondicion} /><CampoTexto etiqueta="Nota u observación" value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Opcional" /><Boton ancho cargando={enviando} onClick={() => void guardar()}>Guardar equipo</Boton></div>
+}
+
+function SelectorEquipo<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string])[]; onChange: (valor: T) => void }) {
+  return <fieldset><legend className="mb-1.5 text-[0.8125rem] font-semibold text-tinta-suave">{etiqueta}</legend><div className="grid grid-cols-2 gap-2">{opciones.map(([id, texto]) => <button key={id} type="button" aria-pressed={valor === id} onClick={() => onChange(id)} className={`min-h-11 rounded-xl border px-3 text-[0.875rem] font-semibold ${valor === id ? 'border-accion bg-accion-tenue text-accion' : 'border-borde bg-superficie text-tinta-suave'}`}>{texto}</button>)}</div></fieldset>
 }
 
 function Dato({

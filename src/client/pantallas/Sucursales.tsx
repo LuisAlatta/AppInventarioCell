@@ -18,6 +18,7 @@ import { Boton } from '../componentes/Boton'
 import { CampoTexto } from '../componentes/Campo'
 import { Esqueleto, ErrorEnPantalla, Etiqueta } from '../componentes/Estados'
 import { HojaInferior } from '../componentes/HojaInferior'
+import { Confirmacion } from '../componentes/Confirmacion'
 import { Marco } from '../componentes/Marco'
 import { useAvisos } from '../contexto/Avisos'
 import { numero } from '../lib/formato'
@@ -25,12 +26,14 @@ import { liberarVista, prepararFoto } from '../lib/imagen'
 
 /** Iconos frecuentes en un negocio de este tipo. */
 const ICONOS = ['🏭', '🏬', '🏪', '🏢', '📦', '🛒', '🏠', '🚚'] as const
+const COLORES = ['#315DB8', '#0D8A62', '#C56B18', '#B13E55', '#7851A9', '#147B8C'] as const
 
 export function Sucursales() {
   const cliente = useQueryClient()
   const avisos = useAvisos()
 
   const [editando, setEditando] = useState<Ubicacion | 'nueva' | null>(null)
+  const [confirmando, setConfirmando] = useState<Ubicacion | null>(null)
 
   const lista = useQuery({
     queryKey: ['ubicaciones', 'todas'],
@@ -129,7 +132,7 @@ export function Sucursales() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => void desactivar(ubicacion)}
+                      onClick={() => setConfirmando(ubicacion)}
                       className="rounded-lg px-2.5 py-1.5 text-[0.875rem] font-medium text-tinta-tenue transition active:bg-papel-hundido"
                     >
                       {ubicacion.activa ? 'Desactivar' : 'Activar'}
@@ -164,6 +167,7 @@ export function Sucursales() {
           />
         )}
       </HojaInferior>
+      <Confirmacion abierta={confirmando !== null} titulo={`${confirmando?.activa ? '¿Desactivar' : '¿Activar'} ${confirmando?.nombre ?? 'ubicación'}?`} detalle={confirmando?.activa ? `Confirma el cambio de ${confirmando.nombre}. Si todavía tiene equipos o productos, la app te indicará qué mover antes.` : `Confirma que quieres volver a activar ${confirmando?.nombre ?? 'esta ubicación'}.`} confirmar={confirmando?.activa ? 'Desactivar' : 'Activar'} peligro={confirmando?.activa} onCancelar={() => setConfirmando(null)} onConfirmar={() => { if (confirmando !== null) void desactivar(confirmando); setConfirmando(null) }} />
     </Marco>
   )
 }
@@ -184,9 +188,11 @@ function FormularioUbicacion({
   const [icono, setIcono] = useState<string>(ubicacion?.icono ?? '🏬')
   const [direccion, setDireccion] = useState(ubicacion?.direccion ?? '')
   const [telefono, setTelefono] = useState(ubicacion?.telefono ?? '')
+  const [color, setColor] = useState(ubicacion?.color ?? '#315DB8')
   const [foto, setFoto] = useState<{ archivo: Blob; vista: string } | null>(null)
   const [campos, setCampos] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
 
   const refArchivo = useRef<HTMLInputElement | null>(null)
   const fotoActual = urlDeImagen(ubicacion?.claveImagen ?? null)
@@ -219,6 +225,7 @@ function FormularioUbicacion({
         icono,
         direccion: direccion.trim() === '' ? null : direccion.trim(),
         telefono: telefono.trim() === '' ? null : telefono.trim(),
+        color,
       }
 
       const id =
@@ -274,6 +281,11 @@ function FormularioUbicacion({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Etiqueta>Color identificador</Etiqueta>
+        <div className="flex flex-wrap gap-2">{COLORES.map((opcion) => <button key={opcion} type="button" aria-label={`Color ${opcion}`} aria-pressed={color === opcion} onClick={() => setColor(opcion)} className={`flex size-11 items-center justify-center rounded-xl border-2 ${color === opcion ? 'border-tinta scale-105' : 'border-transparent'}`} style={{ backgroundColor: opcion }}><span className="text-white">{color === opcion ? '✓' : ''}</span></button>)}</div>
       </div>
 
       <CampoTexto
@@ -362,10 +374,11 @@ function FormularioUbicacion({
         <Boton tono="contorno" onClick={onCancelar} disabled={enviando}>
           Cancelar
         </Boton>
-        <Boton cargando={enviando} onClick={() => void guardar()}>
+        <Boton cargando={enviando} onClick={() => setConfirmando(true)}>
           Guardar
         </Boton>
       </div>
+      <Confirmacion abierta={confirmando} titulo={`${ubicacion === null ? '¿Crear' : '¿Guardar cambios de'} ${nombre.trim() || 'esta ubicación'}?`} detalle={ubicacion === null ? `Se creará ${nombre.trim() || 'la nueva ubicación'} con los datos elegidos.` : `Confirma los cambios para ${nombre.trim() || ubicacion.nombre}.`} confirmar={ubicacion === null ? 'Crear ubicación' : 'Guardar cambios'} onCancelar={() => setConfirmando(false)} onConfirmar={() => { setConfirmando(false); void guardar() }} />
     </div>
   )
 }

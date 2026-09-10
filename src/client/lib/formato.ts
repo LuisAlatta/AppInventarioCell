@@ -6,19 +6,19 @@
  * "1,200.0" y "$1200.00" en la misma vista.
  */
 
-const MONEDA = new Intl.NumberFormat('es-MX', {
+const MONEDA = new Intl.NumberFormat('es-PE', {
   style: 'currency',
-  currency: 'MXN',
+  currency: 'PEN',
   maximumFractionDigits: 2,
 })
 
-const MONEDA_REDONDA = new Intl.NumberFormat('es-MX', {
+const MONEDA_REDONDA = new Intl.NumberFormat('es-PE', {
   style: 'currency',
-  currency: 'MXN',
+  currency: 'PEN',
   maximumFractionDigits: 0,
 })
 
-const ENTERO = new Intl.NumberFormat('es-MX')
+const ENTERO = new Intl.NumberFormat('es-PE')
 
 export function dinero(cantidad: number): string {
   return MONEDA.format(cantidad)

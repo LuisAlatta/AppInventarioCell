@@ -34,6 +34,7 @@ import {
   resumenStock,
 } from '../db/productos'
 import { movimientosDeProducto, movimientosRecientes } from '../db/movimientos'
+import { listarMarcas } from '../db/marcas'
 import { buscarProductos } from '../services/busqueda'
 import type { Variables } from '../tipos_hono'
 
@@ -86,6 +87,8 @@ rutasCatalogo.get('/categorias', async (c) =>
 rutasCatalogo.post('/categorias', zValidator('json', esquemaCategoria), async (c) =>
   c.json({ categoria: await crearCategoria(c.env.DB, c.req.valid('json')) }, 201),
 )
+
+rutasCatalogo.get('/marcas', async (c) => c.json({ marcas: await listarMarcas(c.env.DB) }))
 
 // ---------------------------------------------------------------------------
 // Productos

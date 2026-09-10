@@ -17,6 +17,7 @@ import type {
   RenglonConteo,
   Ubicacion,
   FiltroStock,
+  Marca,
   ResumenStock,
 } from '@compartido/tipos'
 
@@ -148,6 +149,8 @@ export const api = {
   crearCategoria: (nombre: string, icono?: string): Promise<{ categoria: Categoria }> =>
     pedir('/categorias', { metodo: 'POST', cuerpo: { nombre, icono } }),
 
+  marcas: (): Promise<{ marcas: Marca[] }> => pedir('/marcas'),
+
   // -------------------------------------------------------------------------
   // Productos
   // -------------------------------------------------------------------------
@@ -182,6 +185,22 @@ export const api = {
 
   movimientosDeProducto: (id: string): Promise<{ movimientos: Movimiento[] }> =>
     pedir(`/productos/${id}/movimientos`),
+
+  equiposDeProducto: (id: string, todos = false): Promise<{ equipos: import('@compartido/tipos').Equipo[] }> =>
+    pedir(`/equipos/producto/${id}${todos ? '?todos=1' : ''}`),
+
+  registrarEquipos: (datos: {
+    productoId: string
+    ubicacionId: string
+    equipos: {
+      imei1?: string | null
+      imei2?: string | null
+      listaBlanca?: 'registered' | 'not_registered'
+      condicion?: 'new' | 'used'
+      notas?: string | null
+    }[]
+  }): Promise<{ equipos: import('@compartido/tipos').Equipo[] }> =>
+    pedir('/equipos', { metodo: 'POST', cuerpo: datos }),
 
   // -------------------------------------------------------------------------
   // Panel de inicio

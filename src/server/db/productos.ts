@@ -9,6 +9,7 @@ import { noEncontrado } from '../lib/errores'
 import { aProducto, aStock, type FilaProducto, type FilaStock } from './mapeo'
 import { cantidadStock } from './filtro_stock'
 import type { ResumenStock } from '@compartido/tipos'
+import { sentenciaGuardarMarca } from './marcas'
 
 const COLUMNAS = `
   p.id, p.barcode, p.name, p.brand, p.model, p.category_id,
@@ -107,7 +108,7 @@ export async function unoConStock(db: D1Database, id: string): Promise<ProductoC
 export async function crearProducto(db: D1Database, datos: DatosProducto): Promise<Producto> {
   const id = nuevoId('prod')
 
-  await db
+  const producto = db
     .prepare(
       `INSERT INTO products
          (id, barcode, name, brand, model, category_id, unit,
@@ -127,7 +128,8 @@ export async function crearProducto(db: D1Database, datos: DatosProducto): Promi
       datos.stockMinimo,
       datos.notas ?? null,
     )
-    .run()
+  const marca = sentenciaGuardarMarca(db, datos.marca)
+  await db.batch(marca === null ? [producto] : [marca, producto])
 
   return exigirProducto(db, id)
 }
@@ -160,10 +162,9 @@ export async function actualizarProducto(
   if (asignaciones.length > 0) {
     agregar('updated_at', new Date().toISOString().replace('T', ' ').slice(0, 19))
     valores.push(id)
-    await db
-      .prepare(`UPDATE products SET ${asignaciones.join(', ')} WHERE id = ?`)
-      .bind(...valores)
-      .run()
+    const producto = db.prepare(`UPDATE products SET ${asignaciones.join(', ')} WHERE id = ?`).bind(...valores)
+    const marca = sentenciaGuardarMarca(db, datos.marca)
+    await db.batch(marca === null ? [producto] : [marca, producto])
   }
 
   return exigirProducto(db, id)
