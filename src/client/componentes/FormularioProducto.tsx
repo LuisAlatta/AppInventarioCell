@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { PackageCheck, Plus, ScanLine, Search, Trash2 } from 'lucide-react'
+import { ChevronDown, PackageCheck, Plus, ScanLine, Search, Trash2 } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -59,7 +59,6 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [mostrarModelos, setMostrarModelos] = useState(false)
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
-  const [modelo, setModelo] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
   const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>([equipoVacio()])
   const [precioVenta, setPrecioVenta] = useState('')
@@ -171,7 +170,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         codigo: codigo.trim(),
         nombre: nombre.trim(),
         marca: marca.trim() === '' ? null : marca.trim(),
-        modelo: modelo.trim() === '' ? null : modelo.trim(),
+        modelo: null,
         categoriaId: categoriaId === '' ? null : categoriaId,
         precioVenta: aNumero(precioVenta),
         precioCosto: aNumero(precioCosto),
@@ -327,41 +326,35 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       </div>
 
       <CampoTexto
-        etiqueta="Nombre"
+        etiqueta="Modelo"
         value={nombre}
         error={campos.nombre}
         onChange={(e) => setNombre(e.target.value)}
-        placeholder="Audífonos Bluetooth"
+        placeholder="iPhone 15 Pro 128 GB"
         autoFocus
         autoComplete="off"
       />
 
-      <CampoTexto
-        etiqueta="Modelo"
-        value={modelo}
-        onChange={(e) => setModelo(e.target.value)}
-        placeholder="Galaxy S25"
-        autoComplete="off"
-      />
-
-      <CampoTexto
-        etiqueta="Marca"
-        value={marca}
-        onChange={(e) => setMarca(e.target.value)}
-        placeholder="Samsung"
-        autoComplete="off"
-        list="marcas-registradas"
-      />
-      <datalist id="marcas-registradas">
-        {(marcas.data?.marcas ?? []).map((opcion) => <option key={opcion.id} value={opcion.nombre} />)}
-      </datalist>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[0.8125rem] font-semibold text-tinta-suave">Marca</span>
+        <div className="relative">
+          <select value={marca} onChange={(e) => setMarca(e.target.value)} className="min-h-toque w-full appearance-none rounded-xl border border-borde bg-superficie py-3 pl-3 pr-12 text-[1rem] text-tinta transition-colors focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15">
+            <option value="">Sin marca</option>
+            {(marcas.data?.marcas ?? []).map((opcion) => <option key={opcion.id} value={opcion.nombre}>{opcion.nombre}</option>)}
+          </select>
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-lg border-l border-borde bg-papel-hundido text-accion"><ChevronDown className="size-5" strokeWidth={2.25} /></span>
+        </div>
+      </label>
 
       <label className="flex flex-col gap-1.5">
         <span className="text-[0.8125rem] font-semibold text-tinta-suave">Categoría</span>
-        <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="min-h-toque rounded-xl border border-borde bg-superficie px-3 text-[1rem]">
-          <option value="">Sin categoría</option>
-          {(categorias.data?.categorias ?? []).map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.nombre}</option>)}
-        </select>
+        <div className="relative">
+          <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="min-h-toque w-full appearance-none rounded-xl border border-borde bg-superficie py-3 pl-3 pr-12 text-[1rem] text-tinta transition-colors focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15">
+            <option value="">Sin categoría</option>
+            {(categorias.data?.categorias ?? []).map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.nombre}</option>)}
+          </select>
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-lg border-l border-borde bg-papel-hundido text-accion"><ChevronDown className="size-5" strokeWidth={2.25} /></span>
+        </div>
       </label>
 
       <div className="grid grid-cols-2 gap-3">
