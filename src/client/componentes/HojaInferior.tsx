@@ -61,7 +61,7 @@ export function HojaInferior({ abierta, onCerrar, titulo, children }: HojaInferi
   if (!abierta) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden">
       <button
         type="button"
         aria-label="Cerrar"
@@ -77,7 +77,7 @@ export function HojaInferior({ abierta, onCerrar, titulo, children }: HojaInferi
         tabIndex={-1}
         aria-modal="true"
         aria-label={titulo ?? 'Opciones'}
-        className="animar-aviso relative flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-3xl bg-superficie shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.35)]"
+        className="animar-aviso relative flex max-h-[calc(100dvh-0.5rem)] w-full max-w-lg flex-col rounded-t-3xl bg-superficie shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.35)]"
       >
         {/* Asa visual: indica que la hoja se puede cerrar. */}
         <div className="flex shrink-0 justify-center pt-3 pb-1">

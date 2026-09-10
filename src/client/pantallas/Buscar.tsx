@@ -17,8 +17,8 @@ import { ErrorEnPantalla, Esqueleto, Vacio } from '../componentes/Estados'
 import { Miniatura, RenglonProducto } from '../componentes/FichaProducto'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
-import type { FiltroStock, ProductoConStock } from '@compartido/tipos'
-import { guardarBusquedas, guardarVistaBusqueda, leerBusquedas, leerVistaBusqueda, recordarBusqueda, type PreferenciasVistaBusqueda } from '../lib/inventario'
+import type { ProductoConStock } from '@compartido/tipos'
+import { guardarBusquedas, guardarOrdenFiltrosEquipo, guardarVistaBusqueda, leerBusquedas, leerOrdenFiltrosEquipo, leerVistaBusqueda, recordarBusqueda, type FiltroEquipoRapido, type PreferenciasVistaBusqueda } from '../lib/inventario'
 
 /** Espera antes de consultar. Corto para que se sienta inmediato. */
 const MS_ESPERA = 120
@@ -28,14 +28,13 @@ export function Buscar() {
   const { activa } = useUbicacion()
   const [parametros, setParametros] = useSearchParams()
   const q = parametros.get('q') ?? ''
-  const valorFiltro = parametros.get('filtro')
-  const filtro: FiltroStock = valorFiltro === 'bajo' || valorFiltro === 'agotados' || valorFiltro === 'disponibles' ? valorFiltro : 'todos'
   const valorListaBlanca = parametros.get('listaBlanca')
   const listaBlanca: 'registered' | 'not_registered' | undefined = valorListaBlanca === 'registered' || valorListaBlanca === 'not_registered' ? valorListaBlanca : undefined
   const valorCondicion = parametros.get('condicion')
   const condicion: 'new' | 'used' | undefined = valorCondicion === 'new' || valorCondicion === 'used' ? valorCondicion : undefined
   const [recientes, setRecientes] = useState(leerBusquedas)
   const [vista, setVista] = useState<PreferenciasVistaBusqueda>(leerVistaBusqueda)
+  const [ordenFiltros, setOrdenFiltros] = useState<FiltroEquipoRapido[]>(leerOrdenFiltrosEquipo)
   const [opcionesVista, setOpcionesVista] = useState(false)
 
   const [texto, setTexto] = useState(q)
@@ -62,14 +61,25 @@ export function Buscar() {
   }, [texto, q, setParametros])
 
   const resultados = useQuery({
-    queryKey: ['buscar', consulta, activa?.id, filtro, listaBlanca, condicion],
-    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: activa?.id, filtro, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined }),
+    queryKey: ['buscar', consulta, activa?.id, listaBlanca, condicion],
+    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: activa?.id, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined }),
     // Conserva la lista anterior mientras llega la nueva, para que no parpadee.
-    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === activa?.id && anterior.queryKey[3] === filtro && anterior.queryKey[4] === listaBlanca && anterior.queryKey[5] === condicion ? keepPreviousData(previas) : undefined,
+    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === activa?.id && anterior.queryKey[3] === listaBlanca && anterior.queryKey[4] === condicion ? keepPreviousData(previas) : undefined,
   })
 
   const productos = resultados.data?.productos ?? []
   const buscando = consulta.trim().length > 0
+  const hayFiltros = listaBlanca !== undefined || condicion !== undefined
+  const usarFiltro = (filtroRapido: FiltroEquipoRapido): void => {
+    const nuevoOrden = [filtroRapido, ...ordenFiltros.filter((actual) => actual !== filtroRapido)]
+    setOrdenFiltros(nuevoOrden)
+    guardarOrdenFiltrosEquipo(nuevoOrden)
+    if (filtroRapido === 'registered' || filtroRapido === 'not_registered') {
+      cambiarFiltro(setParametros, 'listaBlanca', listaBlanca === filtroRapido ? null : filtroRapido)
+    } else {
+      cambiarFiltro(setParametros, 'condicion', condicion === filtroRapido ? null : filtroRapido)
+    }
+  }
 
   return (
     <Marco titulo="Buscar" atras>
@@ -130,22 +140,10 @@ export function Buscar() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2" aria-label="Filtrar por existencias">
-          {([['todos', 'Todos'], ['disponibles', 'Disponibles'], ['agotados', 'Agotados'], ['bajo', 'Stock bajo']] as const).map(([valor, nombre]) => (
-            <button key={valor} type="button" aria-pressed={filtro === valor}
-              onClick={() => setParametros(previos => { const nuevos = new URLSearchParams(previos); nuevos.set('filtro', valor); return nuevos }, { replace: true })}
-              className={`min-h-11 rounded-xl border px-3 text-[0.875rem] font-semibold transition ${filtro === valor ? 'border-accion bg-accion-tenue text-accion' : 'border-borde bg-superficie text-tinta-suave'}`}>
-              {nombre}
-            </button>
-          ))}
+        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filtros rápidos de equipos">
+          {ordenFiltros.map((filtroRapido) => <FiltroRapido key={filtroRapido} activo={filtroRapido === listaBlanca || filtroRapido === condicion} texto={NOMBRE_FILTRO[filtroRapido]} onClick={() => usarFiltro(filtroRapido)} tono={TONO_FILTRO[filtroRapido]} />)}
         </div>
-        <div className="grid grid-cols-2 gap-2" aria-label="Filtrar equipos">
-          <FiltroRapido activo={listaBlanca === 'registered'} texto="✓ Registrados" onClick={() => cambiarFiltro(setParametros, 'listaBlanca', listaBlanca === 'registered' ? null : 'registered')} tono="exito" />
-          <FiltroRapido activo={listaBlanca === 'not_registered'} texto="! No registrados" onClick={() => cambiarFiltro(setParametros, 'listaBlanca', listaBlanca === 'not_registered' ? null : 'not_registered')} tono="falta" />
-          <FiltroRapido activo={condicion === 'new'} texto="✦ Nuevos" onClick={() => cambiarFiltro(setParametros, 'condicion', condicion === 'new' ? null : 'new')} tono="accion" />
-          <FiltroRapido activo={condicion === 'used'} texto="↺ Segunda mano" onClick={() => cambiarFiltro(setParametros, 'condicion', condicion === 'used' ? null : 'used')} tono="alerta" />
-        </div>
-        <p className="text-[0.8125rem] text-tinta-suave">Existencias en {activa?.nombre ?? 'todas las ubicaciones'}. Stock bajo: quedan piezas por debajo del mínimo.</p>
+        <p className="text-[0.8125rem] text-tinta-suave">Mostrando existencias en {activa?.nombre ?? 'todas las ubicaciones'}.</p>
 
         {!texto && recientes.length > 0 && (
           <section aria-label="Búsquedas recientes" className="flex flex-col gap-1">
@@ -170,19 +168,19 @@ export function Buscar() {
 
         {resultados.isSuccess && productos.length === 0 && (
           <Vacio
-            titulo={buscando ? 'Nada con esa búsqueda' : filtro !== 'todos' ? 'No hay productos con este filtro' : 'Todavía no hay productos'}
+            titulo={buscando ? 'Nada con esa búsqueda' : hayFiltros ? 'No hay equipos con estos filtros' : 'Todavía no hay productos'}
             detalle={
-              filtro !== 'todos' ? 'Prueba con Todos o cambia la ubicación de arriba.' : buscando
+              hayFiltros ? 'Quita un filtro o cambia la ubicación de arriba.' : buscando
                 ? 'Prueba con menos palabras, o escanea el codigo del producto.'
                 : 'Escanea el codigo de un producto para darlo de alta.'
             }
-            accion={filtro !== 'todos' ? { texto: 'Ver todos', onClick: () => setParametros({ q: texto }, { replace: true }) } : { texto: 'Escanear un código', onClick: () => navegar('/escanear') }}
+            accion={hayFiltros ? { texto: 'Quitar filtros', onClick: () => setParametros({ q: texto }, { replace: true }) } : { texto: 'Escanear un código', onClick: () => navegar('/escanear') }}
           />
         )}
 
         {productos.length > 0 && (
           <>
-            {!buscando && filtro === 'todos' && (
+            {!buscando && !hayFiltros && (
               <p className="px-1 text-etiqueta text-tinta-tenue uppercase">Últimos productos</p>
             )}
 
@@ -200,7 +198,10 @@ function cambiarFiltro(setParametros: ReturnType<typeof useSearchParams>[1], cla
 
 function abrirProducto(id: string, pendiente: boolean, texto: string, consulta: string, recientes: string[], navegar: ReturnType<typeof useNavigate>, setRecientes: (v: string[]) => void) { if (pendiente || texto !== consulta) return; const nuevas = recordarBusqueda(recientes, consulta); guardarBusquedas(nuevas); setRecientes(nuevas); navegar(`/producto/${id}`) }
 
-function FiltroRapido({ activo, texto, onClick, tono }: { activo: boolean; texto: string; onClick: () => void; tono: 'exito' | 'falta' | 'accion' | 'alerta' }) { const activoClase = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : tono === 'falta' ? 'border-falta bg-falta-tenue text-falta' : tono === 'alerta' ? 'border-alerta bg-alerta-tenue text-alerta' : 'border-accion bg-accion-tenue text-accion'; return <button type="button" aria-pressed={activo} onClick={onClick} className={`min-h-11 rounded-xl border px-2 text-[0.8125rem] font-semibold transition ${activo ? activoClase : 'border-borde bg-superficie text-tinta-suave'}`}>{texto}</button> }
+const NOMBRE_FILTRO: Record<FiltroEquipoRapido, string> = { registered: '✓ Registrados', not_registered: '! No registrados', new: '✦ Nuevos', used: '↺ Segunda mano' }
+const TONO_FILTRO: Record<FiltroEquipoRapido, 'exito' | 'falta' | 'accion' | 'alerta'> = { registered: 'exito', not_registered: 'falta', new: 'accion', used: 'alerta' }
+
+function FiltroRapido({ activo, texto, onClick, tono }: { activo: boolean; texto: string; onClick: () => void; tono: 'exito' | 'falta' | 'accion' | 'alerta' }) { const activoClase = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : tono === 'falta' ? 'border-falta bg-falta-tenue text-falta' : tono === 'alerta' ? 'border-alerta bg-alerta-tenue text-alerta' : 'border-accion bg-accion-tenue text-accion'; return <button type="button" aria-pressed={activo} onClick={onClick} className={`min-h-11 shrink-0 rounded-xl border px-3 text-[0.8125rem] font-semibold transition ${activo ? activoClase : 'border-borde bg-superficie text-tinta-suave'}`}>{texto}</button> }
 
 function ControlesVista({ vista, onChange }: { vista: PreferenciasVistaBusqueda; onChange: (vista: PreferenciasVistaBusqueda) => void }) { return <div className="rounded-2xl border border-borde bg-superficie p-3"><div className="grid grid-cols-2 gap-2"><FiltroRapido activo={vista.modo === 'lista'} texto="☰ Lista" onClick={() => onChange({ ...vista, modo: 'lista' })} tono="accion" /><FiltroRapido activo={vista.modo === 'cuadricula'} texto="▦ Cuadrícula" onClick={() => onChange({ ...vista, modo: 'cuadricula' })} tono="accion" /></div>{vista.modo === 'cuadricula' && <><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Columnas</p><div className="mt-1 grid grid-cols-3 gap-2">{([1, 2, 3] as const).map((columnas) => <FiltroRapido key={columnas} activo={vista.columnas === columnas} texto={`${columnas}`} onClick={() => onChange({ ...vista, columnas })} tono="accion" />)}</div><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Tamaño de imagen</p><div className="mt-1 grid grid-cols-3 gap-2">{(['pequena', 'mediana', 'grande'] as const).map((imagen) => <FiltroRapido key={imagen} activo={vista.imagen === imagen} texto={imagen === 'pequena' ? 'Pequeña' : imagen === 'mediana' ? 'Mediana' : 'Grande'} onClick={() => onChange({ ...vista, imagen })} tono="accion" />)}</div></>}</div> }
 

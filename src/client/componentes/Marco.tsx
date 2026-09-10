@@ -24,17 +24,19 @@ interface MarcoProps {
 
 export function Marco({ titulo, atras = false, sinUbicacion = false, accion, children }: MarcoProps) {
   const navegar = useNavigate()
+  const { activa } = useUbicacion()
+  const color = activa?.color
 
   return (
     <div className="flex min-h-dvh flex-col bg-papel">
-      <header className="area-segura-arriba sticky top-0 z-40 border-b border-borde bg-papel/90 backdrop-blur-md">
+      <header style={color === undefined ? undefined : { backgroundColor: color }} className={`area-segura-arriba sticky top-0 z-40 border-b backdrop-blur-md ${color === undefined ? 'border-borde bg-papel/90' : 'border-white/20 text-white'}`}>
         <div className="mx-auto flex w-full max-w-lg items-center gap-2 px-3 pb-2">
           {atras && (
             <button
               type="button"
               aria-label="Volver"
               onClick={() => navegar(-1)}
-              className="-ml-1 flex size-11 shrink-0 items-center justify-center rounded-xl text-tinta transition active:bg-papel-hundido"
+              className={`-ml-1 flex size-11 shrink-0 items-center justify-center rounded-xl transition ${color === undefined ? 'text-tinta active:bg-papel-hundido' : 'text-white active:bg-white/15'}`}
             >
               <svg viewBox="0 0 24 24" className="size-6" aria-hidden="true" fill="none">
                 <path
@@ -57,7 +59,7 @@ export function Marco({ titulo, atras = false, sinUbicacion = false, accion, chi
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-lg flex-1 px-3 pt-3 pb-28">{children}</main>
+      <main className="mx-auto w-full max-w-lg flex-1 px-3 pt-3 pb-32">{children}</main>
     </div>
   )
 }

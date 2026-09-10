@@ -14,6 +14,7 @@ import { Girador } from './componentes/Boton'
 import { ErrorEnPantalla } from './componentes/Estados'
 import { ProveedorAvisos } from './contexto/Avisos'
 import { ProveedorUbicacion } from './contexto/Ubicacion'
+import { NavegacionInferior } from './componentes/NavegacionInferior'
 import { Acceso } from './pantallas/Acceso'
 import { Ajustes } from './pantallas/Ajustes'
 import { Buscar } from './pantallas/Buscar'
@@ -174,6 +175,7 @@ function Aplicacion() {
           <Route path="/ajustes" element={<Ajustes />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <NavegacionInferior />
       </Suspense>
     </ProveedorUbicacion>
   )
