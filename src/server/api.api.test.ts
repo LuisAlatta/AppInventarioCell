@@ -583,6 +583,64 @@ describe('prioridades por sucursal', () => {
   })
 })
 
+describe('filtros cruzados de equipos', () => {
+  test('combina estado, condición y local usando solo las unidades que existen allí', async () => {
+    const cookie = await entrar()
+    const { almacenId, sucursalId, productoId } = await escenario(cookie)
+
+    const altaAlmacen = await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [
+          { imei1: '356000000000021', listaBlanca: 'registered', condicion: 'used' },
+          { imei1: '356000000000022', listaBlanca: 'not_registered', condicion: 'new' },
+          { imei1: '356000000000023', listaBlanca: 'not_registered', condicion: 'used' },
+        ],
+      },
+    })
+    expect(altaAlmacen.status).toBe(201)
+
+    const altaTienda = await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: sucursalId,
+        equipos: [{ imei1: '356000000000024', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    })
+    expect(altaTienda.status).toBe(201)
+
+    const buscar = async (
+      ubicacionId: string,
+      filtro: 'todos' | 'disponibles',
+      listaBlanca: 'registered' | 'not_registered',
+      condicion: 'new' | 'used',
+    ): Promise<string[]> => {
+      const parametros = new URLSearchParams({ ubicacionId, filtro, listaBlanca, condicion, limite: '50' })
+      const respuesta = await conSesion(cookie, `/api/productos?${parametros}`)
+      expect(respuesta.status).toBe(200)
+      const { productos } = await json<{ productos: { id: string }[] }>(respuesta)
+      return productos.map((producto) => producto.id)
+    }
+
+    const combinaciones = [
+      { listaBlanca: 'registered' as const, condicion: 'new' as const, enAlmacen: false },
+      { listaBlanca: 'registered' as const, condicion: 'used' as const, enAlmacen: true },
+      { listaBlanca: 'not_registered' as const, condicion: 'new' as const, enAlmacen: true },
+      { listaBlanca: 'not_registered' as const, condicion: 'used' as const, enAlmacen: true },
+    ]
+
+    for (const combinacion of combinaciones) {
+      expect(await buscar(almacenId, 'todos', combinacion.listaBlanca, combinacion.condicion))
+        .toEqual(combinacion.enAlmacen ? [productoId] : [])
+      expect(await buscar(sucursalId, 'disponibles', combinacion.listaBlanca, combinacion.condicion))
+        .toEqual(combinacion.enAlmacen ? [] : [productoId])
+    }
+  })
+})
+
 describe('equipos por IMEI', () => {
   test('registra IMEI únicos con su fecha de alta exacta', async () => {
     const cookie = await entrar()
