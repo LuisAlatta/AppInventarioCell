@@ -87,6 +87,7 @@ export interface Movimiento {
   tipo: TipoMovimiento
   productoId: string
   productoNombre: string
+  claveImagenProducto: string | null
   equipoId: string | null
   cantidad: number
   ubicacionOrigenId: string | null

@@ -69,6 +69,7 @@ export interface FilaMovimiento {
   type: string
   product_id: string
   product_name: string
+  product_image_key: string | null
   device_id: string | null
   qty: number
   from_location_id: string | null
@@ -148,6 +149,7 @@ export function aMovimiento(f: FilaMovimiento): Movimiento {
     tipo: f.type as TipoMovimiento,
     productoId: f.product_id,
     productoNombre: f.product_name,
+    claveImagenProducto: f.product_image_key,
     equipoId: f.device_id,
     cantidad: f.qty,
     ubicacionOrigenId: f.from_location_id,

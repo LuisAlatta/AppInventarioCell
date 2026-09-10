@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/cliente'
 import { BotonAccion } from '../componentes/Boton'
 import { Esqueleto, ErrorEnPantalla, Etiqueta } from '../componentes/Estados'
+import { Miniatura } from '../componentes/FichaProducto'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { NOMBRE_MOVIMIENTO, cuandoFue, numero } from '../lib/formato'
@@ -99,6 +100,7 @@ export function Inicio() {
               {inicio.data.recientes.slice(0, 8).map((movimiento) => (
                 <li key={movimiento.id}>
                 <button type="button" onClick={() => navegar(`/producto/${movimiento.productoId}`)} className="flex w-full items-center gap-3 px-3.5 py-3 text-left">
+                  <Miniatura nombre={movimiento.productoNombre} claveImagen={movimiento.claveImagenProducto} />
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <p className="truncate text-[0.9375rem] font-medium">
                       {movimiento.productoNombre}
