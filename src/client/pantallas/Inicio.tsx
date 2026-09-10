@@ -35,7 +35,7 @@ export function Inicio() {
           type="button"
           aria-label="Ajustes"
           onClick={() => navegar('/ajustes')}
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl text-tinta-suave transition active:bg-papel-hundido"
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl text-white transition active:bg-white/15"
         >
           {/* Controles deslizantes, no un engrane: el engrane dibujado a este
               tamano se confunde con un sol. */}
