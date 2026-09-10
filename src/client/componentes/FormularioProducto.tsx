@@ -69,6 +69,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const refArchivo = useRef<HTMLInputElement | null>(null)
   const marcas = useQuery({ queryKey: ['marcas'], queryFn: api.marcas })
   const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
+  const modelosExistentes = useQuery({ queryKey: ['modelos-existentes'], queryFn: () => api.buscar('') })
 
   useEffect(() => {
     if (lectura === null) return
@@ -86,7 +87,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       return undefined
     }
 
-    setProductoExistente(null)
+    setProductoExistente((actual) => actual?.codigo === codigoLimpio ? actual : null)
     let vigente = true
     const temporizador = window.setTimeout(() => {
       void api.porCodigo(codigoLimpio)
@@ -214,6 +215,28 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         placeholder="Escanea o escribe el código"
         ayuda="El escaneo completa este campo automáticamente."
       />
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[0.8125rem] font-semibold text-tinta-suave">O agrega equipos a un modelo existente</span>
+        <select
+          value={productoExistente?.id ?? ''}
+          onChange={(evento) => {
+            const producto = (modelosExistentes.data?.productos ?? []).find((actual) => actual.id === evento.target.value)
+            if (producto === undefined) {
+              setProductoExistente(null)
+              setCodigo('')
+              return
+            }
+            setProductoExistente(producto)
+            setCodigo(producto.codigo)
+          }}
+          className="min-h-toque rounded-xl border border-borde bg-superficie px-3 text-[1rem] text-tinta focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15"
+        >
+          <option value="">Selecciona un modelo registrado</option>
+          {(modelosExistentes.data?.productos ?? []).map((producto) => <option key={producto.id} value={producto.id}>{[producto.nombre, producto.marca, producto.modelo].filter(Boolean).join(' · ')}</option>)}
+        </select>
+        <span className="text-[0.75rem] text-tinta-tenue">Seleccionarlo evita crear un producto duplicado.</span>
+      </label>
 
       {productoExistente !== null && <section className="flex items-center gap-3 rounded-2xl border border-exito/30 bg-exito-tenue p-3.5"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-exito text-white"><PackageCheck aria-hidden="true" className="size-5" strokeWidth={2} /></span><div className="min-w-0"><p className="text-[0.875rem] font-semibold">Modelo encontrado: {productoExistente.nombre}</p><p className="truncate text-[0.75rem] text-tinta-suave">{[productoExistente.marca, productoExistente.modelo].filter(Boolean).join(' · ') || 'Agregarás equipos a este modelo existente.'}</p></div></section>}
 
