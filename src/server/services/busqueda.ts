@@ -36,6 +36,46 @@ const COLUMNAS = `
 
 const DESDE = 'FROM products p LEFT JOIN categories c ON c.id = p.category_id'
 
+/** Cuenta las unidades físicas que realmente hicieron aparecer cada modelo. */
+async function conConteoEquiposCoincidentes(
+  db: D1Database,
+  resultados: ResultadoBusqueda[],
+  opciones: FiltroInventario,
+): Promise<ResultadoBusqueda[]> {
+  if (resultados.length === 0 || (opciones.listaBlanca === undefined && opciones.condicion === undefined)) {
+    return resultados
+  }
+
+  const marcadores = resultados.map(() => '?').join(', ')
+  const condiciones = ['d.is_active = 1']
+  const valores: string[] = []
+  if (opciones.ubicacionId !== undefined) {
+    condiciones.push('d.location_id = ?')
+    valores.push(opciones.ubicacionId)
+  }
+  if (opciones.listaBlanca !== undefined) {
+    condiciones.push('d.whitelist_status = ?')
+    valores.push(opciones.listaBlanca)
+  }
+  if (opciones.condicion !== undefined) {
+    condiciones.push('d.condition = ?')
+    valores.push(opciones.condicion)
+  }
+
+  const { results } = await db
+    .prepare(`SELECT d.product_id, COUNT(*) AS total FROM devices d
+      WHERE d.product_id IN (${marcadores}) AND ${condiciones.join(' AND ')}
+      GROUP BY d.product_id`)
+    .bind(...resultados.map((producto) => producto.id), ...valores)
+    .all<{ product_id: string; total: number }>()
+  const conteos = new Map(results.map((fila) => [fila.product_id, fila.total]))
+
+  return resultados.map((producto) => ({
+    ...producto,
+    equiposCoincidentes: conteos.get(producto.id) ?? 0,
+  }))
+}
+
 /**
  * Un codigo de barras de fabrica son 8 digitos o mas, todos numeros.
  *
@@ -164,7 +204,7 @@ export async function buscarProductos(
   const texto = consulta.trim()
 
   if (texto === '') {
-    return (await recientes(db, limite, opciones)).map((p) => ({ ...p, coincidencia: 'texto' as const }))
+    return conConteoEquiposCoincidentes(db, (await recientes(db, limite, opciones)).map((p) => ({ ...p, coincidencia: 'texto' as const })), opciones)
   }
 
   if (pareceCodigo(texto)) {
@@ -175,7 +215,7 @@ export async function buscarProductos(
         .bind(producto.id, ...filtro.valores).first()
       if (permitido === null) return []
       const [conjunto] = await conStock(db, [producto])
-      if (conjunto !== undefined) return [{ ...conjunto, coincidencia: 'codigo' }]
+      if (conjunto !== undefined) return conConteoEquiposCoincidentes(db, [{ ...conjunto, coincidencia: 'codigo' }], opciones)
     }
     // Si el codigo no existe, se sigue con las demas pasadas: puede ser un
     // codigo escrito a medias o el numero de modelo del producto.
@@ -187,12 +227,12 @@ export async function buscarProductos(
   }))
 
   if (exactos.length >= RESULTADOS_SUFICIENTES || texto.length < LARGO_MINIMO_CONSULTA) {
-    return exactos
+    return conConteoEquiposCoincidentes(db, exactos, opciones)
   }
 
   const aproximados: ResultadoBusqueda[] = (
     await porAproximacion(db, texto, limite - exactos.length, new Set(exactos.map((p) => p.id)), opciones)
   ).map((p) => ({ ...p, coincidencia: 'aproximado' as const }))
 
-  return [...exactos, ...aproximados]
+  return conConteoEquiposCoincidentes(db, [...exactos, ...aproximados], opciones)
 }

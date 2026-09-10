@@ -19,7 +19,7 @@ import { Miniatura, RenglonProducto } from '../componentes/FichaProducto'
 import { IconoUbicacion } from '../componentes/IconoUbicacion'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
-import type { ProductoConStock } from '@compartido/tipos'
+import type { ResultadoBusqueda } from '@compartido/tipos'
 import { guardarBusquedas, guardarVistaBusqueda, leerBusquedas, leerVistaBusqueda, recordarBusqueda, type FiltroEquipoRapido, type PreferenciasVistaBusqueda } from '../lib/inventario'
 
 /** Espera antes de consultar. Corto para que se sienta inmediato. */
@@ -216,8 +216,9 @@ function FiltroLocal({ ubicacion, activo, onClick }: { ubicacion: ReturnType<typ
 
 function ControlesVista({ vista, onChange }: { vista: PreferenciasVistaBusqueda; onChange: (vista: PreferenciasVistaBusqueda) => void }) { return <div className="rounded-2xl border border-borde bg-superficie p-3"><div className="grid grid-cols-2 gap-2"><FiltroRapido activo={vista.modo === 'lista'} texto="Lista" icono={List} onClick={() => onChange({ ...vista, modo: 'lista' })} tono="accion" /><FiltroRapido activo={vista.modo === 'cuadricula'} texto="Cuadrícula" icono={Grid3X3} onClick={() => onChange({ ...vista, modo: 'cuadricula' })} tono="accion" /></div>{vista.modo === 'cuadricula' && <><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Columnas</p><div className="mt-1 grid grid-cols-3 gap-2">{([1, 2, 3] as const).map((columnas) => <FiltroRapido key={columnas} activo={vista.columnas === columnas} texto={`${columnas}`} onClick={() => onChange({ ...vista, columnas })} tono="accion" />)}</div><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Tamaño de imagen</p><div className="mt-1 grid grid-cols-3 gap-2">{(['pequena', 'mediana', 'grande'] as const).map((imagen) => <FiltroRapido key={imagen} activo={vista.imagen === imagen} texto={imagen === 'pequena' ? 'Pequeña' : imagen === 'mediana' ? 'Mediana' : 'Grande'} onClick={() => onChange({ ...vista, imagen })} tono="accion" />)}</div></>}</div> }
 
-function TarjetaBusqueda({ producto, imagen, ubicacionId, onClick }: { producto: ProductoConStock; imagen: PreferenciasVistaBusqueda['imagen']; ubicacionId?: string; onClick: () => void }) {
+function TarjetaBusqueda({ producto, imagen, ubicacionId, onClick }: { producto: ResultadoBusqueda; imagen: PreferenciasVistaBusqueda['imagen']; ubicacionId?: string; onClick: () => void }) {
   const cantidad = ubicacionId === undefined ? producto.stockTotal : producto.stock.find((fila) => fila.ubicacionId === ubicacionId)?.cantidad ?? 0
+  const cantidadVisible = producto.equiposCoincidentes ?? cantidad
   const tamano = imagen === 'pequena' ? 'pequena' : imagen === 'grande' ? 'grande' : 'normal'
 
   return <button type="button" onClick={onClick} className="flex h-[11.5rem] w-full flex-col overflow-hidden rounded-2xl border border-borde bg-superficie p-2.5 text-left transition active:scale-[0.98] active:bg-papel-hundido">
@@ -226,7 +227,7 @@ function TarjetaBusqueda({ producto, imagen, ubicacionId, onClick }: { producto:
     </div>
     <div className="mt-2 flex min-w-0 items-center gap-2">
       <p title={producto.nombre} className="min-w-0 flex-1 truncate text-[0.8125rem] leading-snug font-semibold">{producto.nombre}</p>
-      <p className="cifras shrink-0 text-[1.125rem] font-semibold leading-none text-accion">{cantidad}</p>
+      <p title={producto.equiposCoincidentes === undefined ? 'Existencias' : 'Equipos que coinciden con los filtros'} className="cifras shrink-0 text-[1.125rem] font-semibold leading-none text-accion">{cantidadVisible}</p>
     </div>
   </button>
 }

@@ -638,6 +638,18 @@ describe('filtros cruzados de equipos', () => {
       expect(await buscar(sucursalId, 'disponibles', combinacion.listaBlanca, combinacion.condicion))
         .toEqual(combinacion.enAlmacen ? [] : [productoId])
     }
+
+    const parametros = new URLSearchParams({
+      ubicacionId: almacenId,
+      filtro: 'todos',
+      listaBlanca: 'registered',
+      condicion: 'used',
+      limite: '50',
+    })
+    const respuesta = await json<{ productos: { equiposCoincidentes?: number }[] }>(
+      await conSesion(cookie, `/api/productos?${parametros}`),
+    )
+    expect(respuesta.productos[0]?.equiposCoincidentes).toBe(1)
   })
 })
 
