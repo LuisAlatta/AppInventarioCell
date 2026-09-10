@@ -21,13 +21,20 @@ export function Miniatura({
   nombre,
   claveImagen,
   tamano = 'normal',
+  forma = 'cuadrada',
 }: {
   nombre: string
   claveImagen: string | null
-  tamano?: 'normal' | 'grande'
+  tamano?: 'pequena' | 'normal' | 'grande'
+  forma?: 'cuadrada' | 'vertical'
 }) {
   const url = urlDeImagen(claveImagen)
-  const clases = tamano === 'grande' ? 'size-20 rounded-2xl' : 'size-12 rounded-xl'
+  const clases = forma === 'vertical'
+    ? tamano === 'pequena' ? 'h-20 w-14 rounded-xl' : tamano === 'grande' ? 'h-28 w-20 rounded-2xl' : 'h-24 w-16 rounded-2xl'
+    : tamano === 'grande' ? 'size-20 rounded-2xl' : tamano === 'pequena' ? 'size-9 rounded-lg' : 'size-12 rounded-xl'
+  const dimensiones = forma === 'vertical'
+    ? tamano === 'pequena' ? { ancho: 56, alto: 80 } : tamano === 'grande' ? { ancho: 80, alto: 112 } : { ancho: 64, alto: 96 }
+    : tamano === 'grande' ? { ancho: 80, alto: 80 } : tamano === 'pequena' ? { ancho: 36, alto: 36 } : { ancho: 48, alto: 48 }
 
   if (url !== null) {
     return (
@@ -37,8 +44,8 @@ export function Miniatura({
         loading="lazy"
         // Las medidas explicitas evitan que la lista salte cuando cargan las
         // fotos, que es lo que hace que se toque el producto equivocado.
-        width={tamano === 'grande' ? 80 : 48}
-        height={tamano === 'grande' ? 80 : 48}
+        width={dimensiones.ancho}
+        height={dimensiones.alto}
         className={`${clases} shrink-0 bg-papel-hundido object-cover`}
       />
     )
