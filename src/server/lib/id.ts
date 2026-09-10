@@ -10,7 +10,7 @@
 const ALFABETO = '0123456789abcdefghijklmnopqrstuvwxyz'
 const LARGO = 16
 
-export type Entidad = 'prod' | 'ubi' | 'cat' | 'mov' | 'cnt' | 'usr' | 'lote'
+export type Entidad = 'prod' | 'ubi' | 'cat' | 'mov' | 'cnt' | 'usr' | 'lote' | 'equ' | 'img' | 'mar'
 
 export function nuevoId(entidad: Entidad): string {
   const bytes = new Uint8Array(LARGO)

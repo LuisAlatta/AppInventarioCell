@@ -34,9 +34,13 @@ const TABLAS = [
   'movements',
   'count_items',
   'count_sessions',
+  'device_imeis',
+  'product_images',
+  'devices',
   'stock',
   'products',
   'categories',
+  'brands',
   'locations',
   'users',
 ] as const

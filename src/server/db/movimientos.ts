@@ -7,7 +7,7 @@ import { noEncontrado } from '../lib/errores'
 import { aMovimiento, type FilaMovimiento } from './mapeo'
 
 const COLUMNAS = `
-  m.id, m.type, m.product_id, p.name AS product_name, m.qty,
+  m.id, m.type, m.product_id, p.name AS product_name, m.device_id, m.qty,
   m.from_location_id, o.name AS from_location_name,
   m.to_location_id,   d.name AS to_location_name,
   m.unit_cost, m.note, m.batch_id, m.reverted_at, m.created_at

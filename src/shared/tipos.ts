@@ -42,6 +42,7 @@ export interface Ubicacion {
   direccion: string | null
   telefono: string | null
   orden: number
+  color: string
   activa: boolean
 }
 
@@ -86,6 +87,7 @@ export interface Movimiento {
   tipo: TipoMovimiento
   productoId: string
   productoNombre: string
+  equipoId: string | null
   cantidad: number
   ubicacionOrigenId: string | null
   ubicacionOrigenNombre: string | null
@@ -96,6 +98,37 @@ export interface Movimiento {
   loteId: string | null
   revertidoEn: string | null
   creadoEn: string
+}
+
+export type EstadoListaBlanca = 'registered' | 'not_registered'
+export type CondicionEquipo = 'new' | 'used'
+
+/** Una unidad fisica dentro de un producto/modelo de telefono. */
+export interface Equipo {
+  id: string
+  productoId: string
+  productoNombre: string
+  imei1: string | null
+  imei2: string | null
+  listaBlanca: EstadoListaBlanca
+  condicion: CondicionEquipo
+  ubicacionId: string
+  ubicacionNombre: string
+  notas: string | null
+  activo: boolean
+  creadoEn: string
+  actualizadoEn: string
+}
+
+export interface Marca {
+  id: string
+  nombre: string
+}
+
+export interface ImagenProducto {
+  id: string
+  clave: string
+  posicion: number
 }
 
 export interface SesionConteo {

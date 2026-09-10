@@ -583,6 +583,50 @@ describe('prioridades por sucursal', () => {
   })
 })
 
+describe('equipos por IMEI', () => {
+  test('registra IMEI únicos con su fecha de alta exacta', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+
+    const alta = await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [
+          {
+            imei1: '356000000000001',
+            imei2: '356000000000002',
+            condicion: 'new',
+            listaBlanca: 'registered',
+          },
+        ],
+      },
+    })
+
+    expect(alta.status).toBe(201)
+    const cuerpo = await json<{
+      equipos: { id: string; imei1: string | null; imei2: string | null; creadoEn: string }[]
+    }>(alta)
+    expect(cuerpo.equipos).toHaveLength(1)
+    expect(cuerpo.equipos[0]).toMatchObject({
+      imei1: '356000000000001',
+      imei2: '356000000000002',
+    })
+    expect(new Date(cuerpo.equipos[0]?.creadoEn ?? '').getTime()).not.toBeNaN()
+
+    const repetido = await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei2: '356000000000001' }],
+      },
+    })
+    expect(repetido.status).toBe(409)
+  })
+})
+
 describe('conteo fisico y mermas', () => {
   let cookie = ''
 

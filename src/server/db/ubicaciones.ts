@@ -13,7 +13,7 @@ import { noEncontrado } from '../lib/errores'
 import { aCategoria, aUbicacion, type FilaCategoria, type FilaUbicacion } from './mapeo'
 
 const COLUMNAS = `
-  id, name, type, icon, image_key, address, phone, sort_order, is_active
+  id, name, type, icon, image_key, address, phone, sort_order, color, is_active
 `
 
 export async function listarUbicaciones(db: D1Database, incluirInactivas = false): Promise<Ubicacion[]> {
@@ -46,8 +46,8 @@ export async function crearUbicacion(db: D1Database, datos: DatosUbicacion): Pro
 
   await db
     .prepare(
-      `INSERT INTO locations (id, name, type, icon, address, phone, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO locations (id, name, type, icon, address, phone, sort_order, color)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -57,6 +57,7 @@ export async function crearUbicacion(db: D1Database, datos: DatosUbicacion): Pro
       datos.direccion ?? null,
       datos.telefono ?? null,
       datos.orden ?? 0,
+      datos.color,
     )
     .run()
 
@@ -86,6 +87,7 @@ export async function actualizarUbicacion(
   if (datos.direccion !== undefined) agregar('address', datos.direccion ?? null)
   if (datos.telefono !== undefined) agregar('phone', datos.telefono ?? null)
   if (datos.orden !== undefined) agregar('sort_order', datos.orden)
+  if (datos.color !== undefined) agregar('color', datos.color)
   if (datos.activa !== undefined) agregar('is_active', datos.activa ? 1 : 0)
 
   if (asignaciones.length > 0) {

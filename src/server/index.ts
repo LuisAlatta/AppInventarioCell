@@ -16,6 +16,7 @@ import { rutasCatalogo } from './routes/catalogo'
 import { rutasConteos } from './routes/conteos'
 import { rutasImagenes } from './routes/imagenes'
 import { rutasMovimientos } from './routes/movimientos'
+import { rutasEquipos } from './routes/equipos'
 import type { Variables } from './tipos_hono'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -94,6 +95,7 @@ protegidas.use('*', exigirSesion)
 
 protegidas.route('/', rutasCatalogo)
 protegidas.route('/movimientos', rutasMovimientos)
+protegidas.route('/equipos', rutasEquipos)
 protegidas.route('/conteos', rutasConteos)
 protegidas.route('/imagenes', rutasImagenes)
 

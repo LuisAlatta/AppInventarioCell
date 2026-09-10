@@ -62,6 +62,7 @@ export const esquemaUbicacion = z.object({
   icono: textoCorto.nullish(),
   direccion: textoCorto.nullish(),
   telefono: textoCorto.nullish(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Elige un color válido').default('#315DB8'),
   orden: z.number().int().min(0).max(999).optional(),
 })
 
@@ -98,6 +99,36 @@ export const esquemaProducto = z.object({
 /** Al editar, el codigo de barras no se toca: identifica al producto fisico. */
 export const esquemaProductoParcial = esquemaProducto.omit({ codigo: true }).partial().extend({
   activo: z.boolean().optional(),
+})
+
+// ---------------------------------------------------------------------------
+// Equipos de telefonia
+// ---------------------------------------------------------------------------
+
+const imei = z
+  .string()
+  .trim()
+  .regex(/^\d{14,17}$/, 'El IMEI debe tener entre 14 y 17 dígitos')
+
+const imeiOpcional = imei.nullish().transform((valor) => valor ?? null)
+
+export const esquemaEquipo = z
+  .object({
+    imei1: imeiOpcional,
+    imei2: imeiOpcional,
+    listaBlanca: z.enum(['registered', 'not_registered']).default('not_registered'),
+    condicion: z.enum(['new', 'used']).default('new'),
+    notas: nota.nullish(),
+  })
+  .refine((equipo) => equipo.imei1 === null || equipo.imei2 === null || equipo.imei1 !== equipo.imei2, {
+    message: 'IMEI 1 e IMEI 2 deben ser distintos',
+    path: ['imei2'],
+  })
+
+export const esquemaAltaEquipos = z.object({
+  productoId: id,
+  ubicacionId: id,
+  equipos: z.array(esquemaEquipo).min(1, 'Agrega al menos un equipo').max(50, 'Demasiados equipos'),
 })
 
 // ---------------------------------------------------------------------------
@@ -208,6 +239,8 @@ export type DatosUbicacionParcial = z.infer<typeof esquemaUbicacionParcial>
 export type DatosCategoria = z.infer<typeof esquemaCategoria>
 export type DatosProducto = z.infer<typeof esquemaProducto>
 export type DatosProductoParcial = z.infer<typeof esquemaProductoParcial>
+export type DatosEquipo = z.infer<typeof esquemaEquipo>
+export type DatosAltaEquipos = z.infer<typeof esquemaAltaEquipos>
 export type DatosEntrada = z.infer<typeof esquemaEntrada>
 export type DatosVenta = z.infer<typeof esquemaVenta>
 export type DatosMerma = z.infer<typeof esquemaMerma>

@@ -14,6 +14,9 @@ import type {
   Movimiento,
   Producto,
   StockPorUbicacion,
+  CondicionEquipo,
+  Equipo,
+  EstadoListaBlanca,
   TipoMovimiento,
   TipoUbicacion,
   Ubicacion,
@@ -28,6 +31,7 @@ export interface FilaUbicacion {
   address: string | null
   phone: string | null
   sort_order: number
+  color: string
   is_active: number
 }
 
@@ -65,6 +69,7 @@ export interface FilaMovimiento {
   type: string
   product_id: string
   product_name: string
+  device_id: string | null
   qty: number
   from_location_id: string | null
   from_location_name: string | null
@@ -75,6 +80,22 @@ export interface FilaMovimiento {
   batch_id: string | null
   reverted_at: string | null
   created_at: string
+}
+
+export interface FilaEquipo {
+  id: string
+  product_id: string
+  product_name: string
+  imei1: string | null
+  imei2: string | null
+  whitelist_status: string
+  condition: string
+  location_id: string
+  location_name: string
+  notes: string | null
+  is_active: number
+  created_at: string
+  updated_at: string
 }
 
 const booleano = (n: number): boolean => n === 1
@@ -89,6 +110,7 @@ export function aUbicacion(f: FilaUbicacion): Ubicacion {
     direccion: f.address,
     telefono: f.phone,
     orden: f.sort_order,
+    color: f.color,
     activa: booleano(f.is_active),
   }
 }
@@ -126,6 +148,7 @@ export function aMovimiento(f: FilaMovimiento): Movimiento {
     tipo: f.type as TipoMovimiento,
     productoId: f.product_id,
     productoNombre: f.product_name,
+    equipoId: f.device_id,
     cantidad: f.qty,
     ubicacionOrigenId: f.from_location_id,
     ubicacionOrigenNombre: f.from_location_name,
@@ -136,6 +159,24 @@ export function aMovimiento(f: FilaMovimiento): Movimiento {
     loteId: f.batch_id,
     revertidoEn: f.reverted_at,
     creadoEn: f.created_at,
+  }
+}
+
+export function aEquipo(f: FilaEquipo): Equipo {
+  return {
+    id: f.id,
+    productoId: f.product_id,
+    productoNombre: f.product_name,
+    imei1: f.imei1,
+    imei2: f.imei2,
+    listaBlanca: f.whitelist_status as EstadoListaBlanca,
+    condicion: f.condition as CondicionEquipo,
+    ubicacionId: f.location_id,
+    ubicacionNombre: f.location_name,
+    notas: f.notes,
+    activo: booleano(f.is_active),
+    creadoEn: f.created_at,
+    actualizadoEn: f.updated_at,
   }
 }
 

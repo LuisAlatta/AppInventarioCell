@@ -103,6 +103,12 @@ export function comoErrorApp(e: unknown): ErrorApp {
         causa: e,
       })
     }
+    if (texto.includes('UNIQUE constraint failed: device_imeis.imei')) {
+      return new ErrorApp('conflicto', 'Ese IMEI ya está registrado en otro equipo', {
+        campos: { imei1: 'Este IMEI ya está registrado' },
+        causa: e,
+      })
+    }
     if (texto.includes('CHECK constraint failed') && texto.includes('qty')) {
       return new ErrorApp(
         'stock_insuficiente',
