@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { BadgeCheck, Grid3X3, List, RefreshCw, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react'
+import { BadgeCheck, Grid3X3, List, MapPin, RefreshCw, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react'
 import { api } from '../api/cliente'
 import { ErrorEnPantalla, Esqueleto, Vacio } from '../componentes/Estados'
 import { Miniatura, RenglonProducto } from '../componentes/FichaProducto'
@@ -73,6 +73,7 @@ export function Buscar() {
   const productos = resultados.data?.productos ?? []
   const buscando = consulta.trim().length > 0
   const hayFiltros = listaBlanca !== undefined || condicion !== undefined
+  const etiquetaResultados = resultados.isFetching || texto !== consulta ? 'Buscando…' : resultados.isSuccess ? `${productos.length}${productos.length === 50 ? ' primeros' : ''} resultados` : ''
   const usarFiltro = (filtroRapido: FiltroEquipoRapido): void => {
     const nuevoOrden = [filtroRapido, ...ordenFiltros.filter((actual) => actual !== filtroRapido)]
     setOrdenFiltros(nuevoOrden)
@@ -149,7 +150,11 @@ export function Buscar() {
         <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filtrar existencias por local">
           {ubicaciones.filter((ubicacion) => ubicacion.activa).map((ubicacion) => <FiltroLocal key={ubicacion.id} ubicacion={ubicacion} activo={ubicacion.id === ubicacionElegida?.id} onClick={() => cambiarFiltro(setParametros, 'ubicacion', ubicacion.id)} />)}
         </div>
-        <p className="text-[0.8125rem] text-tinta-suave">Mostrando existencias en {ubicacionElegida?.nombre ?? 'todas las ubicaciones'}.</p>
+        <div role="status" className="flex min-h-6 items-center gap-2 px-1 text-[0.75rem] text-tinta-suave">
+          <span className="flex min-w-0 flex-1 items-center gap-1 truncate" title={`Mostrando existencias en ${ubicacionElegida?.nombre ?? 'todas las ubicaciones'}`}><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{ubicacionElegida?.nombre ?? 'Todas las ubicaciones'}</span>
+          {etiquetaResultados !== '' && <span className="shrink-0">{etiquetaResultados}</span>}
+          {!buscando && !hayFiltros && <span className="shrink-0 text-etiqueta text-tinta-tenue uppercase">Últimos productos</span>}
+        </div>
 
         {!texto && recientes.length > 0 && (
           <section aria-label="Búsquedas recientes" className="flex flex-col gap-1">
@@ -161,8 +166,6 @@ export function Buscar() {
             ))}</div>
           </section>
         )}
-        <p role="status" className="text-[0.8125rem] text-tinta-suave">{resultados.isFetching || texto !== consulta ? 'Buscando…' : resultados.isSuccess ? `${productos.length}${productos.length === 50 ? ' primeros' : ''} resultados${productos.length === 50 ? '. Escribe para afinar la búsqueda.' : ''}` : ''}</p>
-
         {resultados.isError && (
           <ErrorEnPantalla
             mensaje="No se pudo buscar. Revisa la conexión."
@@ -186,10 +189,6 @@ export function Buscar() {
 
         {productos.length > 0 && (
           <>
-            {!buscando && !hayFiltros && (
-              <p className="px-1 text-etiqueta text-tinta-tenue uppercase">Últimos productos</p>
-            )}
-
             <div className="flex items-center justify-between px-1"><p className="text-etiqueta text-tinta-tenue uppercase">{vista.modo === 'lista' ? 'Lista' : `${vista.columnas} columnas`}</p><button type="button" aria-expanded={opcionesVista} onClick={() => setOpcionesVista(!opcionesVista)} className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-[0.8125rem] font-semibold text-accion active:bg-accion-tenue"><IconoVista /><span>Vista</span></button></div>
             {opcionesVista && <ControlesVista vista={vista} onChange={(nueva) => { setVista(nueva); guardarVistaBusqueda(nueva) }} />}
             {vista.modo === 'lista' ? <ul className={`flex flex-col gap-2 ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><RenglonProducto producto={producto} coincidencia={producto.coincidencia} ubicacionId={ubicacionElegida?.id} onClick={() => abrirProducto(producto.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul> : <ul className={`grid gap-2 ${vista.columnas === 1 ? 'grid-cols-1' : vista.columnas === 2 ? 'grid-cols-2' : 'grid-cols-3'} ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><TarjetaBusqueda producto={producto} imagen={vista.imagen} ubicacionId={ubicacionElegida?.id} onClick={() => abrirProducto(producto.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul>}
