@@ -9,6 +9,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { X } from 'lucide-react'
 import { ErrorDeApi, api, urlDeImagen } from '../api/cliente'
 import { AccionesProducto } from '../componentes/AccionesProducto'
 import { SugerenciaReposicion } from '../componentes/SugerenciaReposicion'
@@ -149,7 +150,7 @@ export function Producto() {
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between"><Etiqueta>Fotos del producto</Etiqueta><span className="text-[0.75rem] text-tinta-tenue">{galeria.data?.imagenes.length ?? 0}/5</span></div>
           <div className="grid grid-cols-3 gap-2">
-            {(galeria.data?.imagenes ?? []).map((imagen) => <div key={imagen.id} className="relative aspect-square overflow-hidden rounded-2xl border border-borde bg-papel-hundido"><img src={urlDeImagen(imagen.clave) ?? ''} alt={`Foto ${imagen.posicion + 1} de ${ficha.nombre}`} className="size-full object-cover" /><button type="button" aria-label={`Quitar foto ${imagen.posicion + 1}`} onClick={() => setImagenPorQuitar(imagen)} className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-tinta/70 text-white">×</button></div>)}
+            {(galeria.data?.imagenes ?? []).map((imagen) => <div key={imagen.id} className="relative aspect-square overflow-hidden rounded-2xl border border-borde bg-papel-hundido"><img src={urlDeImagen(imagen.clave) ?? ''} alt={`Foto ${imagen.posicion + 1} de ${ficha.nombre}`} className="size-full object-cover" /><button type="button" aria-label={`Quitar foto ${imagen.posicion + 1}`} onClick={() => setImagenPorQuitar(imagen)} className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-tinta/70 text-white"><X aria-hidden="true" className="size-4" strokeWidth={2.5} /></button></div>)}
             {(galeria.data?.imagenes.length ?? 0) < 5 && <button type="button" disabled={subiendoImagen} onClick={() => refFotos.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-accion/40 bg-accion-tenue text-[0.8125rem] font-semibold text-accion disabled:opacity-50">{subiendoImagen ? 'Subiendo…' : '+ Foto'}</button>}
           </div>
           <input ref={refFotos} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const archivo = e.target.files?.[0]; e.target.value = ''; if (archivo === undefined) return; void (async () => { setSubiendoImagen(true); try { const preparada = await prepararFoto(archivo); await api.agregarImagenProducto(ficha.id, preparada.archivo); void cliente.invalidateQueries({ queryKey: ['imagenes', id] }); avisos.exito('Foto agregada') } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo agregar la foto') } finally { setSubiendoImagen(false) } })() }} />

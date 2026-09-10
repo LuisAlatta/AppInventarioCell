@@ -12,20 +12,20 @@
 
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, ImagePlus } from 'lucide-react'
 import type { Ubicacion } from '@compartido/tipos'
 import { ErrorDeApi, api, urlDeImagen } from '../api/cliente'
 import { Boton } from '../componentes/Boton'
 import { CampoTexto } from '../componentes/Campo'
 import { Esqueleto, ErrorEnPantalla, Etiqueta } from '../componentes/Estados'
 import { HojaInferior } from '../componentes/HojaInferior'
+import { IconoUbicacion, normalizarIconoUbicacion, OPCIONES_ICONO_UBICACION } from '../componentes/IconoUbicacion'
 import { Confirmacion } from '../componentes/Confirmacion'
 import { Marco } from '../componentes/Marco'
 import { useAvisos } from '../contexto/Avisos'
 import { numero } from '../lib/formato'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 
-/** Iconos frecuentes en un negocio de este tipo. */
-const ICONOS = ['🏭', '🏬', '🏪', '🏢', '📦', '🛒', '🏠', '🚚'] as const
 const COLORES = ['#315DB8', '#0D8A62', '#C56B18', '#B13E55', '#7851A9', '#147B8C'] as const
 
 export function Sucursales() {
@@ -95,11 +95,8 @@ export function Sucursales() {
                   ].join(' ')}
                 >
                   {foto === null ? (
-                    <span
-                      aria-hidden="true"
-                      className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-papel-hundido text-2xl"
-                    >
-                      {ubicacion.icono ?? (ubicacion.tipo === 'warehouse' ? '🏭' : '🏬')}
+                    <span aria-hidden="true" className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-papel-hundido text-tinta-suave">
+                      <IconoUbicacion icono={ubicacion.icono} tipo={ubicacion.tipo} className="size-7" />
                     </span>
                   ) : (
                     <img
@@ -185,7 +182,7 @@ function FormularioUbicacion({
 
   const [nombre, setNombre] = useState(ubicacion?.nombre ?? '')
   const [tipo, setTipo] = useState<'warehouse' | 'store'>(ubicacion?.tipo ?? 'store')
-  const [icono, setIcono] = useState<string>(ubicacion?.icono ?? '🏬')
+  const [icono, setIcono] = useState<string>(normalizarIconoUbicacion(ubicacion?.icono, ubicacion?.tipo ?? 'store'))
   const [direccion, setDireccion] = useState(ubicacion?.direccion ?? '')
   const [telefono, setTelefono] = useState(ubicacion?.telefono ?? '')
   const [color, setColor] = useState(ubicacion?.color ?? '#315DB8')
@@ -285,7 +282,7 @@ function FormularioUbicacion({
 
       <div className="flex flex-col gap-2">
         <Etiqueta>Color identificador</Etiqueta>
-        <div className="flex flex-wrap gap-2">{COLORES.map((opcion) => <button key={opcion} type="button" aria-label={`Color ${opcion}`} aria-pressed={color === opcion} onClick={() => setColor(opcion)} className={`flex size-11 items-center justify-center rounded-xl border-2 ${color === opcion ? 'border-tinta scale-105' : 'border-transparent'}`} style={{ backgroundColor: opcion }}><span className="text-white">{color === opcion ? '✓' : ''}</span></button>)}</div>
+        <div className="flex flex-wrap gap-2">{COLORES.map((opcion) => <button key={opcion} type="button" aria-label={`Color ${opcion}`} aria-pressed={color === opcion} onClick={() => setColor(opcion)} className={`flex size-11 items-center justify-center rounded-xl border-2 ${color === opcion ? 'border-tinta scale-105' : 'border-transparent'}`} style={{ backgroundColor: opcion }}>{color === opcion && <Check aria-hidden="true" className="size-5 text-white" strokeWidth={2.5} />}</button>)}</div>
       </div>
 
       <CampoTexto
@@ -301,20 +298,20 @@ function FormularioUbicacion({
       <div className="flex flex-col gap-2">
         <Etiqueta>Icono</Etiqueta>
         <div className="flex flex-wrap gap-2">
-          {ICONOS.map((opcion) => (
+          {OPCIONES_ICONO_UBICACION.map((opcion) => (
             <button
               key={opcion}
               type="button"
               aria-label={`Icono ${opcion}`}
               onClick={() => setIcono(opcion)}
               className={[
-                'flex size-12 items-center justify-center rounded-xl border text-2xl transition',
+                'flex size-12 items-center justify-center rounded-xl border text-tinta-suave transition',
                 icono === opcion
                   ? 'border-accion bg-accion-tenue'
                   : 'border-borde bg-superficie active:bg-papel-hundido',
               ].join(' ')}
             >
-              {opcion}
+              <IconoUbicacion icono={opcion} tipo={tipo} className="size-5" />
             </button>
           ))}
         </div>
@@ -331,7 +328,7 @@ function FormularioUbicacion({
           ) : fotoActual !== null ? (
             <img src={fotoActual} alt="" className="size-full object-cover" />
           ) : (
-            <span className="text-xl">＋</span>
+            <ImagePlus aria-hidden="true" className="size-6" />
           )}
         </button>
 

@@ -17,6 +17,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from '../componentes/Boton'
@@ -24,6 +25,7 @@ import { SelectorCantidad } from '../componentes/Campo'
 import { CapturaProducto } from '../componentes/CapturaProducto'
 import { Vacio, Esqueleto, ErrorEnPantalla } from '../componentes/Estados'
 import { Miniatura } from '../componentes/FichaProducto'
+import { IconoUbicacion } from '../componentes/IconoUbicacion'
 import { HojaInferior } from '../componentes/HojaInferior'
 import { Marco } from '../componentes/Marco'
 import { useAvisos } from '../contexto/Avisos'
@@ -391,23 +393,11 @@ function SelectorRuta({
                     : 'border-borde bg-superficie active:bg-papel-hundido',
                 ].join(' ')}
               >
-                <span aria-hidden="true" className="text-lg leading-none">
-                  {ubicacion.icono ?? (ubicacion.tipo === 'warehouse' ? '🏭' : '🏬')}
-                </span>
+                <IconoUbicacion icono={ubicacion.icono} tipo={ubicacion.tipo} className="size-5 shrink-0 text-tinta-suave" />
                 <span className="min-w-0 flex-1 truncate text-[1rem] font-medium">
                   {ubicacion.nombre}
                 </span>
-                {elegida && (
-                  <svg viewBox="0 0 24 24" className="size-5 shrink-0 text-accion" aria-hidden="true" fill="none">
-                    <path
-                      d="M5 13l4 4L19 7"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
+                {elegida && <Check className="size-5 shrink-0 text-accion" strokeWidth={2.5} aria-hidden="true" />}
               </button>
             )
           })}

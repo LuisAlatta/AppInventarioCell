@@ -25,16 +25,16 @@ DELETE FROM locations;
 -- ---------------------------------------------------------------------------
 
 INSERT INTO locations (id, name, type, icon, sort_order) VALUES
-  ('ubi_almacen',  'Almacen Central',  'warehouse', '🏭', 0),
-  ('ubi_centro',   'Sucursal Centro',  'store',     '🏬', 1),
-  ('ubi_norte',    'Sucursal Norte',   'store',     '🏪', 2),
-  ('ubi_sur',      'Sucursal Sur',     'store',     '🛒', 3);
+  ('ubi_almacen',  'Almacen Central',  'warehouse', 'warehouse', 0),
+  ('ubi_centro',   'Sucursal Centro',  'store',     'store', 1),
+  ('ubi_norte',    'Sucursal Norte',   'store',     'building', 2),
+  ('ubi_sur',      'Sucursal Sur',     'store',     'shopping_bag', 3);
 
 INSERT INTO categories (id, name, icon) VALUES
-  ('cat_audio',  'Audifonos',   '🎧'),
-  ('cat_carga',  'Cargadores',  '🔌'),
-  ('cat_micas',  'Micas',       '📱'),
-  ('cat_fundas', 'Fundas',      '🛡️');
+  ('cat_audio',  'Audifonos',   'headphones'),
+  ('cat_carga',  'Cargadores',  'plug'),
+  ('cat_micas',  'Micas',       'smartphone'),
+  ('cat_fundas', 'Fundas',      'shield');
 
 -- ---------------------------------------------------------------------------
 -- Catalogo

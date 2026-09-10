@@ -4,11 +4,11 @@
 -- toma automáticamente el primer almacén disponible.
 
 INSERT OR IGNORE INTO categories (id, name, icon) VALUES
-  ('cat_demo_premium', 'Smartphones premium', '✨'),
-  ('cat_demo_media', 'Smartphones gama media', '📱'),
-  ('cat_demo_entrada', 'Smartphones de entrada', '📲'),
-  ('cat_demo_tablets', 'Tablets', '▣'),
-  ('cat_demo_wearables', 'Wearables', '⌚');
+  ('cat_demo_premium', 'Smartphones premium', 'sparkles'),
+  ('cat_demo_media', 'Smartphones gama media', 'smartphone'),
+  ('cat_demo_entrada', 'Smartphones de entrada', 'smartphone'),
+  ('cat_demo_tablets', 'Tablets', 'tablet'),
+  ('cat_demo_wearables', 'Wearables', 'watch');
 
 INSERT OR IGNORE INTO brands (id, name) VALUES
   ('brand_demo_apple', 'Apple'),
