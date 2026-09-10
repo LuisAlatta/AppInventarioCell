@@ -549,6 +549,40 @@ describe('busqueda', () => {
   })
 })
 
+describe('prioridades por sucursal', () => {
+  test('detecta agotados locales aunque haya stock en otra sucursal y filtra antes del límite', async () => {
+    const cookie = await entrar()
+    const { almacenId, sucursalId, productoId } = await escenario(cookie)
+    await conSesion(cookie, `/api/productos/${productoId}`, { metodo: 'PATCH', cuerpo: { stockMinimo: 5 } })
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 20 },
+    })
+    const buscar = async (ubicacion: string, filtro: string, q = '') => {
+      const respuesta = await conSesion(cookie, `/api/productos?ubicacionId=${ubicacion}&filtro=${filtro}&q=${q}&limite=1`)
+      expect(respuesta.status).toBe(200)
+      return json<{ productos: { id: string }[] }>(respuesta)
+    }
+    expect((await buscar(sucursalId, 'agotados')).productos.map(p => p.id)).toEqual([productoId])
+    expect((await buscar(sucursalId, 'disponibles', '7501234567890')).productos).toEqual([])
+    expect((await buscar(almacenId, 'agotados', 'samsng')).productos).toEqual([])
+    expect((await buscar(almacenId, 'disponibles', 'audi')).productos.map(p => p.id)).toEqual([productoId])
+    const panel = await json<{ resumen: { agotados: number; stockBajo: number }; bajoMinimo: { id: string }[]; recientes: unknown[] }>(
+      await conSesion(cookie, `/api/inicio?ubicacionId=${sucursalId}`),
+    )
+    expect(panel.resumen).toMatchObject({ agotados: 1, stockBajo: 0 })
+    expect(panel.bajoMinimo.map(p => p.id)).toContain(productoId)
+    expect(panel.recientes).toEqual([])
+    await conSesion(cookie, '/api/productos', { metodo: 'POST', cuerpo: { codigo: '7509999999999', nombre: 'Otro sin stock' } })
+    expect((await buscar(almacenId, 'disponibles')).productos.map(p => p.id)).toEqual([productoId])
+  })
+
+  test('rechaza filtros y ubicaciones inválidos', async () => {
+    const cookie = await entrar()
+    expect((await conSesion(cookie, '/api/productos?filtro=inventado')).status).toBe(400)
+    expect((await conSesion(cookie, '/api/inicio?ubicacionId=no-existe')).status).toBe(404)
+  })
+})
+
 describe('conteo fisico y mermas', () => {
   let cookie = ''
 

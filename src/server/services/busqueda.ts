@@ -15,6 +15,7 @@
 import type { ProductoConStock, ResultadoBusqueda } from '@compartido/tipos'
 import { aProducto, type FilaProducto } from '../db/mapeo'
 import { buscarPorCodigo, conStock } from '../db/productos'
+import { condicionStock, type FiltroInventario } from '../db/filtro_stock'
 import {
   LARGO_MINIMO_CONSULTA,
   UMBRAL_APROXIMADO,
@@ -66,7 +67,9 @@ async function porPrefijo(
   db: D1Database,
   consulta: string,
   limite: number,
+  opciones: FiltroInventario,
 ): Promise<ProductoConStock[]> {
+  const filtro = condicionStock(opciones)
   const expresion = consultaPrefijo(consulta)
   if (expresion === '') return []
 
@@ -75,11 +78,11 @@ async function porPrefijo(
       `SELECT ${COLUMNAS}
        ${DESDE}
        JOIN products_fts f ON f.product_id = p.id
-       WHERE products_fts MATCH ? AND p.is_active = 1
+       WHERE products_fts MATCH ? AND p.is_active = 1 AND ${filtro.sql}
        ORDER BY rank
        LIMIT ?`,
     )
-    .bind(expresion, limite)
+    .bind(expresion, ...filtro.valores, limite)
     .all<FilaProducto>()
 
   return conStock(db, results.map(aProducto))
@@ -97,7 +100,9 @@ async function porAproximacion(
   consulta: string,
   limite: number,
   yaVistos: ReadonlySet<string>,
+  opciones: FiltroInventario,
 ): Promise<ProductoConStock[]> {
+  const filtro = condicionStock(opciones)
   const trigramas = generarTrigramas(consulta)
   if (trigramas.length === 0) return []
 
@@ -106,12 +111,12 @@ async function porAproximacion(
       `SELECT ${COLUMNAS}
        ${DESDE}
        JOIN products_trg t ON t.product_id = p.id
-       WHERE products_trg MATCH ? AND p.is_active = 1
+       WHERE products_trg MATCH ? AND p.is_active = 1 AND ${filtro.sql}
        LIMIT ?`,
     )
     // Se piden mas candidatos de los que se van a devolver porque muchos
     // caeran debajo del umbral al puntuarlos.
-    .bind(consultaFts5(trigramas), limite * 5)
+    .bind(consultaFts5(trigramas), ...filtro.valores, limite * 5)
     .all<FilaProducto>()
 
   const puntuados = results
@@ -135,15 +140,16 @@ async function porAproximacion(
 }
 
 /** Los mas recientes, para cuando el buscador esta vacio. */
-async function recientes(db: D1Database, limite: number): Promise<ProductoConStock[]> {
+async function recientes(db: D1Database, limite: number, opciones: FiltroInventario): Promise<ProductoConStock[]> {
+  const filtro = condicionStock(opciones)
   const { results } = await db
     .prepare(
       `SELECT ${COLUMNAS} ${DESDE}
-       WHERE p.is_active = 1
-       ORDER BY p.updated_at DESC
+       WHERE p.is_active = 1 AND ${filtro.sql}
+       ORDER BY p.updated_at DESC, p.id
        LIMIT ?`,
     )
-    .bind(limite)
+    .bind(...filtro.valores, limite)
     .all<FilaProducto>()
 
   return conStock(db, results.map(aProducto))
@@ -153,16 +159,21 @@ export async function buscarProductos(
   db: D1Database,
   consulta: string,
   limite: number,
+  opciones: FiltroInventario = {},
 ): Promise<ResultadoBusqueda[]> {
   const texto = consulta.trim()
 
   if (texto === '') {
-    return (await recientes(db, limite)).map((p) => ({ ...p, coincidencia: 'texto' as const }))
+    return (await recientes(db, limite, opciones)).map((p) => ({ ...p, coincidencia: 'texto' as const }))
   }
 
   if (pareceCodigo(texto)) {
     const producto = await buscarPorCodigo(db, texto)
     if (producto !== null) {
+      const filtro = condicionStock(opciones)
+      const permitido = await db.prepare(`SELECT p.id FROM products p WHERE p.id = ? AND p.is_active = 1 AND ${filtro.sql}`)
+        .bind(producto.id, ...filtro.valores).first()
+      if (permitido === null) return []
       const [conjunto] = await conStock(db, [producto])
       if (conjunto !== undefined) return [{ ...conjunto, coincidencia: 'codigo' }]
     }
@@ -170,7 +181,7 @@ export async function buscarProductos(
     // codigo escrito a medias o el numero de modelo del producto.
   }
 
-  const exactos: ResultadoBusqueda[] = (await porPrefijo(db, texto, limite)).map((p) => ({
+  const exactos: ResultadoBusqueda[] = (await porPrefijo(db, texto, limite, opciones)).map((p) => ({
     ...p,
     coincidencia: 'texto' as const,
   }))
@@ -180,7 +191,7 @@ export async function buscarProductos(
   }
 
   const aproximados: ResultadoBusqueda[] = (
-    await porAproximacion(db, texto, limite - exactos.length, new Set(exactos.map((p) => p.id)))
+    await porAproximacion(db, texto, limite - exactos.length, new Set(exactos.map((p) => p.id)), opciones)
   ).map((p) => ({ ...p, coincidencia: 'aproximado' as const }))
 
   return [...exactos, ...aproximados]

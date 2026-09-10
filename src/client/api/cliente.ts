@@ -16,6 +16,8 @@ import type {
   SesionConteo,
   RenglonConteo,
   Ubicacion,
+  FiltroStock,
+  ResumenStock,
 } from '@compartido/tipos'
 
 export interface ErrorDeApiDetalle {
@@ -150,8 +152,11 @@ export const api = {
   // Productos
   // -------------------------------------------------------------------------
 
-  buscar: (q: string, senal?: AbortSignal): Promise<{ productos: ResultadoBusqueda[] }> =>
-    pedir(`/productos?q=${encodeURIComponent(q)}`, senal === undefined ? {} : { senal }),
+  buscar: (q: string, senal?: AbortSignal, opciones: { ubicacionId?: string | undefined; filtro?: FiltroStock } = {}): Promise<{ productos: ResultadoBusqueda[] }> => {
+    const parametros = new URLSearchParams({ q, limite: '50', filtro: opciones.filtro ?? 'todos' })
+    if (opciones.ubicacionId) parametros.set('ubicacionId', opciones.ubicacionId)
+    return pedir(`/productos?${parametros}`, senal === undefined ? {} : { senal })
+  },
 
   porCodigo: (codigo: string): Promise<{ producto: ProductoConStock }> =>
     pedir(`/productos/codigo/${encodeURIComponent(codigo)}`),
@@ -182,11 +187,12 @@ export const api = {
   // Panel de inicio
   // -------------------------------------------------------------------------
 
-  inicio: (): Promise<{
+  inicio: (ubicacionId?: string): Promise<{
     ubicaciones: Ubicacion[]
     bajoMinimo: ProductoConStock[]
     recientes: Movimiento[]
-  }> => pedir('/inicio'),
+    resumen: ResumenStock
+  }> => pedir(`/inicio${ubicacionId ? `?ubicacionId=${encodeURIComponent(ubicacionId)}` : ''}`),
 
   // -------------------------------------------------------------------------
   // Movimientos

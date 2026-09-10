@@ -110,7 +110,7 @@ export function RenglonProducto({
       : (producto.stock.find((s) => s.ubicacionId === ubicacionId)?.cantidad ?? 0)
 
   const bajoMinimo =
-    producto.stockMinimo > 0 && producto.stockTotal < producto.stockMinimo
+    (enUbicacion ?? producto.stockTotal) === 0 || (enUbicacion ?? producto.stockTotal) < producto.stockMinimo
 
   const contenido = (
     <>
@@ -118,7 +118,7 @@ export function RenglonProducto({
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-1.5">
-          <p className="min-w-0 truncate text-[0.9375rem] font-semibold leading-snug">
+          <p className="min-w-0 break-words text-[0.9375rem] font-semibold leading-snug">
             {producto.nombre}
           </p>
           {coincidencia !== undefined && <InsigniaCoincidencia tipo={coincidencia} />}
@@ -147,7 +147,7 @@ export function RenglonProducto({
             {numero(enUbicacion ?? producto.stockTotal)}
           </span>
           <span className="text-[0.6875rem] text-tinta-tenue">
-            {enUbicacion === null ? 'en total' : `de ${numero(producto.stockTotal)}`}
+            {enUbicacion === null ? 'en total' : `aquí · ${numero(producto.stockTotal)} total`}
           </span>
         </div>
       )}

@@ -50,10 +50,10 @@ export async function movimientosDeProducto(
 }
 
 /** Actividad reciente de todo el inventario, para la pantalla de inicio. */
-export async function movimientosRecientes(db: D1Database, limite = 30): Promise<Movimiento[]> {
+export async function movimientosRecientes(db: D1Database, limite = 30, ubicacionId?: string): Promise<Movimiento[]> {
   const { results } = await db
-    .prepare(`SELECT ${COLUMNAS} ${DESDE} ORDER BY m.created_at DESC LIMIT ?`)
-    .bind(limite)
+    .prepare(`SELECT ${COLUMNAS} ${DESDE} ${ubicacionId ? 'WHERE m.from_location_id = ? OR m.to_location_id = ?' : ''} ORDER BY m.created_at DESC LIMIT ?`)
+    .bind(...(ubicacionId ? [ubicacionId, ubicacionId] : []), limite)
     .all<FilaMovimiento>()
 
   return results.map(aMovimiento)

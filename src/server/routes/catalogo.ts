@@ -31,6 +31,7 @@ import {
   productosSinMovimiento,
   unoConStock,
   valorInventario,
+  resumenStock,
 } from '../db/productos'
 import { movimientosDeProducto, movimientosRecientes } from '../db/movimientos'
 import { buscarProductos } from '../services/busqueda'
@@ -94,8 +95,9 @@ rutasCatalogo.post('/categorias', zValidator('json', esquemaCategoria), async (c
  * Busqueda de productos. Es la ruta mas usada de la aplicacion.
  */
 rutasCatalogo.get('/productos', zValidator('query', esquemaBusqueda), async (c) => {
-  const { q, limite } = c.req.valid('query')
-  return c.json({ productos: await buscarProductos(c.env.DB, q, limite) })
+  const { q, limite, ubicacionId, filtro } = c.req.valid('query')
+  if (ubicacionId) await exigirUbicacion(c.env.DB, ubicacionId)
+  return c.json({ productos: await buscarProductos(c.env.DB, q, limite, { ubicacionId, filtro }) })
 })
 
 /**
@@ -136,14 +138,17 @@ rutasCatalogo.get('/productos/:id/movimientos', async (c) =>
 // Panel de inicio y reportes de catalogo
 // ---------------------------------------------------------------------------
 
-rutasCatalogo.get('/inicio', async (c) => {
-  const [ubicaciones, bajoMinimo, recientes] = await Promise.all([
+rutasCatalogo.get('/inicio', zValidator('query', esquemaBusqueda.pick({ ubicacionId: true })), async (c) => {
+  const { ubicacionId } = c.req.valid('query')
+  if (ubicacionId) await exigirUbicacion(c.env.DB, ubicacionId)
+  const [ubicaciones, bajoMinimo, recientes, resumen] = await Promise.all([
     listarUbicaciones(c.env.DB),
-    productosBajoMinimo(c.env.DB, 10),
-    movimientosRecientes(c.env.DB, 15),
+    productosBajoMinimo(c.env.DB, 4, ubicacionId),
+    movimientosRecientes(c.env.DB, 8, ubicacionId),
+    resumenStock(c.env.DB, ubicacionId),
   ])
 
-  return c.json({ ubicaciones, bajoMinimo, recientes })
+  return c.json({ ubicaciones, bajoMinimo, recientes, resumen })
 })
 
 rutasCatalogo.get('/reportes/stock-bajo', async (c) =>

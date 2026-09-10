@@ -15,14 +15,14 @@
  */
 
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from '../componentes/Boton'
 import { SelectorCantidad } from '../componentes/Campo'
 import { CapturaProducto } from '../componentes/CapturaProducto'
-import { Vacio } from '../componentes/Estados'
+import { Vacio, Esqueleto, ErrorEnPantalla } from '../componentes/Estados'
 import { Miniatura } from '../componentes/FichaProducto'
 import { HojaInferior } from '../componentes/HojaInferior'
 import { Marco } from '../componentes/Marco'
@@ -37,6 +37,34 @@ interface Renglon {
 }
 
 export function Traspaso() {
+  const [parametros] = useSearchParams()
+  const productoId = parametros.get('producto') ?? ''
+  const origenId = parametros.get('origen') ?? ''
+  const destinoId = parametros.get('destino') ?? ''
+  const producto = useQuery({ queryKey: ['producto', productoId], queryFn: () => api.producto(productoId), enabled: !!productoId, staleTime: 0 })
+  if (!productoId) return <FormularioTraspaso />
+  if (producto.isPending) return <Marco titulo="Preparar traspaso" atras sinUbicacion><Esqueleto filas={3} /></Marco>
+  if (!producto.data) return <Marco titulo="Preparar traspaso" atras sinUbicacion><ErrorEnPantalla mensaje="No se pudo comprobar el stock." onReintentar={() => void producto.refetch()} /></Marco>
+  return <TraspasoSugerido key={parametros.toString()} ficha={producto.data.producto} origenId={origenId} destinoId={destinoId} />
+}
+
+function TraspasoSugerido({ ficha, origenId, destinoId }: { ficha: ProductoConStock; origenId: string; destinoId: string }) {
+  const { ubicaciones } = useUbicacion()
+  // El borrador se inicializa una vez; una recarga de stock no descarta lo que se está preparando.
+  const [preparado] = useState(() => {
+    const disponible = ficha.stock.find(s => s.ubicacionId === origenId)?.cantidad ?? 0
+    const actual = ficha.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0
+    const cantidad = Math.min(disponible - ficha.stockMinimo, Math.max(1, ficha.stockMinimo) - actual)
+    if (!ficha.activo || cantidad < 1 || origenId === destinoId || !ubicaciones.some(u => u.id === origenId) || !ubicaciones.some(u => u.id === destinoId)) return null
+    return { origenId, destinoId, renglon: { producto: ficha, cantidad } }
+  })
+  if (!preparado) {
+    return <Marco titulo="Preparar traspaso" atras sinUbicacion><Vacio titulo="La sugerencia ya no está disponible" detalle="Las existencias cambiaron. Vuelve al producto para revisar el stock actual." /></Marco>
+  }
+  return <FormularioTraspaso preparado={preparado} />
+}
+
+function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; destinoId: string; renglon: Renglon } }) {
   const navegar = useNavigate()
   const avisos = useAvisos()
   const cliente = useQueryClient()
@@ -44,9 +72,9 @@ export function Traspaso() {
 
   // El origen arranca en la ubicacion activa, que es donde esta parada la
   // persona y de donde va a sacar la mercancía.
-  const [origenId, setOrigenId] = useState<string>(activa?.id ?? '')
-  const [destinoId, setDestinoId] = useState<string>('')
-  const [renglones, setRenglones] = useState<Renglon[]>([])
+  const [origenId, setOrigenId] = useState<string>(preparado?.origenId ?? activa?.id ?? '')
+  const [destinoId, setDestinoId] = useState<string>(preparado?.destinoId ?? '')
+  const [renglones, setRenglones] = useState<Renglon[]>(preparado ? [preparado.renglon] : [])
   const [capturando, setCapturando] = useState(false)
   const [ajustando, setAjustando] = useState<Renglon | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -221,12 +249,14 @@ export function Traspaso() {
                           {renglon.producto.nombre}
                         </p>
                         <p className="text-[0.8125rem] text-tinta-tenue">
-                          Hay {numero(disponible(renglon.producto))} en {origen.nombre}
+                          {origen.nombre}: {numero(disponible(renglon.producto))} → {numero(disponible(renglon.producto) - renglon.cantidad)}
                         </p>
+                        <p className="text-[0.8125rem] text-tinta-suave">{destino.nombre}: {numero(renglon.producto.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0)} → {numero((renglon.producto.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0) + renglon.cantidad)}</p>
                       </div>
 
                       <button
                         type="button"
+                        aria-label={`Cantidad de ${renglon.producto.nombre}`}
                         onClick={() => setAjustando(renglon)}
                         className="cifras flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-papel-hundido px-3 text-[1.125rem] font-semibold"
                       >
@@ -330,11 +360,19 @@ function SelectorRuta({
   excluir: string
   onCambio: (id: string) => void
 }) {
+  const [abierta, setAbierta] = useState(valor === '')
+  const seleccionada = ubicaciones.find(u => u.id === valor)
   return (
     <div className="flex flex-col gap-1.5">
       <span className="px-1 text-etiqueta text-tinta-tenue uppercase">{etiqueta}</span>
 
-      <div className="flex flex-col gap-1.5">
+      <button type="button" aria-expanded={abierta} onClick={() => setAbierta(!abierta)}
+        className="flex min-h-toque items-center justify-between gap-2 rounded-xl border border-borde bg-superficie px-4 py-2 text-left">
+        <span className="min-w-0 break-words font-semibold">{seleccionada?.nombre ?? 'Elegir ubicación'}</span>
+        <span className="shrink-0 text-[0.8125rem] text-accion">{abierta ? 'Cerrar' : 'Cambiar'}</span>
+      </button>
+
+      {abierta && <div className="flex flex-col gap-1.5">
         {ubicaciones
           .filter((u) => u.id !== excluir)
           .map((ubicacion) => {
@@ -344,7 +382,8 @@ function SelectorRuta({
               <button
                 key={ubicacion.id}
                 type="button"
-                onClick={() => onCambio(ubicacion.id)}
+                onClick={() => { onCambio(ubicacion.id); setAbierta(false) }}
+                aria-pressed={elegida}
                 className={[
                   'flex min-h-toque items-center gap-3 rounded-xl border px-4 text-left transition',
                   elegida
@@ -372,7 +411,7 @@ function SelectorRuta({
               </button>
             )
           })}
-      </div>
+      </div>}
     </div>
   )
 }

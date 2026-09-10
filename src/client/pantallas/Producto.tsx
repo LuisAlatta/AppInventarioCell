@@ -11,6 +11,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ErrorDeApi, api } from '../api/cliente'
 import { AccionesProducto } from '../componentes/AccionesProducto'
+import { SugerenciaReposicion } from '../componentes/SugerenciaReposicion'
 import { Boton } from '../componentes/Boton'
 import { Esqueleto, ErrorEnPantalla, Etiqueta, Vacio } from '../componentes/Estados'
 import { DesgloseStock, Miniatura } from '../componentes/FichaProducto'
@@ -119,6 +120,8 @@ export function Producto() {
           Registrar movimiento
         </Boton>
 
+        <SugerenciaReposicion producto={ficha} />
+
         <section className="flex flex-col gap-2">
           <Etiqueta>Existencias</Etiqueta>
           <DesgloseStock producto={ficha} ubicacionActivaId={activa?.id} />
@@ -203,7 +206,7 @@ export function Producto() {
                         <button
                           type="button"
                           onClick={() => void deshacer(movimiento.id)}
-                          className="text-[0.8125rem] font-semibold text-accion"
+                          className="min-h-11 px-2 text-[0.8125rem] font-semibold text-accion"
                         >
                           Deshacer
                         </button>

@@ -19,12 +19,13 @@ import { RenglonProducto } from '../componentes/FichaProducto'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { NOMBRE_MOVIMIENTO, cuandoFue, numero } from '../lib/formato'
+import { SugerenciaReposicion } from '../componentes/SugerenciaReposicion'
 
 export function Inicio() {
   const navegar = useNavigate()
   const { activa } = useUbicacion()
 
-  const inicio = useQuery({ queryKey: ['inicio'], queryFn: api.inicio })
+  const inicio = useQuery({ queryKey: ['inicio', activa?.id], queryFn: () => api.inicio(activa?.id) })
 
   return (
     <Marco
@@ -95,31 +96,53 @@ export function Inicio() {
         {inicio.isSuccess && inicio.data.bajoMinimo.length > 0 && (
           <section className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
-              <Etiqueta>Se está acabando</Etiqueta>
+              <Etiqueta>Necesita atención aquí</Etiqueta>
               <span className="cifras text-[0.8125rem] font-semibold text-alerta">
-                {numero(inicio.data.bajoMinimo.length)}
+                {numero(inicio.data.resumen.agotados + inicio.data.resumen.stockBajo)}
               </span>
             </div>
 
             <div className="flex flex-col gap-2">
               {inicio.data.bajoMinimo.slice(0, 4).map((producto) => (
+                <div key={producto.id} className="flex flex-col gap-2">
                 <RenglonProducto
-                  key={producto.id}
                   producto={producto}
+                  ubicacionId={activa?.id}
                   onClick={() => navegar(`/producto/${producto.id}`)}
                 />
+                <SugerenciaReposicion producto={producto} />
+                </div>
               ))}
             </div>
 
-            {inicio.data.bajoMinimo.length > 4 && (
-              <button
-                type="button"
-                onClick={() => navegar('/reportes')}
-                className="self-start px-1 py-2 text-[0.9375rem] font-semibold text-accion"
-              >
-                Ver los {numero(inicio.data.bajoMinimo.length)}
-              </button>
-            )}
+            <p className="text-[0.8125rem] text-tinta-suave">Prioridad a los agotados. El mínimo configurado de cada producto se usa como referencia en esta ubicación.</p>
+          </section>
+        )}
+
+        {inicio.isSuccess && (
+          <section className="order-first flex flex-col gap-3" aria-label="Resumen de la ubicación">
+            <div>
+              <h2 className="text-titulo">{inicio.data.resumen.productos === 0 ? 'Empecemos tu inventario' : 'Tu inventario, al día'}</h2>
+              <p className="mt-1 text-[0.875rem] text-tinta-suave">{activa?.nombre ?? 'Todas las ubicaciones'} · {numero(inicio.data.resumen.productos)} productos</p>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-borde rounded-tarjeta border border-borde bg-superficie">
+              {([
+                ['disponibles', 'Disponibles', inicio.data.resumen.disponibles],
+                ['agotados', 'Agotados', inicio.data.resumen.agotados],
+                ['bajo', 'Stock bajo', inicio.data.resumen.stockBajo],
+              ] as const).map(([filtro, nombre, cantidad]) => (
+                <button key={filtro} type="button" onClick={() => navegar(`/buscar?filtro=${filtro}`)}
+                  className="flex min-h-20 flex-col items-center justify-center gap-1 px-1 py-3 transition active:bg-papel-hundido">
+                  <span className={`cifras text-[1.625rem] font-semibold ${cantidad > 0 && filtro !== 'disponibles' ? 'text-falta' : 'text-tinta'}`}>{numero(cantidad)}</span>
+                  <span className="text-[0.75rem] text-tinta-suave">{nombre}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[0.875rem] text-tinta-suave">{inicio.data.resumen.productos === 0
+              ? 'Escanea tu primer producto para registrarlo.'
+              : inicio.data.resumen.agotados + inicio.data.resumen.stockBajo === 0
+                ? 'Sin alertas de stock en esta ubicación.'
+                : 'Toca Agotados o Stock bajo para ver qué reponer.'}</p>
           </section>
         )}
 
@@ -129,7 +152,8 @@ export function Inicio() {
 
             <ul className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
               {inicio.data.recientes.slice(0, 8).map((movimiento) => (
-                <li key={movimiento.id} className="flex items-center gap-3 px-3.5 py-3">
+                <li key={movimiento.id}>
+                <button type="button" onClick={() => navegar(`/producto/${movimiento.productoId}`)} className="flex w-full items-center gap-3 px-3.5 py-3 text-left">
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <p className="truncate text-[0.9375rem] font-medium">
                       {movimiento.productoNombre}
@@ -150,14 +174,15 @@ export function Inicio() {
                       'cifras shrink-0 text-[1rem] font-semibold',
                       movimiento.revertidoEn !== null
                         ? 'text-tinta-tenue line-through'
-                        : movimiento.ubicacionDestinoId !== null
+                        : movimiento.ubicacionDestinoId === activa?.id
                           ? 'text-exito'
                           : 'text-falta',
                     ].join(' ')}
                   >
-                    {movimiento.ubicacionDestinoId !== null ? '+' : '−'}
+                    {movimiento.ubicacionDestinoId === activa?.id ? '+' : '−'}
                     {numero(movimiento.cantidad)}
                   </span>
+                </button>
                 </li>
               ))}
             </ul>

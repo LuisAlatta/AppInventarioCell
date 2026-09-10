@@ -10,13 +10,15 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '../api/cliente'
 import { ErrorEnPantalla, Esqueleto, Vacio } from '../componentes/Estados'
 import { RenglonProducto } from '../componentes/FichaProducto'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
+import type { FiltroStock } from '@compartido/tipos'
+import { guardarBusquedas, leerBusquedas, recordarBusqueda } from '../lib/inventario'
 
 /** Espera antes de consultar. Corto para que se sienta inmediato. */
 const MS_ESPERA = 120
@@ -24,26 +26,40 @@ const MS_ESPERA = 120
 export function Buscar() {
   const navegar = useNavigate()
   const { activa } = useUbicacion()
+  const [parametros, setParametros] = useSearchParams()
+  const q = parametros.get('q') ?? ''
+  const valorFiltro = parametros.get('filtro')
+  const filtro: FiltroStock = valorFiltro === 'bajo' || valorFiltro === 'agotados' || valorFiltro === 'disponibles' ? valorFiltro : 'todos'
+  const [recientes, setRecientes] = useState(leerBusquedas)
 
-  const [texto, setTexto] = useState('')
-  const [consulta, setConsulta] = useState('')
+  const [texto, setTexto] = useState(q)
+  const [consulta, setConsulta] = useState(q)
   const refCampo = useRef<HTMLInputElement | null>(null)
 
   // El teclado se abre solo: quien entra a "Buscar" viene a escribir.
   useEffect(() => {
-    refCampo.current?.focus()
+    if (!parametros.has('filtro')) refCampo.current?.focus()
   }, [])
 
+  useEffect(() => { setTexto(q); setConsulta(q) }, [q])
+
   useEffect(() => {
-    const temporizador = window.setTimeout(() => setConsulta(texto), MS_ESPERA)
+    const temporizador = window.setTimeout(() => {
+      setConsulta(texto)
+      if (texto !== q) setParametros(previos => {
+        const nuevos = new URLSearchParams(previos)
+        if (texto) nuevos.set('q', texto); else nuevos.delete('q')
+        return nuevos
+      }, { replace: true })
+    }, MS_ESPERA)
     return () => window.clearTimeout(temporizador)
-  }, [texto])
+  }, [texto, q, setParametros])
 
   const resultados = useQuery({
-    queryKey: ['buscar', consulta],
-    queryFn: ({ signal }) => api.buscar(consulta, signal),
+    queryKey: ['buscar', consulta, activa?.id, filtro],
+    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: activa?.id, filtro }),
     // Conserva la lista anterior mientras llega la nueva, para que no parpadee.
-    placeholderData: keepPreviousData,
+    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === activa?.id && anterior.queryKey[3] === filtro ? keepPreviousData(previas) : undefined,
   })
 
   const productos = resultados.data?.productos ?? []
@@ -67,6 +83,14 @@ export function Buscar() {
             ref={refCampo}
             type="search"
             value={texto}
+            maxLength={120}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const nuevas = recordarBusqueda(recientes, texto)
+                setRecientes(nuevas); guardarBusquedas(nuevas)
+                refCampo.current?.blur()
+              }
+            }}
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Nombre, marca o código"
             aria-label="Buscar productos"
@@ -86,7 +110,7 @@ export function Buscar() {
                 setTexto('')
                 refCampo.current?.focus()
               }}
-              className="absolute inset-y-0 right-2 my-auto flex size-9 items-center justify-center rounded-lg text-tinta-tenue transition active:bg-papel-hundido"
+              className="absolute inset-y-0 right-1 my-auto flex size-11 items-center justify-center rounded-lg text-tinta-tenue transition active:bg-papel-hundido"
             >
               <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
                 <path
@@ -100,6 +124,29 @@ export function Buscar() {
           )}
         </div>
 
+        <div className="grid grid-cols-2 gap-2" aria-label="Filtrar por existencias">
+          {([['todos', 'Todos'], ['disponibles', 'Disponibles'], ['agotados', 'Agotados'], ['bajo', 'Stock bajo']] as const).map(([valor, nombre]) => (
+            <button key={valor} type="button" aria-pressed={filtro === valor}
+              onClick={() => setParametros(previos => { const nuevos = new URLSearchParams(previos); nuevos.set('filtro', valor); return nuevos }, { replace: true })}
+              className={`min-h-11 rounded-xl border px-3 text-[0.875rem] font-semibold transition ${filtro === valor ? 'border-accion bg-accion-tenue text-accion' : 'border-borde bg-superficie text-tinta-suave'}`}>
+              {nombre}
+            </button>
+          ))}
+        </div>
+        <p className="text-[0.8125rem] text-tinta-suave">Existencias en {activa?.nombre ?? 'todas las ubicaciones'}. Stock bajo: quedan piezas por debajo del mínimo.</p>
+
+        {!texto && recientes.length > 0 && (
+          <section aria-label="Búsquedas recientes" className="flex flex-col gap-1">
+            <div className="flex items-center justify-between"><span className="text-[0.875rem] font-semibold">Búsquedas recientes</span>
+              <button type="button" className="min-h-11 px-3 text-[0.875rem] text-accion" onClick={() => { setRecientes([]); guardarBusquedas([]) }}>Borrar historial</button>
+            </div>
+            <div className="flex flex-wrap gap-2">{recientes.map(reciente => (
+              <button key={reciente} type="button" onClick={() => setTexto(reciente)} className="min-h-11 max-w-full truncate rounded-xl bg-papel-hundido px-3 text-[0.875rem]">{reciente}</button>
+            ))}</div>
+          </section>
+        )}
+        <p role="status" className="text-[0.8125rem] text-tinta-suave">{resultados.isFetching || texto !== consulta ? 'Buscando…' : resultados.isSuccess ? `${productos.length}${productos.length === 50 ? ' primeros' : ''} resultados${productos.length === 50 ? '. Escribe para afinar la búsqueda.' : ''}` : ''}</p>
+
         {resultados.isError && (
           <ErrorEnPantalla
             mensaje="No se pudo buscar. Revisa la conexión."
@@ -111,30 +158,35 @@ export function Buscar() {
 
         {resultados.isSuccess && productos.length === 0 && (
           <Vacio
-            titulo={buscando ? 'Nada con esa búsqueda' : 'Todavía no hay productos'}
+            titulo={buscando ? 'Nada con esa búsqueda' : filtro !== 'todos' ? 'No hay productos con este filtro' : 'Todavía no hay productos'}
             detalle={
-              buscando
+              filtro !== 'todos' ? 'Prueba con Todos o cambia la ubicación de arriba.' : buscando
                 ? 'Prueba con menos palabras, o escanea el codigo del producto.'
                 : 'Escanea el codigo de un producto para darlo de alta.'
             }
-            accion={{ texto: 'Escanear un codigo', onClick: () => navegar('/escanear') }}
+            accion={filtro !== 'todos' ? { texto: 'Ver todos', onClick: () => setParametros({ q: texto }, { replace: true }) } : { texto: 'Escanear un código', onClick: () => navegar('/escanear') }}
           />
         )}
 
         {productos.length > 0 && (
           <>
-            {!buscando && (
+            {!buscando && filtro === 'todos' && (
               <p className="px-1 text-etiqueta text-tinta-tenue uppercase">Últimos productos</p>
             )}
 
-            <ul className="flex flex-col gap-2">
+            <ul className={`flex flex-col gap-2 ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>
               {productos.map((producto) => (
                 <li key={producto.id}>
                   <RenglonProducto
                     producto={producto}
                     coincidencia={producto.coincidencia}
                     ubicacionId={activa?.id}
-                    onClick={() => navegar(`/producto/${producto.id}`)}
+                    onClick={() => {
+                      if (resultados.isPlaceholderData || texto !== consulta) return
+                      const nuevas = recordarBusqueda(recientes, consulta)
+                      guardarBusquedas(nuevas)
+                      navegar(`/producto/${producto.id}`)
+                    }}
                   />
                 </li>
               ))}

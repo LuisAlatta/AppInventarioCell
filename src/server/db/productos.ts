@@ -7,6 +7,8 @@ import type { DatosProducto, DatosProductoParcial } from '@compartido/esquemas'
 import { nuevoId } from '../lib/id'
 import { noEncontrado } from '../lib/errores'
 import { aProducto, aStock, type FilaProducto, type FilaStock } from './mapeo'
+import { cantidadStock } from './filtro_stock'
+import type { ResumenStock } from '@compartido/tipos'
 
 const COLUMNAS = `
   p.id, p.barcode, p.name, p.brand, p.model, p.category_id,
@@ -194,20 +196,31 @@ export async function stockEn(
 // ---------------------------------------------------------------------------
 
 /** Productos por debajo de su minimo, sumando todas las ubicaciones. */
-export async function productosBajoMinimo(db: D1Database, limite = 50): Promise<ProductoConStock[]> {
+export async function productosBajoMinimo(db: D1Database, limite = 50, ubicacionId?: string): Promise<ProductoConStock[]> {
+  const cantidad = cantidadStock(ubicacionId)
   const { results } = await db
     .prepare(
       `SELECT ${COLUMNAS}
        ${DESDE}
-       WHERE p.is_active = 1 AND p.min_stock > 0
-         AND COALESCE((SELECT SUM(qty) FROM stock WHERE product_id = p.id), 0) < p.min_stock
-       ORDER BY p.name
+       WHERE p.is_active = 1 AND (${ubicacionId ? `${cantidad.sql} = 0 OR` : 'p.min_stock > 0 AND'} ${cantidad.sql} < p.min_stock)
+       ORDER BY ${cantidad.sql}, p.name
        LIMIT ?`,
     )
-    .bind(limite)
+    .bind(...(ubicacionId ? cantidad.valores : []), ...cantidad.valores, ...cantidad.valores, limite)
     .all<FilaProducto>()
 
   return conStock(db, results.map(aProducto))
+}
+
+export async function resumenStock(db: D1Database, ubicacionId?: string): Promise<ResumenStock> {
+  const cantidad = cantidadStock(ubicacionId)
+  const resumen = await db.prepare(`SELECT COUNT(*) AS productos,
+    COALESCE(SUM(cantidad > 0), 0) AS disponibles,
+    COALESCE(SUM(cantidad = 0), 0) AS agotados,
+    COALESCE(SUM(cantidad > 0 AND cantidad < min_stock), 0) AS stockBajo
+    FROM (SELECT p.min_stock, ${cantidad.sql} AS cantidad FROM products p WHERE p.is_active = 1)`)
+    .bind(...cantidad.valores).first<ResumenStock>()
+  return resumen ?? { productos: 0, disponibles: 0, agotados: 0, stockBajo: 0 }
 }
 
 /** Productos activos con stock que no se han movido en el plazo indicado. */

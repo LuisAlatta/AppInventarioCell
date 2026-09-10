@@ -194,6 +194,7 @@ export const esquemaCerrarConteo = z.object({
 export const esquemaBusqueda = z.object({
   q: z.string().trim().max(120).default(''),
   ubicacionId: id.optional(),
+  filtro: z.enum(['todos', 'disponibles', 'agotados', 'bajo']).default('todos'),
   limite: z.coerce.number().int().min(1).max(50).default(20),
 })
 

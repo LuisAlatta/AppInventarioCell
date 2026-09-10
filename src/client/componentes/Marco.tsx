@@ -83,7 +83,7 @@ function SelectorUbicacion() {
         // Se le da mas ancho que al titulo a proposito: entre saber en que
         // pantalla estas y saber en que sucursal estas registrando, lo segundo
         // es lo que evita el error caro. El titulo puede recortarse antes.
-        className="flex h-11 max-w-[12rem] shrink-0 items-center gap-1.5 rounded-xl border border-borde bg-superficie px-3 transition active:bg-papel-hundido"
+        className="flex h-11 min-w-0 max-w-[45%] shrink items-center gap-1.5 rounded-xl border border-borde bg-superficie px-2.5 transition active:bg-papel-hundido"
       >
         <span aria-hidden="true" className="text-base leading-none">
           {activa.icono ?? (activa.tipo === 'warehouse' ? '🏭' : '🏬')}

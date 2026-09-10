@@ -152,6 +152,15 @@ export interface ResultadoBusqueda extends ProductoConStock {
   coincidencia: 'codigo' | 'texto' | 'aproximado'
 }
 
+export type FiltroStock = 'todos' | 'disponibles' | 'agotados' | 'bajo'
+
+export interface ResumenStock {
+  productos: number
+  disponibles: number
+  agotados: number
+  stockBajo: number
+}
+
 export interface Usuario {
   id: string
   nombre: string

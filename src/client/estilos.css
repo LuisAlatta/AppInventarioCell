@@ -27,7 +27,7 @@
 
   --color-tinta: oklch(21% 0.012 75);
   --color-tinta-suave: oklch(46% 0.01 75);
-  --color-tinta-tenue: oklch(62% 0.008 75);
+  --color-tinta-tenue: oklch(50% 0.008 75);
 
   /* Accion */
   --color-accion: oklch(48% 0.15 264);

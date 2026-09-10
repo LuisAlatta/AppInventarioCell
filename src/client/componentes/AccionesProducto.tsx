@@ -21,6 +21,7 @@ import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { dinero, numero } from '../lib/formato'
 import { avisarError } from '../lib/retroalimentacion'
+import { SugerenciaReposicion } from './SugerenciaReposicion'
 
 type Modo = 'rápido' | 'entrada' | 'venta' | 'merma' | 'ajuste'
 
@@ -170,6 +171,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
       {modo === 'rápido' && (
         <>
+          <p className="text-[0.875rem] text-tinta-suave">En {activa.nombre}: entrada → {numero(enUbicacion + 1)} piezas{enUbicacion > 0 ? ` · venta → ${numero(enUbicacion - 1)}` : ' · sin stock para vender'}.</p>
           <div className="grid grid-cols-2 gap-2.5">
             <Boton tono="exito" onClick={() => void entrada(1)} disabled={enviando}>
               + 1 entrada
@@ -182,6 +184,8 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
               − 1 venta
             </Boton>
           </div>
+
+          <SugerenciaReposicion producto={producto} />
 
           <div className="grid grid-cols-2 gap-2.5">
             <Boton tono="contorno" onClick={() => setModo('entrada')} disabled={enviando}>
@@ -203,7 +207,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
               <button
                 type="button"
                 onClick={() => setModo('merma')}
-                disabled={enUbicacion < 1}
+                disabled={enviando || enUbicacion < 1}
                 className="flex-1 rounded-xl px-3 py-3 text-[0.9375rem] font-medium text-tinta-suave transition active:bg-papel-hundido disabled:opacity-40"
               >
                 Registrar merma
@@ -211,6 +215,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
               <button
                 type="button"
                 onClick={() => setModo('ajuste')}
+                disabled={enviando}
                 className="flex-1 rounded-xl px-3 py-3 text-[0.9375rem] font-medium text-tinta-suave transition active:bg-papel-hundido"
               >
                 Corregir cantidad
@@ -222,6 +227,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
       {(modo === 'entrada' || modo === 'venta') && (
         <div className="flex flex-col gap-4">
+          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {activa.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'entrada' ? cantidad : -cantidad))} piezas</strong></p>
           <div className="flex flex-col gap-2">
             <p className="text-[0.8125rem] font-medium text-tinta-suave">
               {modo === 'entrada' ? 'Piezas que entran' : 'Piezas que salen'}
@@ -255,6 +261,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
       {(modo === 'merma' || modo === 'ajuste') && (
         <div className="flex flex-col gap-4">
+          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {activa.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + cantidad * (modo === 'merma' ? -1 : signo))} piezas</strong></p>
           {modo === 'ajuste' && (
             <div className="flex gap-2">
               {([1, -1] as const).map((valor) => (
@@ -280,7 +287,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
             <SelectorCantidad
               valor={cantidad}
               onCambio={setCantidad}
-              maximo={modo === 'merma' ? Math.max(1, enUbicacion) : undefined}
+              maximo={modo === 'merma' || signo === -1 ? Math.max(1, enUbicacion) : undefined}
             />
           </div>
 
