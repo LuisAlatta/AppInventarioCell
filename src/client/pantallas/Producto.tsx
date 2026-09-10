@@ -55,7 +55,7 @@ export function Producto() {
 
   const equipos = useQuery({
     queryKey: ['equipos', id],
-    queryFn: () => api.equiposDeProducto(id),
+    queryFn: () => api.equiposDeProducto(id, true),
     enabled: id !== '',
   })
 
@@ -165,7 +165,7 @@ export function Producto() {
           </div>
           {equipos.isPending && <Esqueleto filas={2} />}
           {equipos.isSuccess && equipos.data.equipos.length === 0 && <p className="rounded-xl bg-papel-hundido px-4 py-3 text-[0.875rem] text-tinta-tenue">Este modelo aún no tiene IMEI registrados.</p>}
-          {equipos.isSuccess && equipos.data.equipos.length > 0 && <ul className="flex flex-col gap-2">{equipos.data.equipos.map((equipo) => <li key={equipo.id} className="rounded-2xl border border-borde bg-superficie p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'}</p>{equipo.imei2 !== null && <p className="cifras mt-0.5 text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</p>}<p className="mt-1 text-[0.75rem] text-tinta-tenue" title={fechaLarga(equipo.creadoEn)}>Agregado {fechaLarga(equipo.creadoEn)}</p></div><div className="flex shrink-0 flex-col items-end gap-1"><span className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${equipo.listaBlanca === 'registered' ? 'bg-exito-tenue text-exito' : 'bg-falta-tenue text-falta'}`}>{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}</span><span className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${equipo.condicion === 'new' ? 'bg-accion-tenue text-accion' : 'bg-alerta-tenue text-alerta'}`}>{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span></div></div></li>)}</ul>}
+          {equipos.isSuccess && equipos.data.equipos.length > 0 && <ul className="flex flex-col gap-2">{equipos.data.equipos.map((equipo) => <li key={equipo.id} className={`rounded-2xl border p-3 ${equipo.activo ? 'border-borde bg-superficie' : 'border-borde bg-papel-hundido opacity-70'}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'}</p>{equipo.imei2 !== null && <p className="cifras mt-0.5 text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</p>}<p className="mt-1 text-[0.75rem] text-tinta-tenue" title={fechaLarga(equipo.creadoEn)}>Agregado {fechaLarga(equipo.creadoEn)}</p></div><div className="flex shrink-0 flex-col items-end gap-1">{!equipo.activo && <span className="rounded-full bg-papel-hundido px-2 py-1 text-[0.6875rem] font-semibold text-tinta-suave">Vendido o retirado</span>}<span className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${equipo.listaBlanca === 'registered' ? 'bg-exito-tenue text-exito' : 'bg-falta-tenue text-falta'}`}>{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}</span><span className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${equipo.condicion === 'new' ? 'bg-accion-tenue text-accion' : 'bg-alerta-tenue text-alerta'}`}>{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span></div></div></li>)}</ul>}
         </section>
 
         {(ficha.precioVenta > 0 || ficha.precioCosto > 0) && (
