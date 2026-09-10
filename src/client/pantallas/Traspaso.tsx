@@ -98,11 +98,12 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
 
   const equiposSeleccion = useQuery({
     queryKey: ['equipos', seleccionando?.id],
-    queryFn: () => api.equiposDeProducto(seleccionando?.id ?? ''),
+    queryFn: () => api.equiposDeProducto(seleccionando?.id ?? '', true),
     enabled: seleccionando !== null,
   })
 
   const equiposDeOrigen = (equiposSeleccion.data?.equipos ?? []).filter((equipo) => equipo.ubicacionId === origenId && equipo.activo)
+  const modeloConImei = (equiposSeleccion.data?.equipos.length ?? 0) > 0
 
   const abrirSelectorEquipos = (producto: ProductoConStock): void => {
     const hay = disponible(producto)
@@ -122,6 +123,10 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
     if (seleccionando === null) return
 
     if (equiposDeOrigen.length === 0) {
+      if (modeloConImei) {
+        avisos.error(`No hay IMEI disponibles de ${seleccionando.nombre} en ${origen?.nombre ?? 'el origen'}`)
+        return
+      }
       setRenglones((previos) => {
         const indice = previos.findIndex((renglon) => renglon.producto.id === seleccionando.id)
         if (indice === -1) return [...previos, { producto: seleccionando, cantidad: cantidadSinImei, equipos: [] }]
@@ -326,6 +331,7 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
         <div className="-mx-5 flex h-[65vh] flex-col">
           <CapturaProducto
             onElegido={abrirSelectorEquipos}
+            ubicacionId={origen?.id}
             indicacion={
               renglones.length === 0
                 ? 'Apunta al codigo de barras'
@@ -344,6 +350,7 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
           <SelectorEquipos
             producto={seleccionando}
             equipos={equiposDeOrigen}
+            modeloConImei={modeloConImei}
             cargando={equiposSeleccion.isPending}
             idsSeleccionados={idsEquipos}
             cantidadSinImei={cantidadSinImei}
@@ -385,14 +392,15 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
   )
 }
 
-function SelectorEquipos({ producto, equipos, cargando, idsSeleccionados, cantidadSinImei, disponible, onCambiarSeleccion, onCambiarCantidad, onConfirmar }: { producto: ProductoConStock; equipos: Equipo[]; cargando: boolean; idsSeleccionados: string[]; cantidadSinImei: number; disponible: number; onCambiarSeleccion: (id: string) => void; onCambiarCantidad: (cantidad: number) => void; onConfirmar: () => void }) {
+function SelectorEquipos({ producto, equipos, modeloConImei, cargando, idsSeleccionados, cantidadSinImei, disponible, onCambiarSeleccion, onCambiarCantidad, onConfirmar }: { producto: ProductoConStock; equipos: Equipo[]; modeloConImei: boolean; cargando: boolean; idsSeleccionados: string[]; cantidadSinImei: number; disponible: number; onCambiarSeleccion: (id: string) => void; onCambiarCantidad: (cantidad: number) => void; onConfirmar: () => void }) {
   if (cargando) return <div className="pb-3"><Esqueleto filas={3} /></div>
 
   if (equipos.length === 0) {
+    if (modeloConImei) return <div className="flex flex-col gap-4 pb-3"><div className="rounded-xl border border-alerta/30 bg-alerta-tenue px-3 py-2.5 text-[0.875rem] text-tinta-suave">Este modelo usa IMEI, pero no tiene unidades disponibles en el origen. No se puede trasladar por cantidad manual.</div></div>
     return <div className="flex flex-col gap-4 pb-3"><div className="rounded-xl bg-papel-hundido px-3 py-2.5 text-[0.875rem] text-tinta-suave">No hay IMEI registrados para este modelo. Indica cuántas piezas vas a trasladar.</div><SelectorCantidad valor={cantidadSinImei} maximo={Math.max(1, disponible)} onCambio={onCambiarCantidad} /><Boton ancho onClick={onConfirmar}>Agregar {numero(cantidadSinImei)} piezas</Boton></div>
   }
 
-  return <div className="flex flex-col gap-3 pb-3"><p className="text-[0.875rem] leading-snug text-tinta-suave">Selecciona las unidades de <strong className="font-semibold text-tinta">{producto.nombre}</strong> que salen en este traspaso.</p><div className="flex items-center justify-between rounded-xl bg-accion-tenue px-3 py-2 text-[0.8125rem] text-accion"><span>{numero(equipos.length)} equipos disponibles</span><span className="font-semibold">{numero(idsSeleccionados.length)} elegidos</span></div><ul className="flex flex-col gap-2">{equipos.map((equipo) => { const elegido = idsSeleccionados.includes(equipo.id); const imei = equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'; return <li key={equipo.id}><button type="button" aria-pressed={elegido} onClick={() => onCambiarSeleccion(equipo.id)} className={`flex min-h-[4.5rem] w-full items-center gap-3 rounded-xl border p-3 text-left transition ${elegido ? 'border-accion bg-accion-tenue' : 'border-borde bg-superficie active:bg-papel-hundido'}`}><span aria-hidden="true" className={`flex size-6 shrink-0 items-center justify-center rounded-lg border ${elegido ? 'border-accion bg-accion text-white' : 'border-borde-fuerte text-transparent'}`}><Check className="size-4" strokeWidth={3} /></span><span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-papel-hundido text-tinta-suave"><Smartphone className="size-4" strokeWidth={2} /></span><span className="min-w-0 flex-1"><span className="cifras block truncate text-[0.875rem] font-semibold">{imei}</span>{equipo.imei2 !== null && <span className="cifras mt-0.5 block truncate text-[0.6875rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</span>}<span className="mt-1 flex items-center gap-1 text-[0.6875rem] text-tinta-suave">{equipo.listaBlanca === 'registered' ? <ShieldCheck className="size-3.5 text-exito" strokeWidth={2} /> : <ShieldAlert className="size-3.5 text-falta" strokeWidth={2} />}{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'} · {equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span></span></button></li> })}</ul><Boton ancho onClick={onConfirmar}>Agregar {numero(idsSeleccionados.length)} equipos</Boton></div>
+  return <div className="flex flex-col gap-3 pb-3"><p className="text-[0.875rem] leading-snug text-tinta-suave">Selecciona las unidades de <strong className="font-semibold text-tinta">{producto.nombre}</strong> que salen en este traspaso.</p><div className="flex items-center justify-between rounded-xl bg-accion-tenue px-3 py-2 text-[0.8125rem] text-accion"><span>{numero(equipos.length)} equipos disponibles</span><span className="font-semibold">{numero(idsSeleccionados.length)} elegidos</span></div>{disponible !== equipos.length && <p className="rounded-xl border border-alerta/30 bg-alerta-tenue px-3 py-2 text-[0.75rem] text-tinta-suave">Hay {numero(disponible)} piezas en stock, pero solo {numero(equipos.length)} IMEI disponibles. Regulariza los IMEI antes de confirmar el traspaso.</p>}<ul className="flex flex-col gap-2">{equipos.map((equipo) => { const elegido = idsSeleccionados.includes(equipo.id); const imei = equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'; return <li key={equipo.id}><button type="button" aria-pressed={elegido} onClick={() => onCambiarSeleccion(equipo.id)} className={`flex min-h-[4.5rem] w-full items-center gap-3 rounded-xl border p-3 text-left transition ${elegido ? 'border-accion bg-accion-tenue' : 'border-borde bg-superficie active:bg-papel-hundido'}`}><span aria-hidden="true" className={`flex size-6 shrink-0 items-center justify-center rounded-lg border ${elegido ? 'border-accion bg-accion text-white' : 'border-borde-fuerte text-transparent'}`}><Check className="size-4" strokeWidth={3} /></span><span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-papel-hundido text-tinta-suave"><Smartphone className="size-4" strokeWidth={2} /></span><span className="min-w-0 flex-1"><span className="cifras block truncate text-[0.875rem] font-semibold">{imei}</span>{equipo.imei2 !== null && <span className="cifras mt-0.5 block truncate text-[0.6875rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</span>}<span className="mt-1 flex items-center gap-1 text-[0.6875rem] text-tinta-suave">{equipo.listaBlanca === 'registered' ? <ShieldCheck className="size-3.5 text-exito" strokeWidth={2} /> : <ShieldAlert className="size-3.5 text-falta" strokeWidth={2} />}{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'} · {equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span></span></button></li> })}</ul><Boton ancho disabled={disponible !== equipos.length} onClick={onConfirmar}>Agregar {numero(idsSeleccionados.length)} equipos</Boton></div>
 }
 
 function SelectorRuta({

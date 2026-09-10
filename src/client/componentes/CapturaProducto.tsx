@@ -39,9 +39,11 @@ interface CapturaProductoProps {
    * mientras se escribe.
    */
   pausado?: boolean
+  /** Ubicación de la que saldrán los productos, si la pantalla opera por local. */
+  ubicacionId?: string
 }
 
-export function CapturaProducto({ onElegido, indicacion, pausado = false }: CapturaProductoProps) {
+export function CapturaProducto({ onElegido, indicacion, pausado = false, ubicacionId }: CapturaProductoProps) {
   const avisos = useAvisos()
 
   const [pestana, setPestana] = useState<Pestana>('camara')
@@ -101,8 +103,8 @@ export function CapturaProducto({ onElegido, indicacion, pausado = false }: Capt
   }, [texto])
 
   const resultados = useQuery({
-    queryKey: ['buscar', consulta],
-    queryFn: ({ signal }) => api.buscar(consulta, signal),
+    queryKey: ['buscar', consulta, ubicacionId],
+    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId }),
     enabled: pestana === 'buscar',
     placeholderData: keepPreviousData,
   })
@@ -157,6 +159,7 @@ export function CapturaProducto({ onElegido, indicacion, pausado = false }: Capt
                   <RenglonProducto
                     producto={producto}
                     coincidencia={producto.coincidencia}
+                    ubicacionId={ubicacionId}
                     onClick={() => onElegido(producto)}
                   />
                 </li>

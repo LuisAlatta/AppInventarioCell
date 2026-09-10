@@ -49,6 +49,19 @@ export async function productoTieneEquipos(db: D1Database, productoId: string): 
   return fila !== null
 }
 
+/** Unidades físicas activas de un modelo dentro de una ubicación. */
+export async function cantidadEquiposActivosEn(
+  db: D1Database,
+  productoId: string,
+  ubicacionId: string,
+): Promise<number> {
+  const fila = await db
+    .prepare('SELECT COUNT(*) AS total FROM devices WHERE product_id = ? AND location_id = ? AND is_active = 1')
+    .bind(productoId, ubicacionId)
+    .first<{ total: number }>()
+  return fila?.total ?? 0
+}
+
 export async function listarEquiposDeProducto(
   db: D1Database,
   productoId: string,

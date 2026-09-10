@@ -28,7 +28,7 @@ import { ErrorApp, stockInsuficiente } from '../lib/errores'
 import { nuevoId } from '../lib/id'
 import { exigirMovimiento, movimientosDeLote } from '../db/movimientos'
 import { exigirProducto, stockEn } from '../db/productos'
-import { equiposPorIds } from '../db/equipos'
+import { cantidadEquiposActivosEn, equiposPorIds, productoTieneEquipos } from '../db/equipos'
 import { exigirUbicacion } from '../db/ubicaciones'
 import { sentenciasDeStock } from '../db/stock'
 import {
@@ -265,11 +265,22 @@ export async function aplicarTraspaso(
       throw stockInsuficiente(producto.nombre, origen.nombre, hay)
     }
 
+    if (await productoTieneEquipos(db, productoId)) {
+      const equiposEnOrigen = await cantidadEquiposActivosEn(db, productoId, datos.origenId)
+      if (hay !== equiposEnOrigen) {
+        throw new ErrorApp('regla_de_negocio', `${producto.nombre} tiene ${hay} piezas registradas y ${equiposEnOrigen} IMEI disponibles en ${origen.nombre}. Regulariza los IMEI antes de trasladarlo.`)
+      }
+    }
+
   }
 
   for (const renglon of datos.renglones) {
     const producto = productos.get(renglon.productoId)
     if (producto === undefined) throw new ErrorApp('no_encontrado', 'No se encontró el producto')
+
+    if (renglon.equipoIds === undefined && await productoTieneEquipos(db, renglon.productoId)) {
+      throw new ErrorApp('regla_de_negocio', `Selecciona los IMEI de ${producto.nombre} antes de hacer el traspaso`)
+    }
 
     if (renglon.equipoIds !== undefined) {
       for (const equipoId of renglon.equipoIds) {

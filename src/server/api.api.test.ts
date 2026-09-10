@@ -729,6 +729,28 @@ describe('equipos por IMEI', () => {
     expect(revertido.equipos.find((equipo) => equipo.id === elegido)?.ubicacionId).toBe(almacenId)
   })
 
+  test('rechaza un traspaso de equipos IMEI si no se eligen las unidades físicas', async () => {
+    const cookie = await entrar()
+    const { almacenId, sucursalId, productoId } = await escenario(cookie)
+    await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000019', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    })
+
+    const respuesta = await conSesion(cookie, '/api/movimientos/traspaso', {
+      metodo: 'POST',
+      cuerpo: { origenId: almacenId, destinoId: sucursalId, renglones: [{ productoId, cantidad: 1 }] },
+    })
+
+    expect(respuesta.status).toBe(422)
+    expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
+    expect(await stockEnUbicacion(cookie, productoId, sucursalId)).toBe(0)
+  })
+
   test('vender un equipo seleccionado lo saca de los IMEI disponibles', async () => {
     const cookie = await entrar()
     const { almacenId, productoId } = await escenario(cookie)
