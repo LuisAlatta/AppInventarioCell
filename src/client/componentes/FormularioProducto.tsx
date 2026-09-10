@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, PackageCheck, Plus, ScanLine, Trash2 } from 'lucide-react'
+import { Check, PackageCheck, Plus, ScanLine, Search, Trash2 } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -55,6 +55,8 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
 
   const [codigo, setCodigo] = useState(codigoInicial)
   const [productoExistente, setProductoExistente] = useState<ProductoConStock | null>(null)
+  const [consultaModelo, setConsultaModelo] = useState('')
+  const [mostrarModelos, setMostrarModelos] = useState(false)
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
   const [modelo, setModelo] = useState('')
@@ -69,7 +71,11 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const refArchivo = useRef<HTMLInputElement | null>(null)
   const marcas = useQuery({ queryKey: ['marcas'], queryFn: api.marcas })
   const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
-  const modelosExistentes = useQuery({ queryKey: ['modelos-existentes'], queryFn: () => api.buscar('') })
+  const modelosExistentes = useQuery({
+    queryKey: ['modelos-existentes', consultaModelo],
+    queryFn: () => api.buscar(consultaModelo),
+    enabled: mostrarModelos,
+  })
 
   useEffect(() => {
     if (lectura === null) return
@@ -216,27 +222,35 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         ayuda="El escaneo completa este campo automáticamente."
       />
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[0.8125rem] font-semibold text-tinta-suave">O agrega equipos a un modelo existente</span>
-        <select
-          value={productoExistente?.id ?? ''}
-          onChange={(evento) => {
-            const producto = (modelosExistentes.data?.productos ?? []).find((actual) => actual.id === evento.target.value)
-            if (producto === undefined) {
-              setProductoExistente(null)
-              setCodigo('')
-              return
-            }
-            setProductoExistente(producto)
-            setCodigo(producto.codigo)
-          }}
-          className="min-h-toque rounded-xl border border-borde bg-superficie px-3 text-[1rem] text-tinta focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15"
-        >
-          <option value="">Selecciona un modelo registrado</option>
-          {(modelosExistentes.data?.productos ?? []).map((producto) => <option key={producto.id} value={producto.id}>{[producto.nombre, producto.marca, producto.modelo].filter(Boolean).join(' · ')}</option>)}
-        </select>
-        <span className="text-[0.75rem] text-tinta-tenue">Seleccionarlo evita crear un producto duplicado.</span>
-      </label>
+      <div className="relative flex flex-col gap-1.5">
+        <label htmlFor="buscar-modelo" className="text-[0.8125rem] font-semibold text-tinta-suave">O busca un modelo existente</label>
+        <div className="relative">
+          <Search aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 my-auto size-5 text-tinta-tenue" strokeWidth={2} />
+          <input
+            id="buscar-modelo"
+            type="search"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={mostrarModelos}
+            value={consultaModelo}
+            onFocus={() => setMostrarModelos(true)}
+            onChange={(evento) => {
+              setConsultaModelo(evento.target.value)
+              setMostrarModelos(true)
+              if (productoExistente !== null) {
+                setProductoExistente(null)
+                setCodigo('')
+              }
+            }}
+            placeholder="Escribe nombre, marca o modelo"
+            autoComplete="off"
+            className="min-h-toque w-full rounded-xl border border-borde bg-superficie py-3 pl-10 pr-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15"
+          />
+        </div>
+        {mostrarModelos && modelosExistentes.isSuccess && <ul role="listbox" className="max-h-56 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-sm">{modelosExistentes.data.productos.slice(0, 8).map((producto) => <li key={producto.id}><button type="button" role="option" aria-selected={producto.id === productoExistente?.id} onClick={() => { setProductoExistente(producto); setCodigo(producto.codigo); setConsultaModelo(producto.nombre); setMostrarModelos(false) }} className="flex min-h-12 w-full flex-col justify-center border-b border-borde px-3 text-left last:border-b-0 active:bg-accion-tenue"><span className="text-[0.875rem] font-semibold">{producto.nombre}</span><span className="text-[0.75rem] text-tinta-tenue">{[producto.marca, producto.modelo].filter(Boolean).join(' · ') || producto.codigo}</span></button></li>)}</ul>}
+        {mostrarModelos && modelosExistentes.isSuccess && modelosExistentes.data.productos.length === 0 && <p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.8125rem] text-tinta-tenue">No hay modelos con esa búsqueda.</p>}
+        <span className="text-[0.75rem] text-tinta-tenue">Las sugerencias se actualizan mientras escribes.</span>
+      </div>
 
       {productoExistente !== null && <section className="flex items-center gap-3 rounded-2xl border border-exito/30 bg-exito-tenue p-3.5"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-exito text-white"><PackageCheck aria-hidden="true" className="size-5" strokeWidth={2} /></span><div className="min-w-0"><p className="text-[0.875rem] font-semibold">Modelo encontrado: {productoExistente.nombre}</p><p className="truncate text-[0.75rem] text-tinta-suave">{[productoExistente.marca, productoExistente.modelo].filter(Boolean).join(' · ') || 'Agregarás equipos a este modelo existente.'}</p></div></section>}
 
