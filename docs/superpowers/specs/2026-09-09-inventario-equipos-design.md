@@ -26,14 +26,14 @@ Los precios se presentan y se introducen en soles peruanos (S/).
 
 Se añadirá `devices`, una fila por equipo físico:
 
-- `id`, `product_id`, `imei1`, `imei2`
+- `id`, `product_id`
 - `whitelist_status`: `registered` o `not_registered`
 - `condition`: `new` o `used`
 - `location_id` actual
 - `created_at`: fecha y hora de alta, inmutable
 - `notes`, `is_active`, `deactivated_at`
 
-Los IMEI son opcionales para permitir una alta inicial rápida. Cuando existan, cada IMEI será único en toda la base; el segundo IMEI también se validará contra ambos campos para impedir duplicados.
+Los IMEI se guardan en una tabla interna `device_imeis` asociada al equipo, con posiciones 1 y 2. Son opcionales para permitir una alta inicial rápida. Al existir como valores únicos en una sola columna, cada IMEI es único en toda la base sin importar si se muestra como IMEI 1 o IMEI 2.
 
 Se añadirán `brands` y `product_images`. Una marca nueva se guarda al registrar un modelo y queda disponible como sugerencia en el siguiente alta. `product_images` guarda hasta cinco claves de imagen y el orden; la primera es la principal. Las imágenes se mantienen en KV bajo claves del producto.
 

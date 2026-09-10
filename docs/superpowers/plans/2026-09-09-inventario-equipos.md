@@ -4,7 +4,7 @@
 
 **Goal:** Añadir equipos individuales por IMEI, agrupados por modelo, para una tienda de celulares.
 
-**Architecture:** `products` conservará el modelo y el stock agregado. Una fila `devices` guardará cada teléfono y su ubicación; las mutaciones escriben dispositivo, movimiento y stock dentro de un solo `D1Database.batch()`.
+**Architecture:** `products` conservará el modelo y el stock agregado. Una fila `devices` guardará cada teléfono y su ubicación, y `device_imeis` guardará IMEI 1/2 en una columna única; las mutaciones escriben dispositivo, movimiento y stock dentro de un solo `D1Database.batch()`.
 
 **Tech Stack:** React, TypeScript, TanStack Query, Hono, Zod, Cloudflare D1 y KV.
 
@@ -42,9 +42,8 @@ expect((await conSesion(cookie, '/api/equipos', { metodo: 'POST', cuerpo: {
 - [ ] **Step 3: Add minimal schema.**
 
 ```sql
-CREATE TABLE devices (id TEXT PRIMARY KEY, product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT, imei1 TEXT, imei2 TEXT, whitelist_status TEXT NOT NULL DEFAULT 'not_registered' CHECK(whitelist_status IN ('registered','not_registered')), condition TEXT NOT NULL DEFAULT 'new' CHECK(condition IN ('new','used')), location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE RESTRICT, notes TEXT, is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0,1)), created_at TEXT NOT NULL DEFAULT(datetime('now')), updated_at TEXT NOT NULL DEFAULT(datetime('now')));
-CREATE UNIQUE INDEX idx_devices_imei1 ON devices(imei1) WHERE imei1 IS NOT NULL;
-CREATE UNIQUE INDEX idx_devices_imei2 ON devices(imei2) WHERE imei2 IS NOT NULL;
+CREATE TABLE devices (id TEXT PRIMARY KEY, product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT, whitelist_status TEXT NOT NULL DEFAULT 'not_registered' CHECK(whitelist_status IN ('registered','not_registered')), condition TEXT NOT NULL DEFAULT 'new' CHECK(condition IN ('new','used')), location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE RESTRICT, notes TEXT, is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0,1)), created_at TEXT NOT NULL DEFAULT(datetime('now')), updated_at TEXT NOT NULL DEFAULT(datetime('now')));
+CREATE TABLE device_imeis (device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE, position INTEGER NOT NULL CHECK(position IN (1,2)), imei TEXT NOT NULL UNIQUE, PRIMARY KEY(device_id, position));
 ALTER TABLE movements ADD COLUMN device_id TEXT REFERENCES devices(id) ON DELETE RESTRICT;
 ALTER TABLE locations ADD COLUMN color TEXT NOT NULL DEFAULT '#315DB8';
 CREATE TABLE brands (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL DEFAULT(datetime('now')));
