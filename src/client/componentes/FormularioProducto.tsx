@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, Plus, ScanLine, Trash2 } from 'lucide-react'
+import { Check, PackageCheck, Plus, ScanLine, Trash2 } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -54,6 +54,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const { activa } = useUbicacion()
 
   const [codigo, setCodigo] = useState(codigoInicial)
+  const [productoExistente, setProductoExistente] = useState<ProductoConStock | null>(null)
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
   const [modelo, setModelo] = useState('')
@@ -77,6 +78,25 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, [campo]: lectura.valor.replace(/\D/g, '') } : equipo))
     }
   }, [lectura])
+
+  useEffect(() => {
+    const codigoLimpio = codigo.trim()
+    if (codigoLimpio.length < 4) {
+      setProductoExistente(null)
+      return undefined
+    }
+
+    setProductoExistente(null)
+    let vigente = true
+    const temporizador = window.setTimeout(() => {
+      void api.porCodigo(codigoLimpio)
+        .then(({ producto }) => { if (vigente) setProductoExistente(producto) })
+        .catch((causa: unknown) => {
+          if (vigente && causa instanceof ErrorDeApi && causa.estado === 404) setProductoExistente(null)
+        })
+    }, 250)
+    return () => { vigente = false; window.clearTimeout(temporizador) }
+  }, [codigo])
 
   const actualizarEquipo = (id: string, cambio: Partial<DatosEquipoNuevo>): void => {
     setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, ...cambio } : equipo))
@@ -113,7 +133,13 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       return
     }
 
-    if (nombre.trim().length === 0) {
+    const equiposConImei = equipos.filter((equipo) => equipo.imei1.trim() !== '' || equipo.imei2.trim() !== '')
+    if (productoExistente !== null && equiposConImei.length === 0) {
+      setCampos({ equipos: 'Agrega al menos un IMEI para registrar equipos en este modelo' })
+      return
+    }
+
+    if (productoExistente === null && nombre.trim().length === 0) {
       setCampos({ nombre: 'Ponle un nombre al producto' })
       return
     }
@@ -122,7 +148,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     setCampos({})
 
     try {
-      const { producto } = await api.crearProducto({
+      const producto = productoExistente ?? (await api.crearProducto({
         codigo: codigo.trim(),
         nombre: nombre.trim(),
         marca: marca.trim() === '' ? null : marca.trim(),
@@ -130,9 +156,8 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         categoriaId: categoriaId === '' ? null : categoriaId,
         precioVenta: aNumero(precioVenta),
         precioCosto: aNumero(precioCosto),
-      })
+      })).producto
 
-      const equiposConImei = equipos.filter((equipo) => equipo.imei1.trim() !== '' || equipo.imei2.trim() !== '')
       const hayImei = equiposConImei.length > 0
       if (hayImei && activa !== null) {
         await api.registrarEquipos({
@@ -151,7 +176,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       // Si falla, el producto ya quedó guardado: se avisa pero no se pierde
       // el alta, que es lo que costo trabajo.
       let conFoto = producto
-      if (foto !== null) {
+      if (foto !== null && productoExistente === null) {
         try {
           const { claveImagen } = await api.subirImagen('producto', producto.id, foto.archivo)
           conFoto = { ...producto, claveImagen }
@@ -162,7 +187,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
 
       onCreado(conFoto)
       if (hayImei && activa === null) {
-        avisos.información('Producto creado. Elige una ubicación para registrar sus IMEI.')
+        avisos.información(`${productoExistente === null ? 'Producto creado' : producto.nombre}. Elige una ubicación para registrar sus IMEI.`)
       }
     } catch (causa) {
       if (causa instanceof ErrorDeApi) {
@@ -190,6 +215,8 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         ayuda="El escaneo completa este campo automáticamente."
       />
 
+      {productoExistente !== null && <section className="flex items-center gap-3 rounded-2xl border border-exito/30 bg-exito-tenue p-3.5"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-exito text-white"><PackageCheck aria-hidden="true" className="size-5" strokeWidth={2} /></span><div className="min-w-0"><p className="text-[0.875rem] font-semibold">Modelo encontrado: {productoExistente.nombre}</p><p className="truncate text-[0.75rem] text-tinta-suave">{[productoExistente.marca, productoExistente.modelo].filter(Boolean).join(' · ') || 'Agregarás equipos a este modelo existente.'}</p></div></section>}
+
       <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -198,10 +225,12 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           </div>
           <span className="cifras rounded-lg bg-superficie px-2 py-1 text-[0.75rem] font-semibold text-accion">{equipos.length}/50</span>
         </div>
+        {campos.equipos !== undefined && <p className="text-[0.75rem] font-medium text-falta">{campos.equipos}</p>}
         {equipos.map((equipo, indice) => <fieldset key={equipo.id} className="flex flex-col gap-3 rounded-xl border border-accion/20 bg-superficie p-3"><div className="flex items-center justify-between gap-2"><legend className="text-[0.8125rem] font-semibold text-tinta">Equipo {indice + 1}</legend>{equipos.length > 1 && <button type="button" onClick={() => setEquipos((anteriores) => anteriores.filter((actual) => actual.id !== equipo.id))} aria-label={`Quitar equipo ${indice + 1}`} className="flex size-9 items-center justify-center rounded-lg text-falta active:bg-falta-tenue"><Trash2 aria-hidden="true" className="size-4" strokeWidth={2} /></button>}</div><div className="grid grid-cols-2 gap-2.5"><CampoConEscaner etiqueta="IMEI 1" value={equipo.imei1} onChange={(valor) => actualizarEquipo(equipo.id, { imei1: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)} inputMode="numeric" placeholder="Opcional" /><CampoConEscaner etiqueta="IMEI 2" value={equipo.imei2} onChange={(valor) => actualizarEquipo(equipo.id, { imei2: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)} inputMode="numeric" placeholder="Opcional" /></div><div className="grid grid-cols-2 gap-3"><GrupoChecks etiqueta="Lista blanca" valor={equipo.listaBlanca} opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { listaBlanca: valor })} /><GrupoChecks etiqueta="Condición" valor={equipo.condicion} opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { condicion: valor })} /></div></fieldset>)}
         <button type="button" disabled={equipos.length >= 50} onClick={() => setEquipos((anteriores) => [...anteriores, equipoVacio()])} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-accion/45 bg-superficie px-3 text-[0.875rem] font-semibold text-accion active:bg-accion/10 disabled:opacity-40"><Plus aria-hidden="true" className="size-4" strokeWidth={2.3} />Agregar otro equipo</button>
       </section>
 
+      {productoExistente === null && <>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -305,13 +334,14 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           ayuda="Se usa para valuar mermas"
         />
       </div>
+      </>}
 
       <div className="grid grid-cols-[1fr_2fr] gap-2.5 pt-1">
         <Boton tono="contorno" onClick={onCancelar} disabled={enviando}>
           Cancelar
         </Boton>
         <Boton cargando={enviando} onClick={() => void guardar()}>
-          Guardar producto
+          {productoExistente === null ? 'Guardar producto' : `Agregar a ${productoExistente.nombre}`}
         </Boton>
       </div>
     </div>
