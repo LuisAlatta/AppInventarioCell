@@ -93,34 +93,8 @@ export function Inicio() {
           </section>
         )}
 
-        {inicio.isSuccess && inicio.data.bajoMinimo.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <Etiqueta>Necesita atención aquí</Etiqueta>
-              <span className="cifras text-[0.8125rem] font-semibold text-alerta">
-                {numero(inicio.data.resumen.agotados + inicio.data.resumen.stockBajo)}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              {inicio.data.bajoMinimo.slice(0, 4).map((producto) => (
-                <div key={producto.id} className="flex flex-col gap-2">
-                <RenglonProducto
-                  producto={producto}
-                  ubicacionId={activa?.id}
-                  onClick={() => navegar(`/producto/${producto.id}`)}
-                />
-                <SugerenciaReposicion producto={producto} />
-                </div>
-              ))}
-            </div>
-
-            <p className="text-[0.8125rem] text-tinta-suave">Prioridad a los agotados. El mínimo configurado de cada producto se usa como referencia en esta ubicación.</p>
-          </section>
-        )}
-
         {inicio.isSuccess && (
-          <section className="order-first flex flex-col gap-3" aria-label="Resumen de la ubicación">
+          <section className="flex flex-col gap-3" aria-label="Resumen de la ubicación">
             <div>
               <h2 className="text-titulo">{inicio.data.resumen.productos === 0 ? 'Empecemos tu inventario' : 'Tu inventario, al día'}</h2>
               <p className="mt-1 text-[0.875rem] text-tinta-suave">{activa?.nombre ?? 'Todas las ubicaciones'} · {numero(inicio.data.resumen.productos)} productos</p>
@@ -143,6 +117,14 @@ export function Inicio() {
               : inicio.data.resumen.agotados + inicio.data.resumen.stockBajo === 0
                 ? 'Sin alertas de stock en esta ubicación.'
                 : 'Toca Agotados o Stock bajo para ver qué reponer.'}</p>
+          </section>
+        )}
+
+        {inicio.isSuccess && inicio.data.bajoMinimo.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-2"><Etiqueta>Productos para reponer</Etiqueta><span className="cifras text-[0.8125rem] font-semibold text-alerta">{numero(inicio.data.resumen.agotados + inicio.data.resumen.stockBajo)}</span></div>
+            <p className="text-[0.8125rem] text-tinta-suave">Los que tienen menos existencias aparecen primero.</p>
+            <div className="flex flex-col gap-2">{inicio.data.bajoMinimo.slice(0, 4).map((producto) => <div key={producto.id} className="flex flex-col gap-2"><RenglonProducto producto={producto} ubicacionId={activa?.id} onClick={() => navegar(`/producto/${producto.id}`)} /><SugerenciaReposicion producto={producto} /></div>)}</div>
           </section>
         )}
 

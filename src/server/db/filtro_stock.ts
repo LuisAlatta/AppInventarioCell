@@ -1,8 +1,10 @@
-import type { FiltroStock } from '@compartido/tipos'
+import type { CondicionEquipo, EstadoListaBlanca, FiltroStock } from '@compartido/tipos'
 
 export interface FiltroInventario {
   ubicacionId?: string | undefined
   filtro?: FiltroStock | undefined
+  listaBlanca?: EstadoListaBlanca | undefined
+  condicion?: CondicionEquipo | undefined
 }
 
 /** Fragmentos internos; los valores del usuario siempre se enlazan como parámetros. */
@@ -16,10 +18,18 @@ export function cantidadStock(ubicacionId?: string) {
 
 export function condicionStock(opciones: FiltroInventario = {}) {
   const cantidad = cantidadStock(opciones.ubicacionId)
+  const filtrosEquipo: string[] = []
+  const valoresEquipo: string[] = []
+  if (opciones.listaBlanca !== undefined) { filtrosEquipo.push('d.whitelist_status = ?'); valoresEquipo.push(opciones.listaBlanca) }
+  if (opciones.condicion !== undefined) { filtrosEquipo.push('d.condition = ?'); valoresEquipo.push(opciones.condicion) }
+  const equipos = filtrosEquipo.length === 0 ? { sql: '1 = 1', valores: [] as string[] } : {
+    sql: `EXISTS (SELECT 1 FROM devices d WHERE d.product_id = p.id AND d.is_active = 1 AND ${filtrosEquipo.join(' AND ')})`,
+    valores: valoresEquipo,
+  }
   switch (opciones.filtro) {
-    case 'disponibles': return { sql: `${cantidad.sql} > 0`, valores: cantidad.valores }
-    case 'agotados': return { sql: `${cantidad.sql} = 0`, valores: cantidad.valores }
-    case 'bajo': return { sql: `${cantidad.sql} > 0 AND ${cantidad.sql} < p.min_stock`, valores: [...cantidad.valores, ...cantidad.valores] }
-    default: return { sql: '1 = 1', valores: [] }
+    case 'disponibles': return { sql: `${cantidad.sql} > 0 AND ${equipos.sql}`, valores: [...cantidad.valores, ...equipos.valores] }
+    case 'agotados': return { sql: `${cantidad.sql} = 0 AND ${equipos.sql}`, valores: [...cantidad.valores, ...equipos.valores] }
+    case 'bajo': return { sql: `${cantidad.sql} > 0 AND ${cantidad.sql} < p.min_stock AND ${equipos.sql}`, valores: [...cantidad.valores, ...cantidad.valores, ...equipos.valores] }
+    default: return { sql: equipos.sql, valores: equipos.valores }
   }
 }

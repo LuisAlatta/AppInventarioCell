@@ -32,3 +32,29 @@ export function guardarBusquedas(busquedas: string[]): void {
   try { localStorage.setItem('inventario.busquedas', JSON.stringify(busquedas)) }
   catch { /* El historial es opcional cuando el navegador bloquea almacenamiento. */ }
 }
+
+export interface PreferenciasVistaBusqueda {
+  modo: 'lista' | 'cuadricula'
+  columnas: 1 | 2 | 3
+  imagen: 'pequena' | 'mediana' | 'grande'
+}
+
+const VISTA_POR_DEFECTO: PreferenciasVistaBusqueda = { modo: 'cuadricula', columnas: 3, imagen: 'mediana' }
+
+export function leerVistaBusqueda(): PreferenciasVistaBusqueda {
+  try {
+    const valor: unknown = JSON.parse(localStorage.getItem('inventario.vista-busqueda') ?? '')
+    if (typeof valor !== 'object' || valor === null) return VISTA_POR_DEFECTO
+    const datos = valor as Partial<PreferenciasVistaBusqueda>
+    return {
+      modo: datos.modo === 'lista' ? 'lista' : 'cuadricula',
+      columnas: datos.columnas === 1 || datos.columnas === 2 || datos.columnas === 3 ? datos.columnas : 3,
+      imagen: datos.imagen === 'pequena' || datos.imagen === 'grande' ? datos.imagen : 'mediana',
+    }
+  } catch { return VISTA_POR_DEFECTO }
+}
+
+export function guardarVistaBusqueda(vista: PreferenciasVistaBusqueda): void {
+  try { localStorage.setItem('inventario.vista-busqueda', JSON.stringify(vista)) }
+  catch { /* La vista se mantiene durante la sesión si el navegador no deja persistirla. */ }
+}
