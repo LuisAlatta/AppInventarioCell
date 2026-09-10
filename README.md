@@ -182,3 +182,5 @@ El proyecto fija `legacy-peer-deps=true` en `.npmrc`. No es por un conflicto rea
 npm 11.1.0 tiene un fallo en su resolutor de dependencias que lo hace caer al recorrer las
 dependencias opcionales de Vitest. La matriz de versiones se verificó a mano y es compatible.
 Con npm 12 o superior la bandera se puede quitar.
+#   A p p I n v e n t a r i o C e l l  
+ 
