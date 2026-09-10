@@ -6,7 +6,7 @@ import { ArrowLeftRight, House, ScanLine, Search, SlidersHorizontal, type Lucide
 const OPCIONES: { a: string; texto: string; icono: LucideIcon }[] = [
   { a: '/', texto: 'Inicio', icono: House },
   { a: '/buscar', texto: 'Buscar', icono: Search },
-  { a: '/escanear', texto: 'Escanear', icono: ScanLine },
+  { a: '/escanear', texto: 'Registrar', icono: ScanLine },
   { a: '/traspaso', texto: 'Mover', icono: ArrowLeftRight },
   { a: '/ajustes', texto: 'Ajustes', icono: SlidersHorizontal },
 ]

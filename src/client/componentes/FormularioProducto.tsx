@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Check, ScanLine } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -21,23 +22,26 @@ import { liberarVista, prepararFoto } from '../lib/imagen'
 import { useUbicacion } from '../contexto/Ubicacion'
 
 interface FormularioProductoProps {
-  codigo: string
+  codigoInicial?: string
+  onEscanear?: (campo: 'codigo' | 'imei1' | 'imei2') => void
+  lectura?: { campo: 'codigo' | 'imei1' | 'imei2'; valor: string } | null
   onCreado: (producto: ProductoConStock) => void
   onCancelar: () => void
 }
 
-export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioProductoProps) {
+export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = null, onCreado, onCancelar }: FormularioProductoProps) {
   const avisos = useAvisos()
   const { activa } = useUbicacion()
 
+  const [codigo, setCodigo] = useState(codigoInicial)
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
   const [modelo, setModelo] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
   const [imei1, setImei1] = useState('')
   const [imei2, setImei2] = useState('')
-  const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>('not_registered')
-  const [condicion, setCondicion] = useState<'new' | 'used'>('new')
+  const [registrado, setRegistrado] = useState(false)
+  const [nuevo, setNuevo] = useState(true)
   const [precioVenta, setPrecioVenta] = useState('')
   const [precioCosto, setPrecioCosto] = useState('')
   const [foto, setFoto] = useState<{ archivo: Blob; vista: string } | null>(null)
@@ -47,6 +51,13 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
   const refArchivo = useRef<HTMLInputElement | null>(null)
   const marcas = useQuery({ queryKey: ['marcas'], queryFn: api.marcas })
   const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
+
+  useEffect(() => {
+    if (lectura === null) return
+    if (lectura.campo === 'codigo') setCodigo(lectura.valor)
+    if (lectura.campo === 'imei1') setImei1(lectura.valor.replace(/\D/g, ''))
+    if (lectura.campo === 'imei2') setImei2(lectura.valor.replace(/\D/g, ''))
+  }, [lectura])
 
   // Las URL de vista previa hay que liberarlas o se acumulan en memoria
   // durante una sesion de altas.
@@ -74,6 +85,11 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
   }
 
   const guardar = async (): Promise<void> => {
+    if (codigo.trim().length < 4) {
+      setCampos({ codigo: 'Ingresa o escanea un código válido' })
+      return
+    }
+
     if (nombre.trim().length === 0) {
       setCampos({ nombre: 'Ponle un nombre al producto' })
       return
@@ -84,7 +100,7 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
 
     try {
       const { producto } = await api.crearProducto({
-        codigo,
+        codigo: codigo.trim(),
         nombre: nombre.trim(),
         marca: marca.trim() === '' ? null : marca.trim(),
         modelo: modelo.trim() === '' ? null : modelo.trim(),
@@ -101,8 +117,8 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
           equipos: [{
             imei1: imei1.trim() === '' ? null : imei1.trim(),
             imei2: imei2.trim() === '' ? null : imei2.trim(),
-            listaBlanca,
-            condicion,
+            listaBlanca: registrado ? 'registered' : 'not_registered',
+            condicion: nuevo ? 'new' : 'used',
           }],
         })
       }
@@ -138,10 +154,17 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
 
   return (
     <div className="flex flex-col gap-4 pb-3">
-      <div className="rounded-xl bg-papel-hundido px-4 py-3">
-        <p className="text-[0.8125rem] text-tinta-suave">Código escaneado</p>
-        <p className="cifras text-[1.125rem] font-semibold">{codigo}</p>
-      </div>
+      <CampoConEscaner
+        etiqueta="Código de barras"
+        value={codigo}
+        error={campos.codigo}
+        onChange={setCodigo}
+        onEscanear={onEscanear === undefined ? undefined : () => onEscanear('codigo')}
+        inputMode="text"
+        autoComplete="off"
+        placeholder="Escanea o escribe el código"
+        ayuda="El escaneo completa este campo automáticamente."
+      />
 
       <div className="flex items-center gap-3">
         <button
@@ -233,12 +256,12 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
           <p className="text-[0.8125rem] text-tinta-suave">Opcional. Se guarda como una unidad individual en {activa?.nombre ?? 'la ubicación que elijas después'}.</p>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <CampoTexto etiqueta="IMEI 1" value={imei1} onChange={(e) => setImei1(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="15 dígitos" />
-          <CampoTexto etiqueta="IMEI 2" value={imei2} onChange={(e) => setImei2(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="Opcional" />
+          <CampoConEscaner etiqueta="IMEI 1" value={imei1} onChange={(valor) => setImei1(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei1')} inputMode="numeric" placeholder="Opcional" />
+          <CampoConEscaner etiqueta="IMEI 2" value={imei2} onChange={(valor) => setImei2(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei2')} inputMode="numeric" placeholder="Opcional" />
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <SelectorVisual etiqueta="Lista blanca" opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]} valor={listaBlanca} onChange={setListaBlanca} tono="exito" />
-          <SelectorVisual etiqueta="Estado" opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]} valor={condicion} onChange={setCondicion} tono="alerta" />
+          <CasillaEstado etiqueta="En lista blanca" detalle="Registrado" marcada={registrado} onChange={setRegistrado} tono="exito" />
+          <CasillaEstado etiqueta="Equipo nuevo" detalle="Segundo uso si se desmarca" marcada={nuevo} onChange={setNuevo} tono="accion" />
         </div>
       </section>
 
@@ -274,15 +297,11 @@ export function FormularioProducto({ codigo, onCreado, onCancelar }: FormularioP
   )
 }
 
-function SelectorVisual<T extends string>({
-  etiqueta, opciones, valor, onChange, tono,
-}: {
-  etiqueta: string
-  opciones: readonly (readonly [T, string])[]
-  valor: T
-  onChange: (valor: T) => void
-  tono: 'exito' | 'alerta'
-}) {
-  const activo = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : 'border-alerta bg-alerta-tenue text-alerta'
-  return <fieldset className="min-w-0"><legend className="mb-1.5 text-[0.75rem] font-semibold text-tinta-suave">{etiqueta}</legend><div className="flex flex-col gap-1">{opciones.map(([id, texto]) => <button key={id} type="button" aria-pressed={valor === id} onClick={() => onChange(id)} className={`min-h-9 rounded-lg border px-2 text-left text-[0.75rem] font-semibold ${valor === id ? activo : 'border-borde bg-superficie text-tinta-suave'}`}>{texto}</button>)}</div></fieldset>
+function CampoConEscaner({ etiqueta, value, onChange, onEscanear, error, ayuda, ...atributos }: { etiqueta: string; value: string; onChange: (valor: string) => void; onEscanear?: () => void; error?: string; ayuda?: string; inputMode?: 'text' | 'numeric'; autoComplete?: string; placeholder?: string }) {
+  return <div className="grid grid-cols-[minmax(0,1fr)_3.25rem] items-end gap-2"><CampoTexto etiqueta={etiqueta} value={value} error={error} ayuda={ayuda} onChange={(evento) => onChange(evento.target.value)} {...atributos} /><button type="button" aria-label={`Escanear ${etiqueta}`} disabled={onEscanear === undefined} onClick={onEscanear} className="mb-0.5 flex size-[3.25rem] items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"><ScanLine aria-hidden="true" className="size-5" strokeWidth={2} /></button></div>
+}
+
+function CasillaEstado({ etiqueta, detalle, marcada, onChange, tono }: { etiqueta: string; detalle: string; marcada: boolean; onChange: (marcada: boolean) => void; tono: 'exito' | 'accion' }) {
+  const activo = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : 'border-accion bg-accion-tenue text-accion'
+  return <label className={`flex min-h-[4.5rem] cursor-pointer items-center gap-2 rounded-xl border p-2.5 transition ${marcada ? activo : 'border-borde bg-superficie text-tinta-suave'}`}><input type="checkbox" className="sr-only" checked={marcada} onChange={(evento) => onChange(evento.target.checked)} /><span aria-hidden="true" className={`flex size-5 shrink-0 items-center justify-center rounded-md border ${marcada ? 'border-current bg-current text-white' : 'border-borde-fuerte'}`}>{marcada && <Check className="size-3.5" strokeWidth={3} />}</span><span className="min-w-0"><span className="block text-[0.75rem] font-semibold leading-tight">{etiqueta}</span><span className="mt-0.5 block text-[0.6875rem] leading-tight opacity-80">{detalle}</span></span></label>
 }

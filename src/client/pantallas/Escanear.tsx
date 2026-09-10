@@ -1,206 +1,78 @@
-/**
- * Pantalla de escaneo.
- *
- * La camara ocupa toda la pantalla y la ficha del producto sube desde abajo.
- * Se evita cambiar de pantalla a propósito: entre dos escaneos no debe haber
- * ningun "volver".
- *
- * Al leer un codigo desconocido, en lugar de un error se ofrece dar de alta el
- * producto con el codigo ya cargado. Es como se construye el catálogo en la
- * práctica, escaneando lo que va apareciendo.
- */
+/** Registro de productos y equipos con escaneo opcional por campo. */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import type { ProductoConStock } from '@compartido/tipos'
-import { ErrorDeApi, api } from '../api/cliente'
-import { AccionesProducto } from '../componentes/AccionesProducto'
-import { Boton } from '../componentes/Boton'
-import { CampoTexto } from '../componentes/Campo'
+import { Camera, PackagePlus } from 'lucide-react'
 import { FormularioProducto } from '../componentes/FormularioProducto'
 import { HojaInferior } from '../componentes/HojaInferior'
+import { Marco } from '../componentes/Marco'
 import { useAvisos } from '../contexto/Avisos'
-import { useUbicacion } from '../contexto/Ubicacion'
 import { VistaCamara } from '../escaner/VistaCamara'
 import { useEscaner } from '../escaner/useEscaner'
-import { avisarDesconocido, avisarLectura } from '../lib/retroalimentacion'
 
-type Hoja =
-  | { tipo: 'cerrada' }
-  | { tipo: 'producto'; producto: ProductoConStock }
-  | { tipo: 'nuevo'; codigo: string }
-  | { tipo: 'manual' }
+type CampoEscaneable = 'codigo' | 'imei1' | 'imei2'
+
+const NOMBRE_CAMPO: Record<CampoEscaneable, string> = {
+  codigo: 'código de barras',
+  imei1: 'IMEI 1',
+  imei2: 'IMEI 2',
+}
 
 export function Escanear() {
   const navegar = useNavigate()
   const avisos = useAvisos()
   const cliente = useQueryClient()
-  const { activa } = useUbicacion()
+  const [campo, setCampo] = useState<CampoEscaneable | null>(null)
+  const [lectura, setLectura] = useState<{ campo: CampoEscaneable; valor: string } | null>(null)
 
-  const [hoja, setHoja] = useState<Hoja>({ tipo: 'cerrada' })
-  const [buscandoCodigo, setBuscandoCodigo] = useState(false)
-  const [codigoManual, setCodigoManual] = useState('')
-
-  const resolverCodigo = useCallback(
-    async (codigo: string): Promise<void> => {
-      setBuscandoCodigo(true)
-      try {
-        const { producto } = await api.porCodigo(codigo)
-        avisarLectura()
-        setHoja({ tipo: 'producto', producto })
-      } catch (causa) {
-        if (causa instanceof ErrorDeApi && causa.estado === 404) {
-          avisarDesconocido()
-          setHoja({ tipo: 'nuevo', codigo })
-          return
-        }
-
-        avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo consultar el código')
-      } finally {
-        setBuscandoCodigo(false)
-      }
-    },
-    [avisos],
-  )
-
-  const escaner = useEscaner((codigo) => {
-    // Mientras hay una hoja abierta no se procesan lecturas nuevas: la camara
-    // sigue viendo codigos por el borde de la pantalla y cambiarian el producto
-    // debajo del dedo justo al tocar un boton.
-    if (hoja.tipo !== 'cerrada') return
-    void resolverCodigo(codigo)
+  const escaner = useEscaner((valor) => {
+    if (campo === null) return
+    setLectura({ campo, valor })
+    setCampo(null)
   })
 
-  const { iniciar, detener, permitirRepeticion } = escaner
-
   useEffect(() => {
-    iniciar()
-    return detener
-  }, [iniciar, detener])
-
-  const cerrarHoja = (): void => {
-    setHoja({ tipo: 'cerrada' })
-    // Se olvida el último codigo para poder volver a escanear el mismo
-    // producto de inmediato: registrar tres piezas de a una es un caso normal.
-    permitirRepeticion()
-  }
-
-  const refrescarTodo = (): void => {
-    void cliente.invalidateQueries({ queryKey: ['inicio'] })
-    void cliente.invalidateQueries({ queryKey: ['buscar'] })
-  }
+    if (campo !== null) {
+      escaner.iniciar()
+      return escaner.detener
+    }
+    escaner.detener()
+    return undefined
+  }, [campo, escaner.iniciar, escaner.detener])
 
   return (
-    <div className="flex min-h-dvh flex-col bg-tinta">
-      <header className="area-segura-arriba flex shrink-0 items-center gap-2 bg-tinta px-3 pb-2 text-white">
-        <button
-          type="button"
-          aria-label="Volver"
-          onClick={() => navegar(-1)}
-          className="-ml-1 flex size-11 items-center justify-center rounded-xl transition active:bg-white/10"
-        >
-          <svg viewBox="0 0 24 24" className="size-6" aria-hidden="true" fill="none">
-            <path
-              d="M15 5l-7 7 7 7"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+    <Marco titulo="Registrar">
+      <div className="flex flex-col gap-5">
+        <section className="flex items-start gap-3 rounded-2xl border border-accion/20 bg-accion-tenue p-3.5 text-accion">
+          <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accion text-white">
+            <PackagePlus className="size-5" strokeWidth={2} />
+          </span>
+          <div>
+            <h2 className="text-[0.9375rem] font-semibold">Nuevo producto o equipo</h2>
+            <p className="mt-0.5 text-[0.8125rem] leading-snug text-tinta-suave">Escribe los datos o usa la cámara al lado de cada código.</p>
+          </div>
+        </section>
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[1.0625rem] font-semibold">Escanear</p>
-          {activa !== null && (
-            <p className="truncate text-[0.8125rem] text-white/70">Registrando en {activa.nombre}</p>
-          )}
-        </div>
+        <FormularioProducto
+          lectura={lectura}
+          onEscanear={setCampo}
+          onCancelar={() => navegar(-1)}
+          onCreado={(producto) => {
+            void cliente.invalidateQueries({ queryKey: ['inicio'] })
+            void cliente.invalidateQueries({ queryKey: ['buscar'] })
+            avisos.exito(`${producto.nombre} registrado`)
+            navegar(`/producto/${producto.id}`)
+          }}
+        />
+      </div>
 
-        <button
-          type="button"
-          onClick={() => setHoja({ tipo: 'manual' })}
-          className="flex min-h-11 shrink-0 items-center rounded-xl bg-white/12 px-3.5 text-[0.875rem] font-semibold transition active:bg-white/20"
-        >
-          Escribir codigo
-        </button>
-      </header>
-
-      <VistaCamara
-        escaner={escaner}
-        indicacion={buscandoCodigo ? 'Buscando…' : 'Apunta al codigo de barras'}
-        onEscribirCodigo={() => setHoja({ tipo: 'manual' })}
-      />
-
-      <HojaInferior
-        abierta={hoja.tipo === 'producto'}
-        onCerrar={cerrarHoja}
-        titulo="Producto escaneado"
-      >
-        {hoja.tipo === 'producto' && (
-          <AccionesProducto
-            producto={hoja.producto}
-            onCambio={refrescarTodo}
-            onListo={cerrarHoja}
-          />
-        )}
-      </HojaInferior>
-
-      <HojaInferior
-        abierta={hoja.tipo === 'nuevo'}
-        onCerrar={cerrarHoja}
-        titulo="Producto nuevo"
-      >
-        {hoja.tipo === 'nuevo' && (
-          <FormularioProducto
-            codigo={hoja.codigo}
-            onCancelar={cerrarHoja}
-            onCreado={(producto) => {
-              refrescarTodo()
-              avisos.exito(`${producto.nombre} agregado al catálogo`)
-              // Se pasa directo a las acciones: quien acaba de dar de alta un
-              // producto casi siempre quiere registrar cuántas piezas tiene.
-              setHoja({ tipo: 'producto', producto })
-            }}
-          />
-        )}
-      </HojaInferior>
-
-      <HojaInferior
-        abierta={hoja.tipo === 'manual'}
-        onCerrar={() => {
-          setCodigoManual('')
-          cerrarHoja()
-        }}
-        titulo="Escribir el código"
-      >
-        <div className="flex flex-col gap-4 pb-3">
-          <CampoTexto
-            etiqueta="Código de barras"
-            value={codigoManual}
-            onChange={(e) => setCodigoManual(e.target.value)}
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="7501234567890"
-            autoFocus
-            ayuda="Los números que están debajo de las barras."
-          />
-
-          <Boton
-            ancho
-            cargando={buscandoCodigo}
-            disabled={codigoManual.trim().length < 4}
-            onClick={() => {
-              const codigo = codigoManual.trim()
-              setCodigoManual('')
-              void resolverCodigo(codigo)
-            }}
-          >
-            Buscar producto
-          </Boton>
+      <HojaInferior abierta={campo !== null} onCerrar={() => setCampo(null)} titulo={campo === null ? 'Escanear' : `Escanear ${NOMBRE_CAMPO[campo]}`}>
+        <div className="-mx-5 flex h-[65vh] flex-col overflow-hidden bg-tinta">
+          <VistaCamara escaner={escaner} indicacion={campo === null ? undefined : `Apunta al ${NOMBRE_CAMPO[campo]}`} onEscribirCodigo={() => setCampo(null)} />
+          <div className="flex shrink-0 items-center gap-2 bg-tinta px-4 py-3 text-[0.8125rem] text-white/80"><Camera aria-hidden="true" className="size-4" strokeWidth={2} /><span>La lectura se colocará en el campo abierto.</span></div>
         </div>
       </HojaInferior>
-    </div>
+    </Marco>
   )
 }

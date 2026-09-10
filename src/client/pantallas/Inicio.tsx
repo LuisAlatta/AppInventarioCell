@@ -58,7 +58,7 @@ export function Inicio() {
             <BotonAccion
               tono="accion"
               icono={<IconoEscanear />}
-              titulo="Escanear"
+              titulo="Registrar"
               detalle={activa === null ? undefined : `Registrar en ${activa.nombre}`}
               onClick={() => navegar('/escanear')}
             />

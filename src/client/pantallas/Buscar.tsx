@@ -35,6 +35,9 @@ export function Buscar() {
   const valorCondicion = parametros.get('condicion')
   const condicion: 'new' | 'used' | undefined = valorCondicion === 'new' || valorCondicion === 'used' ? valorCondicion : undefined
   const ubicacionElegida = ubicaciones.find((ubicacion) => ubicacion.id === parametros.get('ubicacion')) ?? activa
+  // En las tiendas solo interesa lo que realmente se puede vender. El almacén
+  // conserva el catálogo completo para poder revisar y reponer los agotados.
+  const filtroStock = ubicacionElegida?.tipo === 'store' ? 'disponibles' : 'todos'
   const [recientes, setRecientes] = useState(leerBusquedas)
   const [vista, setVista] = useState<PreferenciasVistaBusqueda>(leerVistaBusqueda)
   const [ordenFiltros, setOrdenFiltros] = useState<FiltroEquipoRapido[]>(leerOrdenFiltrosEquipo)
@@ -64,10 +67,10 @@ export function Buscar() {
   }, [texto, q, setParametros])
 
   const resultados = useQuery({
-    queryKey: ['buscar', consulta, ubicacionElegida?.id, listaBlanca, condicion],
-    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: ubicacionElegida?.id, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined }),
+    queryKey: ['buscar', consulta, ubicacionElegida?.id, filtroStock, listaBlanca, condicion],
+    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: ubicacionElegida?.id, filtro: filtroStock, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined }),
     // Conserva la lista anterior mientras llega la nueva, para que no parpadee.
-    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === ubicacionElegida?.id && anterior.queryKey[3] === listaBlanca && anterior.queryKey[4] === condicion ? keepPreviousData(previas) : undefined,
+    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === ubicacionElegida?.id && anterior.queryKey[3] === filtroStock && anterior.queryKey[4] === listaBlanca && anterior.queryKey[5] === condicion ? keepPreviousData(previas) : undefined,
   })
 
   const productos = resultados.data?.productos ?? []
@@ -144,10 +147,10 @@ export function Buscar() {
           )}
         </div>
 
-        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filtros rápidos de equipos">
+        <div className="grid grid-cols-4 gap-2" aria-label="Filtros rápidos de equipos">
           {ordenFiltros.map((filtroRapido) => <FiltroRapido key={filtroRapido} activo={filtroRapido === listaBlanca || filtroRapido === condicion} texto={NOMBRE_FILTRO[filtroRapido]} icono={ICONO_FILTRO[filtroRapido]} onClick={() => usarFiltro(filtroRapido)} tono={TONO_FILTRO[filtroRapido]} />)}
         </div>
-        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filtrar existencias por local">
+        <div className="grid grid-cols-4 gap-2" aria-label="Filtrar existencias por local">
           {ubicaciones.filter((ubicacion) => ubicacion.activa).map((ubicacion) => <FiltroLocal key={ubicacion.id} ubicacion={ubicacion} activo={ubicacion.id === ubicacionElegida?.id} onClick={() => cambiarFiltro(setParametros, 'ubicacion', ubicacion.id)} />)}
         </div>
         <div role="status" className="flex min-h-6 items-center gap-2 px-1 text-[0.75rem] text-tinta-suave">
@@ -207,11 +210,11 @@ const NOMBRE_FILTRO: Record<FiltroEquipoRapido, string> = { registered: 'Registr
 const TONO_FILTRO: Record<FiltroEquipoRapido, 'exito' | 'falta' | 'accion' | 'alerta'> = { registered: 'exito', not_registered: 'falta', new: 'accion', used: 'alerta' }
 const ICONO_FILTRO = { registered: BadgeCheck, not_registered: ShieldAlert, new: Sparkles, used: RefreshCw } as const
 
-function FiltroRapido({ activo, texto, onClick, tono, icono: Icono }: { activo: boolean; texto: string; onClick: () => void; tono: 'exito' | 'falta' | 'accion' | 'alerta'; icono?: LucideIcon }) { const activoClase = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : tono === 'falta' ? 'border-falta bg-falta-tenue text-falta' : tono === 'alerta' ? 'border-alerta bg-alerta-tenue text-alerta' : 'border-accion bg-accion-tenue text-accion'; return <button type="button" aria-pressed={activo} onClick={onClick} className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[0.8125rem] font-semibold transition ${activo ? activoClase : 'border-borde bg-superficie text-tinta-suave'}`}>{Icono !== undefined && <Icono aria-hidden="true" className="size-4" strokeWidth={2} />}{texto}</button> }
+function FiltroRapido({ activo, texto, onClick, tono, icono: Icono }: { activo: boolean; texto: string; onClick: () => void; tono: 'exito' | 'falta' | 'accion' | 'alerta'; icono?: LucideIcon }) { const activoClase = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : tono === 'falta' ? 'border-falta bg-falta-tenue text-falta' : tono === 'alerta' ? 'border-alerta bg-alerta-tenue text-alerta' : 'border-accion bg-accion-tenue text-accion'; return <button type="button" aria-pressed={activo} onClick={onClick} className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 text-center text-[0.6875rem] leading-tight font-semibold transition ${activo ? activoClase : 'border-borde bg-superficie text-tinta-suave'}`}>{Icono !== undefined && <Icono aria-hidden="true" className="size-4 shrink-0" strokeWidth={2} />}<span className="line-clamp-2">{texto}</span></button> }
 
 function FiltroLocal({ ubicacion, activo, onClick }: { ubicacion: ReturnType<typeof useUbicacion>['ubicaciones'][number]; activo: boolean; onClick: () => void }) {
   const color = ubicacion.color ?? '#315DB8'
-  return <button type="button" aria-pressed={activo} onClick={onClick} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[0.8125rem] font-semibold transition" style={{ borderColor: color, backgroundColor: activo ? `${color}1f` : undefined, color }}><IconoUbicacion icono={ubicacion.icono} tipo={ubicacion.tipo} className="size-4" /><span>{ubicacion.nombre}</span></button>
+  return <button type="button" aria-pressed={activo} onClick={onClick} className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 text-center text-[0.6875rem] leading-tight font-semibold transition" style={{ borderColor: color, backgroundColor: activo ? `${color}1f` : undefined, color }}><IconoUbicacion icono={ubicacion.icono} tipo={ubicacion.tipo} className="size-4 shrink-0" /><span className="line-clamp-2">{ubicacion.nombre}</span></button>
 }
 
 function ControlesVista({ vista, onChange }: { vista: PreferenciasVistaBusqueda; onChange: (vista: PreferenciasVistaBusqueda) => void }) { return <div className="rounded-2xl border border-borde bg-superficie p-3"><div className="grid grid-cols-2 gap-2"><FiltroRapido activo={vista.modo === 'lista'} texto="Lista" icono={List} onClick={() => onChange({ ...vista, modo: 'lista' })} tono="accion" /><FiltroRapido activo={vista.modo === 'cuadricula'} texto="Cuadrícula" icono={Grid3X3} onClick={() => onChange({ ...vista, modo: 'cuadricula' })} tono="accion" /></div>{vista.modo === 'cuadricula' && <><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Columnas</p><div className="mt-1 grid grid-cols-3 gap-2">{([1, 2, 3] as const).map((columnas) => <FiltroRapido key={columnas} activo={vista.columnas === columnas} texto={`${columnas}`} onClick={() => onChange({ ...vista, columnas })} tono="accion" />)}</div><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Tamaño de imagen</p><div className="mt-1 grid grid-cols-3 gap-2">{(['pequena', 'mediana', 'grande'] as const).map((imagen) => <FiltroRapido key={imagen} activo={vista.imagen === imagen} texto={imagen === 'pequena' ? 'Pequeña' : imagen === 'mediana' ? 'Mediana' : 'Grande'} onClick={() => onChange({ ...vista, imagen })} tono="accion" />)}</div></>}</div> }
