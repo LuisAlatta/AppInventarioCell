@@ -15,11 +15,9 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/cliente'
 import { BotonAccion } from '../componentes/Boton'
 import { Esqueleto, ErrorEnPantalla, Etiqueta } from '../componentes/Estados'
-import { RenglonProducto } from '../componentes/FichaProducto'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { NOMBRE_MOVIMIENTO, cuandoFue, numero } from '../lib/formato'
-import { SugerenciaReposicion } from '../componentes/SugerenciaReposicion'
 
 export function Inicio() {
   const navegar = useNavigate()
@@ -90,41 +88,6 @@ export function Inicio() {
           <section className="flex flex-col gap-2">
             <Etiqueta>Cargando</Etiqueta>
             <Esqueleto filas={3} />
-          </section>
-        )}
-
-        {inicio.isSuccess && (
-          <section className="flex flex-col gap-3" aria-label="Resumen de la ubicación">
-            <div>
-              <h2 className="text-titulo">{inicio.data.resumen.productos === 0 ? 'Empecemos tu inventario' : 'Tu inventario, al día'}</h2>
-              <p className="mt-1 text-[0.875rem] text-tinta-suave">{activa?.nombre ?? 'Todas las ubicaciones'} · {numero(inicio.data.resumen.productos)} productos</p>
-            </div>
-            <div className="grid grid-cols-3 divide-x divide-borde rounded-tarjeta border border-borde bg-superficie">
-              {([
-                ['disponibles', 'Disponibles', inicio.data.resumen.disponibles],
-                ['agotados', 'Agotados', inicio.data.resumen.agotados],
-                ['bajo', 'Stock bajo', inicio.data.resumen.stockBajo],
-              ] as const).map(([filtro, nombre, cantidad]) => (
-                <button key={filtro} type="button" onClick={() => navegar(`/buscar?filtro=${filtro}`)}
-                  className="flex min-h-20 flex-col items-center justify-center gap-1 px-1 py-3 transition active:bg-papel-hundido">
-                  <span className={`cifras text-[1.625rem] font-semibold ${cantidad > 0 && filtro !== 'disponibles' ? 'text-falta' : 'text-tinta'}`}>{numero(cantidad)}</span>
-                  <span className="text-[0.75rem] text-tinta-suave">{nombre}</span>
-                </button>
-              ))}
-            </div>
-            <p className="text-[0.875rem] text-tinta-suave">{inicio.data.resumen.productos === 0
-              ? 'Escanea tu primer producto para registrarlo.'
-              : inicio.data.resumen.agotados + inicio.data.resumen.stockBajo === 0
-                ? 'Sin alertas de stock en esta ubicación.'
-                : 'Toca Agotados o Stock bajo para ver qué reponer.'}</p>
-          </section>
-        )}
-
-        {inicio.isSuccess && inicio.data.bajoMinimo.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between gap-2"><Etiqueta>Productos para reponer</Etiqueta><span className="cifras text-[0.8125rem] font-semibold text-alerta">{numero(inicio.data.resumen.agotados + inicio.data.resumen.stockBajo)}</span></div>
-            <p className="text-[0.8125rem] text-tinta-suave">Los que tienen menos existencias aparecen primero.</p>
-            <div className="flex flex-col gap-2">{inicio.data.bajoMinimo.slice(0, 4).map((producto) => <div key={producto.id} className="flex flex-col gap-2"><RenglonProducto producto={producto} ubicacionId={activa?.id} onClick={() => navegar(`/producto/${producto.id}`)} /><SugerenciaReposicion producto={producto} /></div>)}</div>
           </section>
         )}
 
