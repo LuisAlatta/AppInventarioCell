@@ -716,6 +716,81 @@ describe('equipos por IMEI', () => {
     const revertido = await json<{ equipos: { id: string; ubicacionId: string }[] }>(await conSesion(cookie, `/api/equipos/producto/${productoId}`))
     expect(revertido.equipos.find((equipo) => equipo.id === elegido)?.ubicacionId).toBe(almacenId)
   })
+
+  test('vender un equipo seleccionado lo saca de los IMEI disponibles', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: { id: string }[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000025', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    }))
+    const equipoId = alta.equipos[0]?.id
+    expect(equipoId).toBeDefined()
+    if (equipoId === undefined) throw new Error('Falta el equipo creado')
+
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, equipoIds: [equipoId] },
+    })
+
+    expect(venta.status).toBe(201)
+    expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(0)
+    const equipos = await json<{ equipos: { id: string; activo: boolean }[] }>(
+      await conSesion(cookie, `/api/equipos/producto/${productoId}?todos=1`),
+    )
+    expect(equipos.equipos.find((equipo) => equipo.id === equipoId)?.activo).toBe(false)
+  })
+
+  test('rechaza vender un modelo con IMEI sin elegir la unidad física', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000026', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    })
+
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+
+    expect(venta.status).toBe(422)
+    expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
+  })
+
+  test('rechaza modificar stock de un modelo con IMEI sin elegir su unidad', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000027', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    })
+
+    const entrada = await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    const ajuste = await conSesion(cookie, '/api/movimientos/ajuste', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: -1, nota: 'Corrección manual' },
+    })
+
+    expect(entrada.status).toBe(422)
+    expect(ajuste.status).toBe(422)
+    expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
+  })
 })
 
 describe('conteo fisico y mermas', () => {

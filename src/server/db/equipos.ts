@@ -39,6 +39,16 @@ export async function equiposPorIds(db: D1Database, ids: readonly string[]): Pro
   })
 }
 
+/** Un producto con equipos individuales debe salir siempre por su IMEI. */
+export async function productoTieneEquipos(db: D1Database, productoId: string): Promise<boolean> {
+  const fila = await db
+    .prepare('SELECT 1 AS existe FROM devices WHERE product_id = ? LIMIT 1')
+    .bind(productoId)
+    .first<{ existe: number }>()
+
+  return fila !== null
+}
+
 export async function listarEquiposDeProducto(
   db: D1Database,
   productoId: string,

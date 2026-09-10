@@ -154,7 +154,11 @@ export const esquemaVenta = z.object({
   productoId: id,
   ubicacionId: id,
   cantidad: cantidadPositiva,
+  equipoIds: z.array(id).min(1).max(500).optional(),
   nota: nota.nullish(),
+}).refine((datos) => datos.equipoIds === undefined || datos.equipoIds.length === datos.cantidad, {
+  message: 'La cantidad debe coincidir con los equipos elegidos',
+  path: ['cantidad'],
 })
 
 /** Devolucion de cliente. Regresa a una ubicacion. */
@@ -165,7 +169,11 @@ export const esquemaMerma = z.object({
   productoId: id,
   ubicacionId: id,
   cantidad: cantidadPositiva,
+  equipoIds: z.array(id).min(1).max(500).optional(),
   nota: nota.min(3, 'Explica el motivo de la merma'),
+}).refine((datos) => datos.equipoIds === undefined || datos.equipoIds.length === datos.cantidad, {
+  message: 'La cantidad debe coincidir con los equipos elegidos',
+  path: ['cantidad'],
 })
 
 /**

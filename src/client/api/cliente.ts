@@ -234,8 +234,9 @@ export const api = {
     productoId: string
     ubicacionId: string
     cantidad: number
+    equipoIds?: string[]
     nota?: string | null
-  }): Promise<{ movimiento: Movimiento }> =>
+  }): Promise<{ movimiento: Movimiento } | { movimientos: Movimiento[] }> =>
     pedir('/movimientos/venta', { metodo: 'POST', cuerpo: datos }),
 
   devolucion: (datos: {
@@ -250,8 +251,9 @@ export const api = {
     productoId: string
     ubicacionId: string
     cantidad: number
+    equipoIds?: string[]
     nota: string
-  }): Promise<{ movimiento: Movimiento }> =>
+  }): Promise<{ movimiento: Movimiento } | { movimientos: Movimiento[] }> =>
     pedir('/movimientos/merma', { metodo: 'POST', cuerpo: datos }),
 
   ajuste: (datos: {

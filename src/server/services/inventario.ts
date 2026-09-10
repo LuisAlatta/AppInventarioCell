@@ -80,6 +80,20 @@ function sentenciaMoverEquipo(db: D1Database, equipoId: string, origenId: string
     .bind(destinoId, equipoId, origenId)
 }
 
+/** Una venta o merma deja de ser una unidad disponible, sin borrar su IMEI. */
+function sentenciaDarDeBajaEquipo(db: D1Database, equipoId: string, ubicacionId: string): D1PreparedStatement {
+  return db
+    .prepare("UPDATE devices SET is_active = 0, updated_at = datetime('now') WHERE id = ? AND location_id = ? AND is_active = 1")
+    .bind(equipoId, ubicacionId)
+}
+
+/** Deshacer una salida devuelve el mismo IMEI a las unidades disponibles. */
+function sentenciaReactivarEquipo(db: D1Database, equipoId: string, ubicacionId: string): D1PreparedStatement {
+  return db
+    .prepare("UPDATE devices SET is_active = 1, location_id = ?, updated_at = datetime('now') WHERE id = ? AND is_active = 0")
+    .bind(ubicacionId, equipoId)
+}
+
 /**
  * Comprueba que haya existencias suficientes, para poder explicar el problema
  * con nombres en lugar de un error de restriccion.
@@ -132,6 +146,59 @@ export async function aplicarMovimiento(
   await db.batch(sentencias)
 
   return exigirMovimiento(db, id)
+}
+
+/**
+ * Registra una salida por IMEI. El stock y la disponibilidad de cada unidad
+ * se guardan en el mismo batch, por lo que nunca queda un equipo vendido como
+ * disponible para un traspaso posterior.
+ */
+export async function aplicarSalidaDeEquipos(
+  db: D1Database,
+  m: MovimientoNuevo,
+  equipoIds: readonly string[],
+  usuarioId: string,
+): Promise<Movimiento[]> {
+  if ((m.tipo !== 'sale' && m.tipo !== 'loss') || m.ubicacionOrigenId === null || equipoIds.length !== m.cantidad) {
+    throw new ErrorApp('regla_de_negocio', 'Los equipos elegidos no corresponden a esta salida')
+  }
+
+  if (new Set(equipoIds).size !== equipoIds.length) {
+    throw new ErrorApp('regla_de_negocio', 'Un equipo solo se puede elegir una vez')
+  }
+
+  const equipos = await equiposPorIds(db, equipoIds)
+  if (equipos.length !== equipoIds.length) {
+    throw new ErrorApp('no_encontrado', 'Uno de los equipos elegidos ya no existe')
+  }
+
+  for (const equipo of equipos) {
+    if (!equipo.activo || equipo.productoId !== m.productoId || equipo.ubicacionId !== m.ubicacionOrigenId) {
+      throw new ErrorApp('regla_de_negocio', 'Uno de los equipos ya no está disponible en esa ubicación')
+    }
+  }
+
+  await exigirReferencias(db, m)
+  await exigirStockSuficiente(db, m)
+
+  const idsMovimientos: string[] = []
+  const sentencias: D1PreparedStatement[] = []
+  for (const equipoId of equipoIds) {
+    const individual: MovimientoNuevo = { ...m, equipoId, cantidad: 1 }
+    try {
+      validarForma(individual)
+    } catch (e) {
+      comoErrorDeApi(e)
+    }
+    const id = nuevoId('mov')
+    idsMovimientos.push(id)
+    sentencias.push(sentenciaMovimiento(db, id, individual, usuarioId))
+    sentencias.push(sentenciaDarDeBajaEquipo(db, equipoId, m.ubicacionOrigenId))
+    sentencias.push(...sentenciasDeStock(db, m.productoId, m.ubicacionOrigenId, -1))
+  }
+
+  await db.batch(sentencias)
+  return Promise.all(idsMovimientos.map((id) => exigirMovimiento(db, id)))
 }
 
 /**
@@ -302,6 +369,8 @@ export async function revertirMovimiento(
 
   if (inverso.equipoId !== null && inverso.equipoId !== undefined && inverso.ubicacionOrigenId !== null && inverso.ubicacionDestinoId !== null) {
     sentencias.push(sentenciaMoverEquipo(db, inverso.equipoId, inverso.ubicacionOrigenId, inverso.ubicacionDestinoId))
+  } else if (inverso.equipoId !== null && inverso.equipoId !== undefined && inverso.ubicacionDestinoId !== null) {
+    sentencias.push(sentenciaReactivarEquipo(db, inverso.equipoId, inverso.ubicacionDestinoId))
   }
 
   for (const efecto of efectoDeMovimiento(inverso)) {

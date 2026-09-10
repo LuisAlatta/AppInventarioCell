@@ -20,9 +20,11 @@ import {
 } from '@compartido/esquemas'
 import { ErrorApp } from '../lib/errores'
 import { exigirProducto } from '../db/productos'
+import { productoTieneEquipos } from '../db/equipos'
 import { movimientosRecientes } from '../db/movimientos'
 import {
   aplicarMovimiento,
+  aplicarSalidaDeEquipos,
   aplicarTraspaso,
   revertirLote,
   revertirMovimiento,
@@ -50,6 +52,10 @@ rutasMovimientos.post('/entrada', zValidator('json', esquemaEntrada), async (c) 
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
 
+  if (await productoTieneEquipos(c.env.DB, producto.id)) {
+    throw new ErrorApp('regla_de_negocio', `Registra el IMEI de ${producto.nombre} para agregar una unidad al inventario`)
+  }
+
   const movimiento = await aplicarMovimiento(
     c.env.DB,
     {
@@ -70,6 +76,19 @@ rutasMovimientos.post('/entrada', zValidator('json', esquemaEntrada), async (c) 
 rutasMovimientos.post('/venta', zValidator('json', esquemaVenta), async (c) => {
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
+
+  if (datos.equipoIds !== undefined) {
+    const movimientos = await aplicarSalidaDeEquipos(c.env.DB, {
+      tipo: 'sale', productoId: datos.productoId, cantidad: datos.cantidad,
+      ubicacionOrigenId: datos.ubicacionId, ubicacionDestinoId: null,
+      costoUnitario: producto.precioCosto, nota: datos.nota ?? null,
+    }, datos.equipoIds, usuarioDe(c))
+    return c.json({ movimientos }, 201)
+  }
+
+  if (await productoTieneEquipos(c.env.DB, producto.id)) {
+    throw new ErrorApp('regla_de_negocio', `Selecciona el IMEI de ${producto.nombre} antes de registrar la venta`)
+  }
 
   const movimiento = await aplicarMovimiento(
     c.env.DB,
@@ -113,6 +132,19 @@ rutasMovimientos.post('/merma', zValidator('json', esquemaMerma), async (c) => {
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
 
+  if (datos.equipoIds !== undefined) {
+    const movimientos = await aplicarSalidaDeEquipos(c.env.DB, {
+      tipo: 'loss', productoId: datos.productoId, cantidad: datos.cantidad,
+      ubicacionOrigenId: datos.ubicacionId, ubicacionDestinoId: null,
+      costoUnitario: producto.precioCosto, nota: datos.nota,
+    }, datos.equipoIds, usuarioDe(c))
+    return c.json({ movimientos }, 201)
+  }
+
+  if (await productoTieneEquipos(c.env.DB, producto.id)) {
+    throw new ErrorApp('regla_de_negocio', `Selecciona el IMEI de ${producto.nombre} antes de registrar la merma`)
+  }
+
   const movimiento = await aplicarMovimiento(
     c.env.DB,
     {
@@ -133,6 +165,11 @@ rutasMovimientos.post('/merma', zValidator('json', esquemaMerma), async (c) => {
 /** Correccion manual. La cantidad lleva signo: "+4" suma, "-4" resta. */
 rutasMovimientos.post('/ajuste', zValidator('json', esquemaAjuste), async (c) => {
   const datos = c.req.valid('json')
+  const producto = await exigirProducto(c.env.DB, datos.productoId)
+
+  if (await productoTieneEquipos(c.env.DB, producto.id)) {
+    throw new ErrorApp('regla_de_negocio', `Corrige ${producto.nombre} desde sus equipos IMEI para conservar el inventario exacto`)
+  }
 
   const movimiento = await aplicarMovimiento(
     c.env.DB,

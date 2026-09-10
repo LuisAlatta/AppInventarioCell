@@ -11,8 +11,8 @@
  */
 
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import type { ProductoConStock } from '@compartido/tipos'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Equipo, ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
 import { CampoNota, SelectorCantidad } from './Campo'
@@ -42,6 +42,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
   const [cantidad, setCantidad] = useState(1)
   const [nota, setNota] = useState('')
   const [signo, setSigno] = useState<1 | -1>(1)
+  const [equipoElegidoId, setEquipoElegidoId] = useState<string | null>(null)
   const [errorNota, setErrorNota] = useState<string | undefined>(undefined)
   const [enviando, setEnviando] = useState(false)
 
@@ -49,6 +50,16 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
     activa === null
       ? 0
       : (producto.stock.find((s) => s.ubicacionId === activa.id)?.cantidad ?? 0)
+
+  const equipos = useQuery({
+    queryKey: ['equipos', producto.id, 'todos'],
+    queryFn: () => api.equiposDeProducto(producto.id, true),
+    enabled: activa !== null,
+  })
+  const controlaPorImei = (equipos.data?.equipos.length ?? 0) > 0
+  const equiposDisponibles = (equipos.data?.equipos ?? []).filter(
+    (equipo) => equipo.activo && equipo.ubicacionId === activa?.id,
+  )
 
   const refrescar = (): void => {
     void cliente.invalidateQueries({ queryKey: ['inicio'] })
@@ -65,12 +76,14 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
    * movimiento después para revertirlo cuesta mucho mas.
    */
   const aplicar = async (
-    accion: () => Promise<{ movimiento: { id: string } }>,
+    accion: () => Promise<{ movimiento: { id: string } } | { movimientos: { id: string }[] }>,
     textoExito: string,
   ): Promise<void> => {
     setEnviando(true)
     try {
-      const { movimiento } = await accion()
+      const resultado = await accion()
+      const movimiento = 'movimiento' in resultado ? resultado.movimiento : resultado.movimientos[0]
+      if (movimiento === undefined) throw new Error('No se registró ningún movimiento')
 
       avisos.exito(textoExito, async () => {
         try {
@@ -87,6 +100,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
       setModo('rápido')
       setCantidad(1)
       setNota('')
+      setEquipoElegidoId(null)
       onListo?.()
     } catch (causa) {
       avisarError()
@@ -106,11 +120,22 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
       `+${numero(piezas)} en ${activa.nombre}`,
     )
 
-  const venta = (piezas: number): Promise<void> =>
-    aplicar(
-      () => api.venta({ productoId: producto.id, ubicacionId: activa.id, cantidad: piezas }),
-      `Venta de ${numero(piezas)} en ${activa.nombre}`,
+  const venta = (piezas: number): Promise<void> => {
+    if (controlaPorImei && equipoElegidoId === null) {
+      avisos.información(`Elige el IMEI de ${producto.nombre} antes de registrar la venta`)
+      return Promise.resolve()
+    }
+
+    return aplicar(
+      () => api.venta({
+        productoId: producto.id,
+        ubicacionId: activa.id,
+        cantidad: controlaPorImei ? 1 : piezas,
+        ...(controlaPorImei ? { equipoIds: [equipoElegidoId as string] } : {}),
+      }),
+      `Venta de ${numero(controlaPorImei ? 1 : piezas)} en ${activa.nombre}`,
     )
+  }
 
   const conMotivo = async (tipo: 'merma' | 'ajuste'): Promise<void> => {
     const motivo = nota.trim()
@@ -121,15 +146,20 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
     setErrorNota(undefined)
 
     if (tipo === 'merma') {
+      if (controlaPorImei && equipoElegidoId === null) {
+        avisos.información(`Elige el IMEI de ${producto.nombre} antes de registrar la merma`)
+        return
+      }
       await aplicar(
         () =>
           api.merma({
             productoId: producto.id,
             ubicacionId: activa.id,
-            cantidad,
+            cantidad: controlaPorImei ? 1 : cantidad,
             nota: motivo,
+            ...(controlaPorImei ? { equipoIds: [equipoElegidoId as string] } : {}),
           }),
-        `Merma de ${numero(cantidad)} registrada`,
+        `Merma de ${numero(controlaPorImei ? 1 : cantidad)} registrada`,
       )
       return
     }
@@ -172,29 +202,39 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
       {modo === 'rápido' && (
         <>
           <p className="text-[0.875rem] text-tinta-suave">En {activa.nombre}: entrada → {numero(enUbicacion + 1)} piezas{enUbicacion > 0 ? ` · venta → ${numero(enUbicacion - 1)}` : ' · sin stock para vender'}.</p>
+          {controlaPorImei && <p className="rounded-xl bg-accion-tenue px-3 py-2 text-[0.8125rem] text-accion-viva">Este modelo se controla por IMEI. Elige la unidad física para venderla o registrarla como merma.</p>}
           <div className="grid grid-cols-2 gap-2.5">
-            <Boton tono="exito" onClick={() => void entrada(1)} disabled={enviando}>
-              + 1 entrada
+            <Boton tono="exito" onClick={() => {
+              if (controlaPorImei) avisos.información(`Registra el IMEI de ${producto.nombre} desde la ficha del producto para agregar una unidad`)
+              else void entrada(1)
+            }} disabled={enviando || equipos.isPending}>
+              {controlaPorImei ? 'Registrar IMEI' : '+ 1 entrada'}
             </Boton>
             <Boton
               tono="peligro"
-              onClick={() => void venta(1)}
-              disabled={enviando || enUbicacion < 1}
+              onClick={() => {
+                if (controlaPorImei) setModo('venta')
+                else void venta(1)
+              }}
+              disabled={enviando || equipos.isPending || enUbicacion < 1}
             >
-              − 1 venta
+              {controlaPorImei ? 'Elegir IMEI' : '− 1 venta'}
             </Boton>
           </div>
 
           <SugerenciaReposicion producto={producto} />
 
           <div className="grid grid-cols-2 gap-2.5">
-            <Boton tono="contorno" onClick={() => setModo('entrada')} disabled={enviando}>
-              Entrada…
+            <Boton tono="contorno" onClick={() => {
+              if (controlaPorImei) avisos.información(`Registra el IMEI de ${producto.nombre} desde la ficha del producto para agregar unidades`)
+              else setModo('entrada')
+            }} disabled={enviando || equipos.isPending}>
+              {controlaPorImei ? 'Registrar IMEI' : 'Entrada…'}
             </Boton>
             <Boton
               tono="contorno"
               onClick={() => setModo('venta')}
-              disabled={enviando || enUbicacion < 1}
+              disabled={enviando || equipos.isPending || enUbicacion < 1}
             >
               Venta…
             </Boton>
@@ -207,15 +247,18 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
               <button
                 type="button"
                 onClick={() => setModo('merma')}
-                disabled={enviando || enUbicacion < 1}
+                disabled={enviando || equipos.isPending || enUbicacion < 1}
                 className="flex-1 rounded-xl px-3 py-3 text-[0.9375rem] font-medium text-tinta-suave transition active:bg-papel-hundido disabled:opacity-40"
               >
                 Registrar merma
               </button>
               <button
                 type="button"
-                onClick={() => setModo('ajuste')}
-                disabled={enviando}
+                onClick={() => {
+                  if (controlaPorImei) avisos.información(`Corrige ${producto.nombre} desde sus unidades IMEI para mantener el inventario exacto`)
+                  else setModo('ajuste')
+                }}
+                disabled={enviando || equipos.isPending}
                 className="flex-1 rounded-xl px-3 py-3 text-[0.9375rem] font-medium text-tinta-suave transition active:bg-papel-hundido"
               >
                 Corregir cantidad
@@ -227,7 +270,14 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
       {(modo === 'entrada' || modo === 'venta') && (
         <div className="flex flex-col gap-4">
-          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {activa.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'entrada' ? cantidad : -cantidad))} piezas</strong></p>
+          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {activa.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'entrada' ? cantidad : -(controlaPorImei ? 1 : cantidad)))} piezas</strong></p>
+          {modo === 'venta' && controlaPorImei ? (
+            <SelectorEquipo
+              equipos={equiposDisponibles}
+              seleccionadoId={equipoElegidoId}
+              onSeleccionar={setEquipoElegidoId}
+            />
+          ) : (
           <div className="flex flex-col gap-2">
             <p className="text-[0.8125rem] font-medium text-tinta-suave">
               {modo === 'entrada' ? 'Piezas que entran' : 'Piezas que salen'}
@@ -243,6 +293,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
               </p>
             )}
           </div>
+          )}
 
           <div className="grid grid-cols-[1fr_2fr] gap-2.5">
             <Boton tono="contorno" onClick={() => setModo('rápido')} disabled={enviando}>
@@ -251,7 +302,13 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
             <Boton
               tono={modo === 'entrada' ? 'exito' : 'peligro'}
               cargando={enviando}
-              onClick={() => void (modo === 'entrada' ? entrada(cantidad) : venta(cantidad))}
+              onClick={() => {
+                if (modo === 'entrada' && controlaPorImei) {
+                  avisos.información(`Registra el IMEI de ${producto.nombre} desde la ficha del producto para agregar unidades`)
+                  return
+                }
+                void (modo === 'entrada' ? entrada(cantidad) : venta(cantidad))
+              }}
             >
               {modo === 'entrada' ? 'Registrar entrada' : 'Registrar venta'}
             </Boton>
@@ -261,7 +318,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
       {(modo === 'merma' || modo === 'ajuste') && (
         <div className="flex flex-col gap-4">
-          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {activa.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + cantidad * (modo === 'merma' ? -1 : signo))} piezas</strong></p>
+          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {activa.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'merma' ? -(controlaPorImei ? 1 : cantidad) : cantidad * signo))} piezas</strong></p>
           {modo === 'ajuste' && (
             <div className="flex gap-2">
               {([1, -1] as const).map((valor) => (
@@ -282,7 +339,13 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
+          {modo === 'merma' && controlaPorImei ? (
+            <SelectorEquipo
+              equipos={equiposDisponibles}
+              seleccionadoId={equipoElegidoId}
+              onSeleccionar={setEquipoElegidoId}
+            />
+          ) : <div className="flex flex-col gap-2">
             <p className="text-[0.8125rem] font-medium text-tinta-suave">Cuántas piezas</p>
             <SelectorCantidad
               valor={cantidad}
@@ -290,6 +353,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
               maximo={modo === 'merma' || signo === -1 ? Math.max(1, enUbicacion) : undefined}
             />
           </div>
+          }
 
           <CampoNota
             etiqueta="Motivo"
@@ -316,5 +380,45 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
         </div>
       )}
     </div>
+  )
+}
+
+function SelectorEquipo({
+  equipos,
+  seleccionadoId,
+  onSeleccionar,
+}: {
+  equipos: Equipo[]
+  seleccionadoId: string | null
+  onSeleccionar: (id: string) => void
+}) {
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="text-[0.8125rem] font-medium text-tinta-suave">Elige el equipo por IMEI</legend>
+      {equipos.length === 0 ? (
+        <p className="rounded-xl border border-alerta/30 bg-alerta-tenue px-3 py-2 text-[0.8125rem] text-tinta-suave">No hay equipos disponibles en esta ubicación.</p>
+      ) : (
+        <div className="flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
+          {equipos.map((equipo) => {
+            const seleccionado = equipo.id === seleccionadoId
+            return (
+              <button
+                key={equipo.id}
+                type="button"
+                aria-pressed={seleccionado}
+                onClick={() => onSeleccionar(equipo.id)}
+                className={[
+                  'flex min-h-toque items-center justify-between rounded-xl border px-3 py-2 text-left transition',
+                  seleccionado ? 'border-accion bg-accion-tenue' : 'border-borde bg-superficie active:bg-papel-hundido',
+                ].join(' ')}
+              >
+                <span className="min-w-0"><span className="block truncate cifras text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI'}</span>{equipo.imei2 !== null && <span className="block truncate cifras text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</span>}</span>
+                <span className="ml-3 shrink-0 text-right text-[0.6875rem] text-tinta-tenue">{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}<br />{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </fieldset>
   )
 }
