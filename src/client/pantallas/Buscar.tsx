@@ -225,8 +225,8 @@ function TarjetaBusqueda({ producto, imagen, ubicacionId, onClick }: { producto:
     <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden py-1">
       <Miniatura nombre={producto.nombre} claveImagen={producto.claveImagen} tamano={tamano} forma="vertical" />
     </div>
-    <div className="mt-2 flex min-w-0 items-center gap-2">
-      <p title={producto.nombre} className="min-w-0 flex-1 truncate text-[0.8125rem] leading-snug font-semibold">{producto.nombre}</p>
+    <div className="mt-2 flex min-w-0 items-start gap-2">
+      <p title={producto.nombre} className="min-w-0 flex-1 break-words text-[0.8125rem] leading-snug font-semibold line-clamp-2">{producto.nombre}</p>
       <p title={producto.equiposCoincidentes === undefined ? 'Existencias' : 'Equipos que coinciden con los filtros'} className="cifras shrink-0 text-[1.125rem] font-semibold leading-none text-accion">{cantidadVisible}</p>
     </div>
   </button>
