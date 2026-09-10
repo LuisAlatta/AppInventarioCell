@@ -10,7 +10,7 @@
  * inventario se abandonaria la app. Todo lo demas se completa después.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ScanLine } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
@@ -259,9 +259,9 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           <CampoConEscaner etiqueta="IMEI 1" value={imei1} onChange={(valor) => setImei1(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei1')} inputMode="numeric" placeholder="Opcional" />
           <CampoConEscaner etiqueta="IMEI 2" value={imei2} onChange={(valor) => setImei2(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei2')} inputMode="numeric" placeholder="Opcional" />
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
-          <CasillaEstado etiqueta={registrado ? 'Registrado' : 'No registrado'} detalle="Lista blanca" marcada={registrado} onChange={setRegistrado} tono="exito" />
-          <CasillaEstado etiqueta={nuevo ? 'Nuevo' : 'Segunda mano'} detalle="Estado del equipo" marcada={nuevo} onChange={setNuevo} tono="accion" />
+        <div className="grid grid-cols-2 gap-3">
+          <GrupoChecks etiqueta="Lista blanca" valor={registrado ? 'registered' : 'not_registered'} opciones={[['registered', 'Registrado', 'exito'], ['not_registered', 'No registrado', 'falta']]} onChange={(valor) => setRegistrado(valor === 'registered')} />
+          <GrupoChecks etiqueta="Condición" valor={nuevo ? 'new' : 'used'} opciones={[['new', 'Nuevo', 'accion'], ['used', 'Segunda mano', 'alerta']]} onChange={(valor) => setNuevo(valor === 'new')} />
         </div>
       </section>
 
@@ -298,10 +298,18 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
 }
 
 function CampoConEscaner({ etiqueta, value, onChange, onEscanear, error, ayuda, ...atributos }: { etiqueta: string; value: string; onChange: (valor: string) => void; onEscanear?: () => void; error?: string; ayuda?: string; inputMode?: 'text' | 'numeric'; autoComplete?: string; placeholder?: string }) {
-  return <div className="grid grid-cols-[minmax(0,1fr)_3.25rem] items-end gap-2"><CampoTexto etiqueta={etiqueta} value={value} error={error} ayuda={ayuda} onChange={(evento) => onChange(evento.target.value)} {...atributos} /><button type="button" aria-label={`Escanear ${etiqueta}`} disabled={onEscanear === undefined} onClick={onEscanear} className="mb-0.5 flex size-[3.25rem] items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"><ScanLine aria-hidden="true" className="size-5" strokeWidth={2} /></button></div>
+  const id = useId()
+  const descripcion = error === undefined ? ayuda : error
+  const idDescripcion = `${id}-descripcion`
+
+  return <div className="flex flex-col gap-1.5"><label htmlFor={id} className="text-[0.8125rem] font-medium text-tinta-suave">{etiqueta}</label><div className="grid grid-cols-[minmax(0,1fr)_3.25rem] items-center gap-2"><input id={id} value={value} aria-invalid={error !== undefined} aria-describedby={descripcion === undefined ? undefined : idDescripcion} onChange={(evento) => onChange(evento.target.value)} className={`w-full rounded-xl border bg-superficie px-4 py-3.5 text-[1rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${error === undefined ? 'border-borde' : 'border-falta'}`} {...atributos} /><button type="button" aria-label={`Escanear ${etiqueta}`} disabled={onEscanear === undefined} onClick={onEscanear} className="flex size-[3.25rem] items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"><ScanLine aria-hidden="true" className="size-5" strokeWidth={2} /></button></div>{descripcion !== undefined && <p id={idDescripcion} className={`text-[0.75rem] ${error === undefined ? 'text-tinta-tenue' : 'font-medium text-falta'}`}>{descripcion}</p>}</div>
 }
 
-function CasillaEstado({ etiqueta, detalle, marcada, onChange, tono }: { etiqueta: string; detalle: string; marcada: boolean; onChange: (marcada: boolean) => void; tono: 'exito' | 'accion' }) {
-  const activo = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : 'border-accion bg-accion-tenue text-accion'
-  return <label className={`flex min-h-[4.5rem] cursor-pointer items-center gap-2 rounded-xl border p-2.5 transition ${marcada ? activo : 'border-borde bg-superficie text-tinta-suave'}`}><input type="checkbox" className="sr-only" checked={marcada} onChange={(evento) => onChange(evento.target.checked)} /><span aria-hidden="true" className={`flex size-5 shrink-0 items-center justify-center rounded-md border ${marcada ? 'border-current bg-current text-white' : 'border-borde-fuerte'}`}>{marcada && <Check className="size-3.5" strokeWidth={3} />}</span><span className="min-w-0"><span className="block text-[0.75rem] font-semibold leading-tight">{etiqueta}</span><span className="mt-0.5 block text-[0.6875rem] leading-tight opacity-80">{detalle}</span></span></label>
+function GrupoChecks<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string, 'exito' | 'falta' | 'accion' | 'alerta'])[]; onChange: (valor: T) => void }) {
+  return <fieldset className="min-w-0"><legend className="mb-1.5 text-[0.75rem] font-semibold text-tinta-suave">{etiqueta}</legend><div className="grid grid-cols-1 gap-1.5">{opciones.map(([id, texto, tono]) => <OpcionCheck key={id} texto={texto} marcada={valor === id} tono={tono} onChange={() => onChange(id)} />)}</div></fieldset>
+}
+
+function OpcionCheck({ texto, marcada, tono, onChange }: { texto: string; marcada: boolean; tono: 'exito' | 'falta' | 'accion' | 'alerta'; onChange: () => void }) {
+  const color = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : tono === 'falta' ? 'border-falta bg-falta-tenue text-falta' : tono === 'alerta' ? 'border-alerta bg-alerta-tenue text-alerta' : 'border-accion bg-accion-tenue text-accion'
+  return <label className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-[0.75rem] font-semibold transition ${marcada ? color : 'border-borde bg-superficie text-tinta-suave'}`}><input type="checkbox" className="sr-only" checked={marcada} onChange={onChange} /><span aria-hidden="true" className={`flex size-4 shrink-0 items-center justify-center rounded border ${marcada ? 'border-current bg-current text-white' : 'border-borde-fuerte'}`}>{marcada && <Check className="size-3" strokeWidth={3} />}</span>{texto}</label>
 }
