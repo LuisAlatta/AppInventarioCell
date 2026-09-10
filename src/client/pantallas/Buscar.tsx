@@ -149,10 +149,12 @@ export function Buscar() {
         <div className="grid grid-cols-4 gap-2" aria-label="Filtrar existencias por local">
           {ubicaciones.filter((ubicacion) => ubicacion.activa).map((ubicacion) => <FiltroLocal key={ubicacion.id} ubicacion={ubicacion} activo={ubicacion.id === ubicacionElegida?.id} onClick={() => cambiarFiltro(setParametros, 'ubicacion', ubicacion.id)} />)}
         </div>
-        <div role="status" className="flex min-h-6 items-center gap-2 px-1 text-[0.75rem] text-tinta-suave">
-          <span className="flex min-w-0 flex-1 items-center gap-1 truncate" title={`Mostrando existencias en ${ubicacionElegida?.nombre ?? 'todas las ubicaciones'}`}><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{ubicacionElegida?.nombre ?? 'Todas las ubicaciones'}</span>
-          {etiquetaResultados !== '' && <span className="shrink-0">{etiquetaResultados}</span>}
-          {!buscando && !hayFiltros && <span className="shrink-0 text-etiqueta text-tinta-tenue uppercase">Últimos productos</span>}
+        <div className="flex min-h-8 items-center gap-2 px-1 text-[0.75rem] text-tinta-suave">
+          <p role="status" className="flex min-w-0 flex-1 items-center gap-2 truncate">
+            <span className="flex min-w-0 items-center gap-1 truncate" title={`Mostrando existencias en ${ubicacionElegida?.nombre ?? 'todas las ubicaciones'}`}><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{ubicacionElegida?.nombre ?? 'Todas las ubicaciones'}</span>
+            {etiquetaResultados !== '' && <span className="shrink-0">{etiquetaResultados}</span>}
+          </p>
+          {productos.length > 0 && <button type="button" aria-expanded={opcionesVista} onClick={() => setOpcionesVista(!opcionesVista)} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2 text-[0.8125rem] font-semibold text-accion active:bg-accion-tenue"><IconoVista /><span>Vista</span></button>}
         </div>
 
         {!texto && recientes.length > 0 && (
@@ -188,7 +190,6 @@ export function Buscar() {
 
         {productos.length > 0 && (
           <>
-            <div className="flex items-center justify-between px-1"><p className="text-etiqueta text-tinta-tenue uppercase">{vista.modo === 'lista' ? 'Lista' : `${vista.columnas} columnas`}</p><button type="button" aria-expanded={opcionesVista} onClick={() => setOpcionesVista(!opcionesVista)} className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-[0.8125rem] font-semibold text-accion active:bg-accion-tenue"><IconoVista /><span>Vista</span></button></div>
             {opcionesVista && <ControlesVista vista={vista} onChange={(nueva) => { setVista(nueva); guardarVistaBusqueda(nueva) }} />}
             {vista.modo === 'lista' ? <ul className={`flex flex-col gap-2 ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><RenglonProducto producto={producto} coincidencia={producto.coincidencia} ubicacionId={ubicacionElegida?.id} onClick={() => abrirProducto(producto.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul> : <ul className={`grid gap-2 ${vista.columnas === 1 ? 'grid-cols-1' : vista.columnas === 2 ? 'grid-cols-2' : 'grid-cols-3'} ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><TarjetaBusqueda producto={producto} imagen={vista.imagen} ubicacionId={ubicacionElegida?.id} onClick={() => abrirProducto(producto.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul>}
           </>
