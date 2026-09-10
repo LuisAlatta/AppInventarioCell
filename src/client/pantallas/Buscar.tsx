@@ -25,13 +25,14 @@ const MS_ESPERA = 120
 
 export function Buscar() {
   const navegar = useNavigate()
-  const { activa } = useUbicacion()
+  const { activa, ubicaciones } = useUbicacion()
   const [parametros, setParametros] = useSearchParams()
   const q = parametros.get('q') ?? ''
   const valorListaBlanca = parametros.get('listaBlanca')
   const listaBlanca: 'registered' | 'not_registered' | undefined = valorListaBlanca === 'registered' || valorListaBlanca === 'not_registered' ? valorListaBlanca : undefined
   const valorCondicion = parametros.get('condicion')
   const condicion: 'new' | 'used' | undefined = valorCondicion === 'new' || valorCondicion === 'used' ? valorCondicion : undefined
+  const ubicacionElegida = ubicaciones.find((ubicacion) => ubicacion.id === parametros.get('ubicacion')) ?? activa
   const [recientes, setRecientes] = useState(leerBusquedas)
   const [vista, setVista] = useState<PreferenciasVistaBusqueda>(leerVistaBusqueda)
   const [ordenFiltros, setOrdenFiltros] = useState<FiltroEquipoRapido[]>(leerOrdenFiltrosEquipo)
@@ -61,10 +62,10 @@ export function Buscar() {
   }, [texto, q, setParametros])
 
   const resultados = useQuery({
-    queryKey: ['buscar', consulta, activa?.id, listaBlanca, condicion],
-    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: activa?.id, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined }),
+    queryKey: ['buscar', consulta, ubicacionElegida?.id, listaBlanca, condicion],
+    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: ubicacionElegida?.id, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined }),
     // Conserva la lista anterior mientras llega la nueva, para que no parpadee.
-    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === activa?.id && anterior.queryKey[3] === listaBlanca && anterior.queryKey[4] === condicion ? keepPreviousData(previas) : undefined,
+    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === ubicacionElegida?.id && anterior.queryKey[3] === listaBlanca && anterior.queryKey[4] === condicion ? keepPreviousData(previas) : undefined,
   })
 
   const productos = resultados.data?.productos ?? []
@@ -143,7 +144,10 @@ export function Buscar() {
         <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filtros rápidos de equipos">
           {ordenFiltros.map((filtroRapido) => <FiltroRapido key={filtroRapido} activo={filtroRapido === listaBlanca || filtroRapido === condicion} texto={NOMBRE_FILTRO[filtroRapido]} onClick={() => usarFiltro(filtroRapido)} tono={TONO_FILTRO[filtroRapido]} />)}
         </div>
-        <p className="text-[0.8125rem] text-tinta-suave">Mostrando existencias en {activa?.nombre ?? 'todas las ubicaciones'}.</p>
+        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filtrar existencias por local">
+          {ubicaciones.filter((ubicacion) => ubicacion.activa).map((ubicacion) => <FiltroLocal key={ubicacion.id} ubicacion={ubicacion} activo={ubicacion.id === ubicacionElegida?.id} onClick={() => cambiarFiltro(setParametros, 'ubicacion', ubicacion.id)} />)}
+        </div>
+        <p className="text-[0.8125rem] text-tinta-suave">Mostrando existencias en {ubicacionElegida?.nombre ?? 'todas las ubicaciones'}.</p>
 
         {!texto && recientes.length > 0 && (
           <section aria-label="Búsquedas recientes" className="flex flex-col gap-1">
@@ -186,7 +190,7 @@ export function Buscar() {
 
             <div className="flex items-center justify-between px-1"><p className="text-etiqueta text-tinta-tenue uppercase">{vista.modo === 'lista' ? 'Lista' : `${vista.columnas} columnas`}</p><button type="button" aria-expanded={opcionesVista} onClick={() => setOpcionesVista(!opcionesVista)} className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-[0.8125rem] font-semibold text-accion active:bg-accion-tenue"><IconoVista /><span>Vista</span></button></div>
             {opcionesVista && <ControlesVista vista={vista} onChange={(nueva) => { setVista(nueva); guardarVistaBusqueda(nueva) }} />}
-            {vista.modo === 'lista' ? <ul className={`flex flex-col gap-2 ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><RenglonProducto producto={producto} coincidencia={producto.coincidencia} ubicacionId={activa?.id} onClick={() => abrirProducto(producto.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul> : <ul className={`grid gap-2 ${vista.columnas === 1 ? 'grid-cols-1' : vista.columnas === 2 ? 'grid-cols-2' : 'grid-cols-3'} ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><TarjetaBusqueda producto={producto} imagen={vista.imagen} ubicacionId={activa?.id} onClick={() => abrirProducto(producto.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul>}
+            {vista.modo === 'lista' ? <ul className={`flex flex-col gap-2 ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><RenglonProducto producto={producto} coincidencia={producto.coincidencia} ubicacionId={ubicacionElegida?.id} onClick={() => abrirProducto(producto.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul> : <ul className={`grid gap-2 ${vista.columnas === 1 ? 'grid-cols-1' : vista.columnas === 2 ? 'grid-cols-2' : 'grid-cols-3'} ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><TarjetaBusqueda producto={producto} imagen={vista.imagen} ubicacionId={ubicacionElegida?.id} onClick={() => abrirProducto(producto.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul>}
           </>
         )}
       </div>
@@ -203,8 +207,13 @@ const TONO_FILTRO: Record<FiltroEquipoRapido, 'exito' | 'falta' | 'accion' | 'al
 
 function FiltroRapido({ activo, texto, onClick, tono }: { activo: boolean; texto: string; onClick: () => void; tono: 'exito' | 'falta' | 'accion' | 'alerta' }) { const activoClase = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : tono === 'falta' ? 'border-falta bg-falta-tenue text-falta' : tono === 'alerta' ? 'border-alerta bg-alerta-tenue text-alerta' : 'border-accion bg-accion-tenue text-accion'; return <button type="button" aria-pressed={activo} onClick={onClick} className={`min-h-11 shrink-0 rounded-xl border px-3 text-[0.8125rem] font-semibold transition ${activo ? activoClase : 'border-borde bg-superficie text-tinta-suave'}`}>{texto}</button> }
 
+function FiltroLocal({ ubicacion, activo, onClick }: { ubicacion: ReturnType<typeof useUbicacion>['ubicaciones'][number]; activo: boolean; onClick: () => void }) {
+  const color = ubicacion.color ?? '#315DB8'
+  return <button type="button" aria-pressed={activo} onClick={onClick} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[0.8125rem] font-semibold transition" style={{ borderColor: color, backgroundColor: activo ? `${color}1f` : undefined, color }}><span aria-hidden="true">{ubicacion.icono ?? (ubicacion.tipo === 'warehouse' ? '🏭' : '🏪')}</span><span>{ubicacion.nombre}</span></button>
+}
+
 function ControlesVista({ vista, onChange }: { vista: PreferenciasVistaBusqueda; onChange: (vista: PreferenciasVistaBusqueda) => void }) { return <div className="rounded-2xl border border-borde bg-superficie p-3"><div className="grid grid-cols-2 gap-2"><FiltroRapido activo={vista.modo === 'lista'} texto="☰ Lista" onClick={() => onChange({ ...vista, modo: 'lista' })} tono="accion" /><FiltroRapido activo={vista.modo === 'cuadricula'} texto="▦ Cuadrícula" onClick={() => onChange({ ...vista, modo: 'cuadricula' })} tono="accion" /></div>{vista.modo === 'cuadricula' && <><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Columnas</p><div className="mt-1 grid grid-cols-3 gap-2">{([1, 2, 3] as const).map((columnas) => <FiltroRapido key={columnas} activo={vista.columnas === columnas} texto={`${columnas}`} onClick={() => onChange({ ...vista, columnas })} tono="accion" />)}</div><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Tamaño de imagen</p><div className="mt-1 grid grid-cols-3 gap-2">{(['pequena', 'mediana', 'grande'] as const).map((imagen) => <FiltroRapido key={imagen} activo={vista.imagen === imagen} texto={imagen === 'pequena' ? 'Pequeña' : imagen === 'mediana' ? 'Mediana' : 'Grande'} onClick={() => onChange({ ...vista, imagen })} tono="accion" />)}</div></>}</div> }
 
-function TarjetaBusqueda({ producto, imagen, ubicacionId, onClick }: { producto: ProductoConStock; imagen: PreferenciasVistaBusqueda['imagen']; ubicacionId?: string; onClick: () => void }) { const cantidad = ubicacionId === undefined ? producto.stockTotal : producto.stock.find((fila) => fila.ubicacionId === ubicacionId)?.cantidad ?? 0; const claseImagen = imagen === 'pequena' ? 'scale-75 origin-top-left' : imagen === 'grande' ? '' : 'scale-[1.15] origin-top-left'; return <button type="button" onClick={onClick} className="flex min-h-36 w-full flex-col rounded-2xl border border-borde bg-superficie p-2 text-left active:scale-[0.98] active:bg-papel-hundido"><div className={`mb-2 h-16 ${claseImagen}`}><Miniatura nombre={producto.nombre} claveImagen={producto.claveImagen} tamano={imagen === 'grande' ? 'grande' : 'normal'} /></div><p className="line-clamp-2 text-[0.8125rem] leading-snug font-semibold">{producto.nombre}</p><p className="mt-auto pt-1 cifras text-[1.125rem] font-semibold text-accion">{cantidad}</p></button> }
+function TarjetaBusqueda({ producto, imagen, ubicacionId, onClick }: { producto: ProductoConStock; imagen: PreferenciasVistaBusqueda['imagen']; ubicacionId?: string; onClick: () => void }) { const cantidad = ubicacionId === undefined ? producto.stockTotal : producto.stock.find((fila) => fila.ubicacionId === ubicacionId)?.cantidad ?? 0; const claseImagen = imagen === 'pequena' ? 'scale-75' : imagen === 'grande' ? 'scale-110' : ''; return <button type="button" onClick={onClick} className="flex h-[11.5rem] w-full flex-col overflow-hidden rounded-2xl border border-borde bg-superficie p-2.5 text-left transition active:scale-[0.98] active:bg-papel-hundido"><div className="flex h-[4.75rem] shrink-0 items-center justify-center overflow-hidden"><span className={claseImagen}><Miniatura nombre={producto.nombre} claveImagen={producto.claveImagen} tamano={imagen === 'grande' ? 'grande' : 'normal'} /></span></div><p className="mt-2 line-clamp-2 min-h-[2.25rem] overflow-hidden break-words text-[0.8125rem] leading-snug font-semibold">{producto.nombre}</p><p className="mt-auto cifras text-[1.125rem] font-semibold text-accion">{cantidad}</p></button> }
 
 function IconoVista() { return <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.8"/><rect x="14" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.8"/><rect x="4" y="14" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.8"/><rect x="14" y="14" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.8"/></svg> }
