@@ -15,16 +15,19 @@
  *     los últimos milimetros y ahí viven los botones.
  */
 
+import { ArrowLeft, X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
 
 interface HojaInferiorProps {
   abierta: boolean
   onCerrar: () => void
+  onVolver?: () => void
+  etiquetaVolver?: string
   titulo?: string
   children: ReactNode
 }
 
-export function HojaInferior({ abierta, onCerrar, titulo, children }: HojaInferiorProps) {
+export function HojaInferior({ abierta, onCerrar, onVolver, etiquetaVolver = 'Volver', titulo, children }: HojaInferiorProps) {
   const dialogo = useRef<HTMLDivElement>(null)
   const cerrar = useRef(onCerrar)
   cerrar.current = onCerrar
@@ -85,9 +88,14 @@ export function HojaInferior({ abierta, onCerrar, titulo, children }: HojaInferi
         </div>
 
         <div className="flex shrink-0 items-center gap-2 px-4">
+          {onVolver !== undefined && (
+            <button type="button" aria-label={etiquetaVolver} onClick={onVolver} className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-papel-hundido text-tinta active:bg-borde">
+              <ArrowLeft aria-hidden="true" className="size-5" strokeWidth={2} />
+            </button>
+          )}
           <h2 className="min-w-0 flex-1 break-words py-2 text-titulo">{titulo}</h2>
           <button type="button" aria-label="Cerrar ventana" onClick={onCerrar} className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-papel-hundido">
-            <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            <X aria-hidden="true" className="size-5" strokeWidth={2} />
           </button>
         </div>
 
