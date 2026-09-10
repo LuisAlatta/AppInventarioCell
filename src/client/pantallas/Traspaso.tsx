@@ -310,10 +310,10 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
       </div>
 
       {listo && (
-        <div className="area-segura-abajo fixed inset-x-0 bottom-0 z-30 border-t border-borde bg-papel/95 px-3 pt-3 backdrop-blur-md">
+        <div className="fixed inset-x-0 bottom-[4.5rem] z-40 border-t border-borde bg-papel/95 px-3 py-2.5 shadow-[0_-8px_20px_rgb(0_0_0_/_0.08)] backdrop-blur-md">
           <div className="mx-auto w-full max-w-lg">
             <Boton ancho cargando={enviando} onClick={() => void confirmar()}>
-              Enviar {numero(totalPiezas)} piezas a {destino.nombre}
+              Confirmar traspaso · Enviar {numero(totalPiezas)} piezas a {destino.nombre}
             </Boton>
           </div>
         </div>
