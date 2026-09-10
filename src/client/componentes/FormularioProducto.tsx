@@ -166,6 +166,21 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         ayuda="El escaneo completa este campo automáticamente."
       />
 
+      <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
+        <div>
+          <p className="font-semibold">Datos del equipo</p>
+          <p className="text-[0.8125rem] text-tinta-suave">Opcional. Se guarda como una unidad individual en {activa?.nombre ?? 'la ubicación que elijas después'}.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <CampoConEscaner etiqueta="IMEI 1" value={imei1} onChange={(valor) => setImei1(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei1')} inputMode="numeric" placeholder="Opcional" />
+          <CampoConEscaner etiqueta="IMEI 2" value={imei2} onChange={(valor) => setImei2(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei2')} inputMode="numeric" placeholder="Opcional" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <GrupoChecks etiqueta="Lista blanca" valor={registrado ? 'registered' : 'not_registered'} opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]} onChange={(valor) => setRegistrado(valor === 'registered')} />
+          <GrupoChecks etiqueta="Condición" valor={nuevo ? 'new' : 'used'} opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]} onChange={(valor) => setNuevo(valor === 'new')} />
+        </div>
+      </section>
+
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -249,21 +264,6 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           {(categorias.data?.categorias ?? []).map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.nombre}</option>)}
         </select>
       </label>
-
-      <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
-        <div>
-          <p className="font-semibold">Datos del equipo</p>
-          <p className="text-[0.8125rem] text-tinta-suave">Opcional. Se guarda como una unidad individual en {activa?.nombre ?? 'la ubicación que elijas después'}.</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2.5">
-          <CampoConEscaner etiqueta="IMEI 1" value={imei1} onChange={(valor) => setImei1(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei1')} inputMode="numeric" placeholder="Opcional" />
-          <CampoConEscaner etiqueta="IMEI 2" value={imei2} onChange={(valor) => setImei2(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei2')} inputMode="numeric" placeholder="Opcional" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <GrupoChecks etiqueta="Lista blanca" valor={registrado ? 'registered' : 'not_registered'} opciones={[['registered', 'Registrado', 'exito'], ['not_registered', 'No registrado', 'falta']]} onChange={(valor) => setRegistrado(valor === 'registered')} />
-          <GrupoChecks etiqueta="Condición" valor={nuevo ? 'new' : 'used'} opciones={[['new', 'Nuevo', 'accion'], ['used', 'Segunda mano', 'alerta']]} onChange={(valor) => setNuevo(valor === 'new')} />
-        </div>
-      </section>
 
       <div className="grid grid-cols-2 gap-3">
         <CampoTexto
