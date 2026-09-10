@@ -28,6 +28,7 @@ import { ErrorApp, stockInsuficiente } from '../lib/errores'
 import { nuevoId } from '../lib/id'
 import { exigirMovimiento, movimientosDeLote } from '../db/movimientos'
 import { exigirProducto, stockEn } from '../db/productos'
+import { equiposPorIds } from '../db/equipos'
 import { exigirUbicacion } from '../db/ubicaciones'
 import { sentenciasDeStock } from '../db/stock'
 import {
@@ -53,14 +54,15 @@ function sentenciaMovimiento(
   return db
     .prepare(
       `INSERT INTO movements
-         (id, type, product_id, qty, from_location_id, to_location_id,
+         (id, type, product_id, device_id, qty, from_location_id, to_location_id,
           unit_cost, note, count_session_id, batch_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
       m.tipo,
       m.productoId,
+      m.equipoId ?? null,
       m.cantidad,
       m.ubicacionOrigenId,
       m.ubicacionDestinoId,
@@ -70,6 +72,12 @@ function sentenciaMovimiento(
       m.loteId ?? null,
       usuarioId,
     )
+}
+
+function sentenciaMoverEquipo(db: D1Database, equipoId: string, origenId: string, destinoId: string): D1PreparedStatement {
+  return db
+    .prepare("UPDATE devices SET location_id = ?, updated_at = datetime('now') WHERE id = ? AND location_id = ? AND is_active = 1")
+    .bind(destinoId, equipoId, origenId)
 }
 
 /**
@@ -152,24 +160,82 @@ export async function aplicarTraspaso(
   // Un mismo producto repetido en dos renglones pasaria cada comprobacion por
   // separado y en conjunto se pasaria del stock disponible. Se agrupan antes.
   const porProducto = new Map<string, number>()
+  const idsEquipos = new Set<string>()
   for (const renglon of datos.renglones) {
     porProducto.set(renglon.productoId, (porProducto.get(renglon.productoId) ?? 0) + renglon.cantidad)
+    for (const equipoId of renglon.equipoIds ?? []) {
+      if (idsEquipos.has(equipoId)) {
+        throw new ErrorApp('regla_de_negocio', 'Un equipo solo se puede elegir una vez por traspaso')
+      }
+      idsEquipos.add(equipoId)
+    }
+  }
+
+  const equipos = await equiposPorIds(db, [...idsEquipos])
+  if (equipos.length !== idsEquipos.size) {
+    throw new ErrorApp('no_encontrado', 'Uno de los equipos elegidos ya no existe')
+  }
+  const equipoPorId = new Map(equipos.map((equipo) => [equipo.id, equipo]))
+
+  for (const renglon of datos.renglones) {
+    for (const equipoId of renglon.equipoIds ?? []) {
+      const equipo = equipoPorId.get(equipoId)
+      if (equipo === undefined || equipo.productoId !== renglon.productoId || equipo.ubicacionId !== datos.origenId || !equipo.activo) {
+        throw new ErrorApp('regla_de_negocio', 'Uno de los equipos ya no está disponible en el origen')
+      }
+    }
   }
 
   const loteId = nuevoId('lote')
   const sentencias: D1PreparedStatement[] = []
 
+  const productos = new Map<string, Awaited<ReturnType<typeof exigirProducto>>>()
   for (const [productoId, cantidad] of porProducto) {
     const producto = await exigirProducto(db, productoId)
+    productos.set(productoId, producto)
     const hay = await stockEn(db, productoId, datos.origenId)
     if (hay < cantidad) {
       throw stockInsuficiente(producto.nombre, origen.nombre, hay)
     }
 
+  }
+
+  for (const renglon of datos.renglones) {
+    const producto = productos.get(renglon.productoId)
+    if (producto === undefined) throw new ErrorApp('no_encontrado', 'No se encontró el producto')
+
+    if (renglon.equipoIds !== undefined) {
+      for (const equipoId of renglon.equipoIds) {
+        const m: MovimientoNuevo = {
+          tipo: 'transfer',
+          productoId: renglon.productoId,
+          equipoId,
+          cantidad: 1,
+          ubicacionOrigenId: datos.origenId,
+          ubicacionDestinoId: datos.destinoId,
+          costoUnitario: producto.precioCosto,
+          nota: datos.nota ?? null,
+          loteId,
+        }
+
+        try {
+          validarForma(m)
+        } catch (e) {
+          comoErrorDeApi(e)
+        }
+
+        sentencias.push(sentenciaMovimiento(db, nuevoId('mov'), m, usuarioId))
+        sentencias.push(sentenciaMoverEquipo(db, equipoId, datos.origenId, datos.destinoId))
+        sentencias.push(...sentenciasDeStock(db, renglon.productoId, datos.origenId, -1))
+        sentencias.push(...sentenciasDeStock(db, renglon.productoId, datos.destinoId, 1))
+      }
+      continue
+    }
+
     const m: MovimientoNuevo = {
       tipo: 'transfer',
-      productoId,
-      cantidad,
+      productoId: renglon.productoId,
+      cantidad: renglon.cantidad,
       ubicacionOrigenId: datos.origenId,
       ubicacionDestinoId: datos.destinoId,
       costoUnitario: producto.precioCosto,
@@ -184,8 +250,8 @@ export async function aplicarTraspaso(
     }
 
     sentencias.push(sentenciaMovimiento(db, nuevoId('mov'), m, usuarioId))
-    sentencias.push(...sentenciasDeStock(db, productoId, datos.origenId, -cantidad))
-    sentencias.push(...sentenciasDeStock(db, productoId, datos.destinoId, cantidad))
+    sentencias.push(...sentenciasDeStock(db, renglon.productoId, datos.origenId, -renglon.cantidad))
+    sentencias.push(...sentenciasDeStock(db, renglon.productoId, datos.destinoId, renglon.cantidad))
   }
 
   await db.batch(sentencias)
@@ -214,6 +280,7 @@ export async function revertirMovimiento(
   const comoNuevo: MovimientoNuevo = {
     tipo: original.tipo,
     productoId: original.productoId,
+    equipoId: original.equipoId,
     cantidad: original.cantidad,
     ubicacionOrigenId: original.ubicacionOrigenId,
     ubicacionDestinoId: original.ubicacionDestinoId,
@@ -232,6 +299,10 @@ export async function revertirMovimiento(
 
   const idInverso = nuevoId('mov')
   const sentencias: D1PreparedStatement[] = [sentenciaMovimiento(db, idInverso, inverso, usuarioId)]
+
+  if (inverso.equipoId !== null && inverso.equipoId !== undefined && inverso.ubicacionOrigenId !== null && inverso.ubicacionDestinoId !== null) {
+    sentencias.push(sentenciaMoverEquipo(db, inverso.equipoId, inverso.ubicacionOrigenId, inverso.ubicacionDestinoId))
+  }
 
   for (const efecto of efectoDeMovimiento(inverso)) {
     sentencias.push(...sentenciasDeStock(db, inverso.productoId, efecto.ubicacionId, efecto.delta))
@@ -273,6 +344,7 @@ export async function revertirLote(
     const comoNuevo: MovimientoNuevo = {
       tipo: renglon.tipo,
       productoId: renglon.productoId,
+      equipoId: renglon.equipoId,
       cantidad: renglon.cantidad,
       ubicacionOrigenId: renglon.ubicacionOrigenId,
       ubicacionDestinoId: renglon.ubicacionDestinoId,
@@ -292,6 +364,10 @@ export async function revertirLote(
 
     const idInverso = nuevoId('mov')
     sentencias.push(sentenciaMovimiento(db, idInverso, inverso, usuarioId))
+
+    if (inverso.equipoId !== null && inverso.equipoId !== undefined && inverso.ubicacionOrigenId !== null && inverso.ubicacionDestinoId !== null) {
+      sentencias.push(sentenciaMoverEquipo(db, inverso.equipoId, inverso.ubicacionOrigenId, inverso.ubicacionDestinoId))
+    }
 
     for (const efecto of efectoDeMovimiento(inverso)) {
       sentencias.push(...sentenciasDeStock(db, inverso.productoId, efecto.ubicacionId, efecto.delta))

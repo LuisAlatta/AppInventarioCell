@@ -17,8 +17,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
-import type { ProductoConStock } from '@compartido/tipos'
+import { Check, ShieldAlert, ShieldCheck, Smartphone } from 'lucide-react'
+import type { Equipo, ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from '../componentes/Boton'
 import { SelectorCantidad } from '../componentes/Campo'
@@ -36,6 +36,7 @@ import { avisarError } from '../lib/retroalimentacion'
 interface Renglon {
   producto: ProductoConStock
   cantidad: number
+  equipos: Equipo[]
 }
 
 export function Traspaso() {
@@ -58,7 +59,7 @@ function TraspasoSugerido({ ficha, origenId, destinoId }: { ficha: ProductoConSt
     const actual = ficha.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0
     const cantidad = Math.min(disponible - ficha.stockMinimo, Math.max(1, ficha.stockMinimo) - actual)
     if (!ficha.activo || cantidad < 1 || origenId === destinoId || !ubicaciones.some(u => u.id === origenId) || !ubicaciones.some(u => u.id === destinoId)) return null
-    return { origenId, destinoId, renglon: { producto: ficha, cantidad } }
+    return { origenId, destinoId, renglon: { producto: ficha, cantidad, equipos: [] } }
   })
   if (!preparado) {
     return <Marco titulo="Preparar traspaso" atras sinUbicacion><Vacio titulo="La sugerencia ya no está disponible" detalle="Las existencias cambiaron. Vuelve al producto para revisar el stock actual." /></Marco>
@@ -78,6 +79,9 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
   const [destinoId, setDestinoId] = useState<string>(preparado?.destinoId ?? '')
   const [renglones, setRenglones] = useState<Renglon[]>(preparado ? [preparado.renglon] : [])
   const [capturando, setCapturando] = useState(false)
+  const [seleccionando, setSeleccionando] = useState<ProductoConStock | null>(null)
+  const [idsEquipos, setIdsEquipos] = useState<string[]>([])
+  const [cantidadSinImei, setCantidadSinImei] = useState(1)
   const [ajustando, setAjustando] = useState<Renglon | null>(null)
   const [enviando, setEnviando] = useState(false)
 
@@ -92,40 +96,52 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
   const disponible = (producto: ProductoConStock): number =>
     producto.stock.find((s) => s.ubicacionId === origenId)?.cantidad ?? 0
 
-  /**
-   * Agrega un producto, o suma uno si ya estaba en la lista.
-   *
-   * Escanear dos veces la misma caja es normal al repartir, y crear dos
-   * renglones del mismo producto confundiria al revisar la lista.
-   */
-  const agregar = (producto: ProductoConStock): void => {
+  const equiposSeleccion = useQuery({
+    queryKey: ['equipos', seleccionando?.id],
+    queryFn: () => api.equiposDeProducto(seleccionando?.id ?? ''),
+    enabled: seleccionando !== null,
+  })
+
+  const equiposDeOrigen = (equiposSeleccion.data?.equipos ?? []).filter((equipo) => equipo.ubicacionId === origenId && equipo.activo)
+
+  const abrirSelectorEquipos = (producto: ProductoConStock): void => {
     const hay = disponible(producto)
+    if (hay < 1) {
+      avisarError()
+      avisos.error(`No hay ${producto.nombre} en ${origen?.nombre ?? 'el origen'}`)
+      return
+    }
+    const actual = renglones.find((renglon) => renglon.producto.id === producto.id)
+    setIdsEquipos(actual?.equipos.map((equipo) => equipo.id) ?? [])
+    setCantidadSinImei(actual?.cantidad ?? 1)
+    setCapturando(false)
+    setSeleccionando(producto)
+  }
+
+  const guardarEquiposElegidos = (): void => {
+    if (seleccionando === null) return
+
+    if (equiposDeOrigen.length === 0) {
+      setRenglones((previos) => {
+        const indice = previos.findIndex((renglon) => renglon.producto.id === seleccionando.id)
+        if (indice === -1) return [...previos, { producto: seleccionando, cantidad: cantidadSinImei, equipos: [] }]
+        return previos.map((renglon) => renglon.producto.id === seleccionando.id ? { ...renglon, cantidad: cantidadSinImei, equipos: [] } : renglon)
+      })
+      setSeleccionando(null)
+      return
+    }
+
+    const seleccionados = equiposDeOrigen.filter((equipo) => idsEquipos.includes(equipo.id))
+    if (seleccionados.length === 0) {
+      avisos.error(`Elige al menos un equipo de ${seleccionando.nombre}`)
+      return
+    }
 
     setRenglones((previos) => {
-      const indice = previos.findIndex((r) => r.producto.id === producto.id)
-
-      if (indice === -1) {
-        if (hay < 1) {
-          avisarError()
-          avisos.error(`No hay ${producto.nombre} en ${origen?.nombre ?? 'el origen'}`)
-          return previos
-        }
-        return [...previos, { producto, cantidad: 1 }]
-      }
-
-      const actual = previos[indice]
-      if (actual === undefined) return previos
-
-      if (actual.cantidad + 1 > hay) {
-        avisarError()
-        avisos.error(`Solo hay ${numero(hay)} de ${producto.nombre}`)
-        return previos
-      }
-
-      const copia = [...previos]
-      copia[indice] = { ...actual, cantidad: actual.cantidad + 1 }
-      return copia
+      const sinActual = previos.filter((renglon) => renglon.producto.id !== seleccionando.id)
+      return [...sinActual, { producto: seleccionando, cantidad: seleccionados.length, equipos: seleccionados }]
     })
+    setSeleccionando(null)
   }
 
   const quitar = (productoId: string): void => {
@@ -146,7 +162,7 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
       const { loteId, renglones: cuántos } = await api.traspaso({
         origenId: origen.id,
         destinoId: destino.id,
-        renglones: renglones.map((r) => ({ productoId: r.producto.id, cantidad: r.cantidad })),
+        renglones: renglones.map((r) => ({ productoId: r.producto.id, cantidad: r.cantidad, ...(r.equipos.length > 0 ? { equipoIds: r.equipos.map((equipo) => equipo.id) } : {}) })),
       })
 
       avisos.exito(
@@ -254,12 +270,13 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
                           {origen.nombre}: {numero(disponible(renglon.producto))} → {numero(disponible(renglon.producto) - renglon.cantidad)}
                         </p>
                         <p className="text-[0.8125rem] text-tinta-suave">{destino.nombre}: {numero(renglon.producto.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0)} → {numero((renglon.producto.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0) + renglon.cantidad)}</p>
+                        {renglon.equipos.length > 0 && <p className="mt-1 line-clamp-2 text-[0.75rem] font-medium text-accion">{numero(renglon.equipos.length)} equipos: {renglon.equipos.map((equipo) => equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI').join(' · ')}</p>}
                       </div>
 
                       <button
                         type="button"
-                        aria-label={`Cantidad de ${renglon.producto.nombre}`}
-                        onClick={() => setAjustando(renglon)}
+                        aria-label={renglon.equipos.length > 0 ? `Elegir equipos de ${renglon.producto.nombre}` : `Cantidad de ${renglon.producto.nombre}`}
+                        onClick={() => renglon.equipos.length > 0 ? abrirSelectorEquipos(renglon.producto) : setAjustando(renglon)}
                         className="cifras flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-papel-hundido px-3 text-[1.125rem] font-semibold"
                       >
                         {numero(renglon.cantidad)}
@@ -309,7 +326,7 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
       >
         <div className="-mx-5 flex h-[65vh] flex-col">
           <CapturaProducto
-            onElegido={agregar}
+            onElegido={abrirSelectorEquipos}
             indicacion={
               renglones.length === 0
                 ? 'Apunta al codigo de barras'
@@ -317,6 +334,26 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
             }
           />
         </div>
+      </HojaInferior>
+
+      <HojaInferior
+        abierta={seleccionando !== null}
+        onCerrar={() => setSeleccionando(null)}
+        titulo={seleccionando === null ? 'Elegir equipos' : `Elegir · ${seleccionando.nombre}`}
+      >
+        {seleccionando !== null && (
+          <SelectorEquipos
+            producto={seleccionando}
+            equipos={equiposDeOrigen}
+            cargando={equiposSeleccion.isPending}
+            idsSeleccionados={idsEquipos}
+            cantidadSinImei={cantidadSinImei}
+            disponible={disponible(seleccionando)}
+            onCambiarSeleccion={(equipoId) => setIdsEquipos((previos) => previos.includes(equipoId) ? previos.filter((id) => id !== equipoId) : [...previos, equipoId])}
+            onCambiarCantidad={setCantidadSinImei}
+            onConfirmar={guardarEquiposElegidos}
+          />
+        )}
       </HojaInferior>
 
       <HojaInferior
@@ -347,6 +384,16 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
       </HojaInferior>
     </Marco>
   )
+}
+
+function SelectorEquipos({ producto, equipos, cargando, idsSeleccionados, cantidadSinImei, disponible, onCambiarSeleccion, onCambiarCantidad, onConfirmar }: { producto: ProductoConStock; equipos: Equipo[]; cargando: boolean; idsSeleccionados: string[]; cantidadSinImei: number; disponible: number; onCambiarSeleccion: (id: string) => void; onCambiarCantidad: (cantidad: number) => void; onConfirmar: () => void }) {
+  if (cargando) return <div className="pb-3"><Esqueleto filas={3} /></div>
+
+  if (equipos.length === 0) {
+    return <div className="flex flex-col gap-4 pb-3"><div className="rounded-xl bg-papel-hundido px-3 py-2.5 text-[0.875rem] text-tinta-suave">No hay IMEI registrados para este modelo. Indica cuántas piezas vas a trasladar.</div><SelectorCantidad valor={cantidadSinImei} maximo={Math.max(1, disponible)} onCambio={onCambiarCantidad} /><Boton ancho onClick={onConfirmar}>Agregar {numero(cantidadSinImei)} piezas</Boton></div>
+  }
+
+  return <div className="flex flex-col gap-3 pb-3"><p className="text-[0.875rem] leading-snug text-tinta-suave">Selecciona las unidades de <strong className="font-semibold text-tinta">{producto.nombre}</strong> que salen en este traspaso.</p><div className="flex items-center justify-between rounded-xl bg-accion-tenue px-3 py-2 text-[0.8125rem] text-accion"><span>{numero(equipos.length)} equipos disponibles</span><span className="font-semibold">{numero(idsSeleccionados.length)} elegidos</span></div><ul className="flex flex-col gap-2">{equipos.map((equipo) => { const elegido = idsSeleccionados.includes(equipo.id); const imei = equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'; return <li key={equipo.id}><button type="button" aria-pressed={elegido} onClick={() => onCambiarSeleccion(equipo.id)} className={`flex min-h-[4.5rem] w-full items-center gap-3 rounded-xl border p-3 text-left transition ${elegido ? 'border-accion bg-accion-tenue' : 'border-borde bg-superficie active:bg-papel-hundido'}`}><span aria-hidden="true" className={`flex size-6 shrink-0 items-center justify-center rounded-lg border ${elegido ? 'border-accion bg-accion text-white' : 'border-borde-fuerte text-transparent'}`}><Check className="size-4" strokeWidth={3} /></span><span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-papel-hundido text-tinta-suave"><Smartphone className="size-4" strokeWidth={2} /></span><span className="min-w-0 flex-1"><span className="cifras block truncate text-[0.875rem] font-semibold">{imei}</span>{equipo.imei2 !== null && <span className="cifras mt-0.5 block truncate text-[0.6875rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</span>}<span className="mt-1 flex items-center gap-1 text-[0.6875rem] text-tinta-suave">{equipo.listaBlanca === 'registered' ? <ShieldCheck className="size-3.5 text-exito" strokeWidth={2} /> : <ShieldAlert className="size-3.5 text-falta" strokeWidth={2} />}{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'} · {equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span></span></button></li> })}</ul><Boton ancho onClick={onConfirmar}>Agregar {numero(idsSeleccionados.length)} equipos</Boton></div>
 }
 
 function SelectorRuta({

@@ -265,7 +265,7 @@ export const api = {
   traspaso: (datos: {
     origenId: string
     destinoId: string
-    renglones: { productoId: string; cantidad: number }[]
+    renglones: { productoId: string; cantidad: number; equipoIds?: string[] }[]
     nota?: string | null
   }): Promise<{ loteId: string; renglones: number }> =>
     pedir('/movimientos/traspaso', { metodo: 'POST', cuerpo: datos }),

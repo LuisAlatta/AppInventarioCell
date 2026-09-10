@@ -17,6 +17,7 @@ import type { TipoMovimiento } from '@compartido/tipos'
 export interface MovimientoNuevo {
   tipo: TipoMovimiento
   productoId: string
+  equipoId?: string | null
   /** Siempre positiva. El sentido lo da la combinacion de origen y destino. */
   cantidad: number
   ubicacionOrigenId: string | null

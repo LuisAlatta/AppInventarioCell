@@ -625,6 +625,39 @@ describe('equipos por IMEI', () => {
     })
     expect(repetido.status).toBe(409)
   })
+
+  test('traslada solo los equipos elegidos y conserva su IMEI al deshacer', async () => {
+    const cookie = await entrar()
+    const { almacenId, sucursalId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: { id: string }[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [
+          { imei1: '356000000000011', listaBlanca: 'registered', condicion: 'new' },
+          { imei1: '356000000000012', listaBlanca: 'not_registered', condicion: 'used' },
+        ],
+      },
+    }))
+    const elegido = alta.equipos[0]?.id
+    expect(elegido).toBeDefined()
+    if (elegido === undefined) throw new Error('Falta el equipo creado')
+
+    const traslado = await json<{ loteId: string }>(await conSesion(cookie, '/api/movimientos/traspaso', {
+      metodo: 'POST',
+      cuerpo: { origenId: almacenId, destinoId: sucursalId, renglones: [{ productoId, cantidad: 1, equipoIds: [elegido] }] },
+    }))
+
+    expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
+    expect(await stockEnUbicacion(cookie, productoId, sucursalId)).toBe(1)
+    const despues = await json<{ equipos: { id: string; ubicacionId: string }[] }>(await conSesion(cookie, `/api/equipos/producto/${productoId}`))
+    expect(despues.equipos.find((equipo) => equipo.id === elegido)?.ubicacionId).toBe(sucursalId)
+
+    await conSesion(cookie, `/api/movimientos/lote/${traslado.loteId}/deshacer`, { metodo: 'POST' })
+    const revertido = await json<{ equipos: { id: string; ubicacionId: string }[] }>(await conSesion(cookie, `/api/equipos/producto/${productoId}`))
+    expect(revertido.equipos.find((equipo) => equipo.id === elegido)?.ubicacionId).toBe(almacenId)
+  })
 })
 
 describe('conteo fisico y mermas', () => {

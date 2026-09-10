@@ -188,7 +188,17 @@ export const esquemaTraspaso = z.object({
   origenId: id,
   destinoId: id,
   renglones: z
-    .array(z.object({ productoId: id, cantidad: cantidadPositiva }))
+    .array(z.object({
+      productoId: id,
+      cantidad: cantidadPositiva,
+      // Para telefonos se mueven las unidades físicas elegidas, no solo un
+      // número. La cantidad debe coincidir para que el stock y los IMEI nunca
+      // queden desfasados.
+      equipoIds: z.array(id).min(1).max(500).optional(),
+    }).refine((renglon) => renglon.equipoIds === undefined || renglon.equipoIds.length === renglon.cantidad, {
+      message: 'La cantidad debe coincidir con los equipos elegidos',
+      path: ['cantidad'],
+    }))
     .min(1, 'Agrega al menos un producto')
     .max(500, 'Demasiados productos en un solo traspaso'),
   nota: nota.nullish(),
