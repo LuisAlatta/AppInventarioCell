@@ -60,18 +60,3 @@ export function guardarVistaBusqueda(vista: PreferenciasVistaBusqueda): void {
 }
 
 export type FiltroEquipoRapido = 'registered' | 'not_registered' | 'new' | 'used'
-const FILTROS_POR_DEFECTO: FiltroEquipoRapido[] = ['registered', 'not_registered', 'new', 'used']
-
-export function leerOrdenFiltrosEquipo(): FiltroEquipoRapido[] {
-  try {
-    const valor: unknown = JSON.parse(localStorage.getItem('inventario.orden-filtros') ?? '[]')
-    if (!Array.isArray(valor)) return FILTROS_POR_DEFECTO
-    const validos = valor.filter((f): f is FiltroEquipoRapido => typeof f === 'string' && FILTROS_POR_DEFECTO.includes(f as FiltroEquipoRapido))
-    return [...validos, ...FILTROS_POR_DEFECTO.filter((f) => !validos.includes(f))]
-  } catch { return FILTROS_POR_DEFECTO }
-}
-
-export function guardarOrdenFiltrosEquipo(orden: FiltroEquipoRapido[]): void {
-  try { localStorage.setItem('inventario.orden-filtros', JSON.stringify(orden)) }
-  catch { /* El orden no afecta la búsqueda si el almacenamiento no está disponible. */ }
-}

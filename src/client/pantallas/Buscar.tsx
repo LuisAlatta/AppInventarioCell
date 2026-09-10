@@ -20,7 +20,7 @@ import { IconoUbicacion } from '../componentes/IconoUbicacion'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
 import type { ProductoConStock } from '@compartido/tipos'
-import { guardarBusquedas, guardarOrdenFiltrosEquipo, guardarVistaBusqueda, leerBusquedas, leerOrdenFiltrosEquipo, leerVistaBusqueda, recordarBusqueda, type FiltroEquipoRapido, type PreferenciasVistaBusqueda } from '../lib/inventario'
+import { guardarBusquedas, guardarVistaBusqueda, leerBusquedas, leerVistaBusqueda, recordarBusqueda, type FiltroEquipoRapido, type PreferenciasVistaBusqueda } from '../lib/inventario'
 
 /** Espera antes de consultar. Corto para que se sienta inmediato. */
 const MS_ESPERA = 120
@@ -40,7 +40,6 @@ export function Buscar() {
   const filtroStock = ubicacionElegida?.tipo === 'store' ? 'disponibles' : 'todos'
   const [recientes, setRecientes] = useState(leerBusquedas)
   const [vista, setVista] = useState<PreferenciasVistaBusqueda>(leerVistaBusqueda)
-  const [ordenFiltros, setOrdenFiltros] = useState<FiltroEquipoRapido[]>(leerOrdenFiltrosEquipo)
   const [opcionesVista, setOpcionesVista] = useState(false)
 
   const [texto, setTexto] = useState(q)
@@ -78,9 +77,6 @@ export function Buscar() {
   const hayFiltros = listaBlanca !== undefined || condicion !== undefined
   const etiquetaResultados = resultados.isFetching || texto !== consulta ? 'Buscando…' : resultados.isSuccess ? `${productos.length}${productos.length === 50 ? ' primeros' : ''} resultados` : ''
   const usarFiltro = (filtroRapido: FiltroEquipoRapido): void => {
-    const nuevoOrden = [filtroRapido, ...ordenFiltros.filter((actual) => actual !== filtroRapido)]
-    setOrdenFiltros(nuevoOrden)
-    guardarOrdenFiltrosEquipo(nuevoOrden)
     if (filtroRapido === 'registered' || filtroRapido === 'not_registered') {
       cambiarFiltro(setParametros, 'listaBlanca', listaBlanca === filtroRapido ? null : filtroRapido)
     } else {
@@ -148,7 +144,7 @@ export function Buscar() {
         </div>
 
         <div className="grid grid-cols-4 gap-2" aria-label="Filtros rápidos de equipos">
-          {ordenFiltros.map((filtroRapido) => <FiltroRapido key={filtroRapido} activo={filtroRapido === listaBlanca || filtroRapido === condicion} texto={NOMBRE_FILTRO[filtroRapido]} icono={ICONO_FILTRO[filtroRapido]} onClick={() => usarFiltro(filtroRapido)} tono={TONO_FILTRO[filtroRapido]} />)}
+          {FILTROS_EQUIPO.map((filtroRapido) => <FiltroRapido key={filtroRapido} activo={filtroRapido === listaBlanca || filtroRapido === condicion} texto={NOMBRE_FILTRO[filtroRapido]} icono={ICONO_FILTRO[filtroRapido]} onClick={() => usarFiltro(filtroRapido)} tono={TONO_FILTRO[filtroRapido]} />)}
         </div>
         <div className="grid grid-cols-4 gap-2" aria-label="Filtrar existencias por local">
           {ubicaciones.filter((ubicacion) => ubicacion.activa).map((ubicacion) => <FiltroLocal key={ubicacion.id} ubicacion={ubicacion} activo={ubicacion.id === ubicacionElegida?.id} onClick={() => cambiarFiltro(setParametros, 'ubicacion', ubicacion.id)} />)}
@@ -206,6 +202,7 @@ function cambiarFiltro(setParametros: ReturnType<typeof useSearchParams>[1], cla
 
 function abrirProducto(id: string, pendiente: boolean, texto: string, consulta: string, recientes: string[], navegar: ReturnType<typeof useNavigate>, setRecientes: (v: string[]) => void) { if (pendiente || texto !== consulta) return; const nuevas = recordarBusqueda(recientes, consulta); guardarBusquedas(nuevas); setRecientes(nuevas); navegar(`/producto/${id}`) }
 
+const FILTROS_EQUIPO: readonly FiltroEquipoRapido[] = ['registered', 'not_registered', 'new', 'used']
 const NOMBRE_FILTRO: Record<FiltroEquipoRapido, string> = { registered: 'Registrados', not_registered: 'No registrados', new: 'Nuevos', used: 'Segunda mano' }
 const TONO_FILTRO: Record<FiltroEquipoRapido, 'exito' | 'falta' | 'accion' | 'alerta'> = { registered: 'exito', not_registered: 'falta', new: 'accion', used: 'alerta' }
 const ICONO_FILTRO = { registered: BadgeCheck, not_registered: ShieldAlert, new: Sparkles, used: RefreshCw } as const
