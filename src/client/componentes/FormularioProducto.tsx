@@ -260,8 +260,8 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           <CampoConEscaner etiqueta="IMEI 2" value={imei2} onChange={(valor) => setImei2(valor.replace(/\D/g, ''))} onEscanear={onEscanear === undefined ? undefined : () => onEscanear('imei2')} inputMode="numeric" placeholder="Opcional" />
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <CasillaEstado etiqueta="En lista blanca" detalle="Registrado" marcada={registrado} onChange={setRegistrado} tono="exito" />
-          <CasillaEstado etiqueta="Equipo nuevo" detalle="Segundo uso si se desmarca" marcada={nuevo} onChange={setNuevo} tono="accion" />
+          <CasillaEstado etiqueta={registrado ? 'Registrado' : 'No registrado'} detalle="Lista blanca" marcada={registrado} onChange={setRegistrado} tono="exito" />
+          <CasillaEstado etiqueta={nuevo ? 'Nuevo' : 'Segunda mano'} detalle="Estado del equipo" marcada={nuevo} onChange={setNuevo} tono="accion" />
         </div>
       </section>
 
