@@ -6,8 +6,8 @@
  * de lo que debería".
  */
 
-import { useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { ErrorDeApi, api, urlDeImagen } from '../api/cliente'
@@ -29,17 +29,24 @@ import type { ProductoConStock } from '@compartido/tipos'
 export function Producto() {
   const { id = '' } = useParams()
   const navegar = useNavigate()
+  const [parametros] = useSearchParams()
   const avisos = useAvisos()
   const cliente = useQueryClient()
-  const { activa } = useUbicacion()
+  const { activa, ubicaciones } = useUbicacion()
+  const ubicacionDeVenta = ubicaciones.find((ubicacion) => ubicacion.id === parametros.get('ubicacion')) ?? activa
+  const abrirVenta = parametros.get('accion') === 'venta'
 
-  const [acciones, setAcciones] = useState(false)
+  const [acciones, setAcciones] = useState(abrirVenta)
   const [altaEquipo, setAltaEquipo] = useState(false)
   const [administrar, setAdministrar] = useState(false)
   const [accionProducto, setAccionProducto] = useState<'desactivar' | 'eliminar' | null>(null)
   const [imagenPorQuitar, setImagenPorQuitar] = useState<{ id: string; clave: string } | null>(null)
   const [subiendoImagen, setSubiendoImagen] = useState(false)
   const refFotos = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (abrirVenta) setAcciones(true)
+  }, [abrirVenta, id])
 
   const producto = useQuery({
     queryKey: ['producto', id],
@@ -137,14 +144,14 @@ export function Producto() {
         )}
 
         <Boton ancho onClick={() => setAcciones(true)}>
-          Registrar movimiento
+          {abrirVenta && ubicacionDeVenta !== null ? `Vender en ${ubicacionDeVenta.nombre}` : 'Registrar movimiento'}
         </Boton>
 
         <SugerenciaReposicion producto={ficha} />
 
         <section className="flex flex-col gap-2">
           <Etiqueta>Existencias</Etiqueta>
-          <DesgloseStock producto={ficha} ubicacionActivaId={activa?.id} />
+          <DesgloseStock producto={ficha} ubicacionActivaId={ubicacionDeVenta?.id} />
         </section>
 
         <section className="flex flex-col gap-2">
@@ -261,9 +268,12 @@ export function Producto() {
         </section>
       </div>
 
-      <HojaInferior abierta={acciones} onCerrar={() => setAcciones(false)} titulo="Registrar">
+      <HojaInferior abierta={acciones} onCerrar={() => setAcciones(false)} titulo={abrirVenta ? `Vender · ${ficha.nombre}` : 'Registrar'}>
         <AccionesProducto
+          key={`${ficha.id}-${ubicacionDeVenta?.id ?? 'sin-ubicacion'}-${abrirVenta ? 'venta' : 'rapido'}`}
           producto={ficha}
+          ubicacionSeleccionada={ubicacionDeVenta}
+          modoInicial={abrirVenta ? 'venta' : 'rápido'}
           onCambio={() => {
             void cliente.invalidateQueries({ queryKey: ['movimientos', id] })
           }}

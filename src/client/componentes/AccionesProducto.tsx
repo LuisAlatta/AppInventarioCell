@@ -12,10 +12,11 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Equipo, ProductoConStock } from '@compartido/tipos'
+import type { Equipo, ProductoConStock, Ubicacion } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
 import { CampoNota, SelectorCantidad } from './Campo'
+import { Confirmacion } from './Confirmacion'
 import { DesgloseStock, Miniatura } from './FichaProducto'
 import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
@@ -27,38 +28,43 @@ type Modo = 'rápido' | 'entrada' | 'venta' | 'merma' | 'ajuste'
 
 interface AccionesProductoProps {
   producto: ProductoConStock
+  /** Local donde se registra el movimiento; Buscar lo fija según su filtro. */
+  ubicacionSeleccionada?: Ubicacion | null
+  modoInicial?: 'rápido' | 'venta'
   /** Se llama después de cualquier movimiento aplicado o deshecho. */
   onCambio?: () => void
   /** Se llama al terminar, para cerrar la hoja que lo contiene. */
   onListo?: () => void
 }
 
-export function AccionesProducto({ producto, onCambio, onListo }: AccionesProductoProps) {
+export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial = 'rápido', onCambio, onListo }: AccionesProductoProps) {
   const { activa } = useUbicacion()
+  const ubicacion = ubicacionSeleccionada ?? activa
   const avisos = useAvisos()
   const cliente = useQueryClient()
 
-  const [modo, setModo] = useState<Modo>('rápido')
+  const [modo, setModo] = useState<Modo>(modoInicial)
   const [cantidad, setCantidad] = useState(1)
   const [nota, setNota] = useState('')
   const [signo, setSigno] = useState<1 | -1>(1)
   const [equipoElegidoId, setEquipoElegidoId] = useState<string | null>(null)
   const [errorNota, setErrorNota] = useState<string | undefined>(undefined)
   const [enviando, setEnviando] = useState(false)
+  const [confirmandoVenta, setConfirmandoVenta] = useState(false)
 
   const enUbicacion =
-    activa === null
+    ubicacion === null
       ? 0
-      : (producto.stock.find((s) => s.ubicacionId === activa.id)?.cantidad ?? 0)
+      : (producto.stock.find((s) => s.ubicacionId === ubicacion.id)?.cantidad ?? 0)
 
   const equipos = useQuery({
-    queryKey: ['equipos', producto.id, 'todos'],
+    queryKey: ['equipos', producto.id, ubicacion?.id],
     queryFn: () => api.equiposDeProducto(producto.id, true),
-    enabled: activa !== null,
+    enabled: ubicacion !== null,
   })
   const controlaPorImei = (equipos.data?.equipos.length ?? 0) > 0
   const equiposDisponibles = (equipos.data?.equipos ?? []).filter(
-    (equipo) => equipo.activo && equipo.ubicacionId === activa?.id,
+    (equipo) => equipo.activo && equipo.ubicacionId === ubicacion?.id,
   )
 
   const refrescar = (): void => {
@@ -110,14 +116,14 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
     }
   }
 
-  if (activa === null) {
+  if (ubicacion === null) {
     return <p className="py-4 text-tinta-tenue">Primero crea una ubicación.</p>
   }
 
   const entrada = (piezas: number): Promise<void> =>
     aplicar(
-      () => api.entrada({ productoId: producto.id, ubicacionId: activa.id, cantidad: piezas }),
-      `+${numero(piezas)} en ${activa.nombre}`,
+      () => api.entrada({ productoId: producto.id, ubicacionId: ubicacion.id, cantidad: piezas }),
+      `+${numero(piezas)} en ${ubicacion.nombre}`,
     )
 
   const venta = (piezas: number): Promise<void> => {
@@ -129,12 +135,20 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
     return aplicar(
       () => api.venta({
         productoId: producto.id,
-        ubicacionId: activa.id,
+        ubicacionId: ubicacion.id,
         cantidad: controlaPorImei ? 1 : piezas,
         ...(controlaPorImei ? { equipoIds: [equipoElegidoId as string] } : {}),
       }),
-      `Venta de ${numero(controlaPorImei ? 1 : piezas)} en ${activa.nombre}`,
+      `Venta de ${numero(controlaPorImei ? 1 : piezas)} en ${ubicacion.nombre}`,
     )
+  }
+
+  const solicitarVenta = (): void => {
+    if (controlaPorImei && equipoElegidoId === null) {
+      avisos.información(`Elige el IMEI de ${producto.nombre} antes de marcarlo como vendido`)
+      return
+    }
+    setConfirmandoVenta(true)
   }
 
   const conMotivo = async (tipo: 'merma' | 'ajuste'): Promise<void> => {
@@ -154,7 +168,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
         () =>
           api.merma({
             productoId: producto.id,
-            ubicacionId: activa.id,
+            ubicacionId: ubicacion.id,
             cantidad: controlaPorImei ? 1 : cantidad,
             nota: motivo,
             ...(controlaPorImei ? { equipoIds: [equipoElegidoId as string] } : {}),
@@ -168,7 +182,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
       () =>
         api.ajuste({
           productoId: producto.id,
-          ubicacionId: activa.id,
+          ubicacionId: ubicacion.id,
           cantidad: cantidad * signo,
           nota: motivo,
         }),
@@ -201,7 +215,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
       {modo === 'rápido' && (
         <>
-          <p className="text-[0.875rem] text-tinta-suave">En {activa.nombre}: entrada → {numero(enUbicacion + 1)} piezas{enUbicacion > 0 ? ` · venta → ${numero(enUbicacion - 1)}` : ' · sin stock para vender'}.</p>
+          <p className="text-[0.875rem] text-tinta-suave">En {ubicacion.nombre}: entrada → {numero(enUbicacion + 1)} piezas{enUbicacion > 0 ? ` · venta → ${numero(enUbicacion - 1)}` : ' · sin stock para vender'}.</p>
           {controlaPorImei && <p className="rounded-xl bg-accion-tenue px-3 py-2 text-[0.8125rem] text-accion-viva">Este modelo se controla por IMEI. Elige la unidad física para venderla o registrarla como merma.</p>}
           <div className="grid grid-cols-2 gap-2.5">
             <Boton tono="exito" onClick={() => {
@@ -214,7 +228,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
               tono="peligro"
               onClick={() => {
                 if (controlaPorImei) setModo('venta')
-                else void venta(1)
+                else solicitarVenta()
               }}
               disabled={enviando || equipos.isPending || enUbicacion < 1}
             >
@@ -241,7 +255,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
           </div>
 
           <div className="flex flex-col gap-2">
-            <DesgloseStock producto={producto} ubicacionActivaId={activa.id} />
+            <DesgloseStock producto={producto} ubicacionActivaId={ubicacion.id} />
 
             <div className="flex gap-2">
               <button
@@ -270,7 +284,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
       {(modo === 'entrada' || modo === 'venta') && (
         <div className="flex flex-col gap-4">
-          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {activa.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'entrada' ? cantidad : -(controlaPorImei ? 1 : cantidad)))} piezas</strong></p>
+          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {ubicacion.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'entrada' ? cantidad : -(controlaPorImei ? 1 : cantidad)))} piezas</strong></p>
           {modo === 'venta' && controlaPorImei ? (
             <SelectorEquipo
               equipos={equiposDisponibles}
@@ -289,7 +303,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
             />
             {modo === 'venta' && (
               <p className="text-[0.8125rem] text-tinta-tenue">
-                Hay {numero(enUbicacion)} en {activa.nombre}
+                Hay {numero(enUbicacion)} en {ubicacion.nombre}
               </p>
             )}
           </div>
@@ -302,15 +316,17 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
             <Boton
               tono={modo === 'entrada' ? 'exito' : 'peligro'}
               cargando={enviando}
+              disabled={equipos.isPending || (modo === 'venta' && enUbicacion < 1)}
               onClick={() => {
                 if (modo === 'entrada' && controlaPorImei) {
                   avisos.información(`Registra el IMEI de ${producto.nombre} desde la ficha del producto para agregar unidades`)
                   return
                 }
-                void (modo === 'entrada' ? entrada(cantidad) : venta(cantidad))
+                if (modo === 'entrada') void entrada(cantidad)
+                else solicitarVenta()
               }}
             >
-              {modo === 'entrada' ? 'Registrar entrada' : 'Registrar venta'}
+              {modo === 'entrada' ? 'Registrar entrada' : 'Marcar vendido'}
             </Boton>
           </div>
         </div>
@@ -318,7 +334,7 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
 
       {(modo === 'merma' || modo === 'ajuste') && (
         <div className="flex flex-col gap-4">
-          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {activa.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'merma' ? -(controlaPorImei ? 1 : cantidad) : cantidad * signo))} piezas</strong></p>
+          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {ubicacion.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'merma' ? -(controlaPorImei ? 1 : cantidad) : cantidad * signo))} piezas</strong></p>
           {modo === 'ajuste' && (
             <div className="flex gap-2">
               {([1, -1] as const).map((valor) => (
@@ -379,6 +395,15 @@ export function AccionesProducto({ producto, onCambio, onListo }: AccionesProduc
           </div>
         </div>
       )}
+      <Confirmacion
+        abierta={confirmandoVenta}
+        titulo={`¿Marcar vendido ${producto.nombre}?`}
+        detalle={`Se descontará ${numero(controlaPorImei ? 1 : cantidad)} ${controlaPorImei ? 'equipo' : 'pieza(s)'} de ${ubicacion.nombre}${controlaPorImei ? ` · IMEI ${equiposDisponibles.find((equipo) => equipo.id === equipoElegidoId)?.imei1 ?? equiposDisponibles.find((equipo) => equipo.id === equipoElegidoId)?.imei2 ?? ''}` : ''}.`}
+        confirmar="Marcar vendido"
+        peligro
+        onCancelar={() => setConfirmandoVenta(false)}
+        onConfirmar={() => { setConfirmandoVenta(false); void venta(cantidad) }}
+      />
     </div>
   )
 }
