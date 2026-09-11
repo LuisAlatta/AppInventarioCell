@@ -215,44 +215,22 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
 
       {modo === 'rápido' && (
         <>
-          <p className="text-[0.875rem] text-tinta-suave">En {ubicacion.nombre}: entrada → {numero(enUbicacion + 1)} piezas{enUbicacion > 0 ? ` · venta → ${numero(enUbicacion - 1)}` : ' · sin stock para vender'}.</p>
-          {controlaPorImei && <p className="rounded-xl bg-accion-tenue px-3 py-2 text-[0.8125rem] text-accion-viva">Este modelo se controla por IMEI. Elige la unidad física para venderla o registrarla como merma.</p>}
-          <div className="grid grid-cols-2 gap-2.5">
-            <Boton tono="exito" onClick={() => {
-              if (controlaPorImei) avisos.información(`Registra el IMEI de ${producto.nombre} desde la ficha del producto para agregar una unidad`)
-              else void entrada(1)
-            }} disabled={enviando || equipos.isPending}>
-              {controlaPorImei ? 'Registrar IMEI' : '+ 1 entrada'}
-            </Boton>
-            <Boton
-              tono="peligro"
-              onClick={() => {
-                if (controlaPorImei) setModo('venta')
-                else solicitarVenta()
-              }}
-              disabled={enviando || equipos.isPending || enUbicacion < 1}
-            >
-              {controlaPorImei ? 'Elegir IMEI' : '− 1 venta'}
-            </Boton>
-          </div>
+          <p className="text-[0.875rem] text-tinta-suave">Registra entradas, mermas o correcciones de {producto.nombre} en {ubicacion.nombre}.</p>
+          <Boton tono="exito" ancho onClick={() => {
+            if (controlaPorImei) avisos.información(`Registra el IMEI de ${producto.nombre} desde la ficha del producto para agregar una unidad`)
+            else void entrada(1)
+          }} disabled={enviando || equipos.isPending}>
+            {controlaPorImei ? 'Registrar IMEI' : '+ 1 entrada'}
+          </Boton>
 
           <SugerenciaReposicion producto={producto} />
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <Boton tono="contorno" onClick={() => {
-              if (controlaPorImei) avisos.información(`Registra el IMEI de ${producto.nombre} desde la ficha del producto para agregar unidades`)
-              else setModo('entrada')
-            }} disabled={enviando || equipos.isPending}>
-              {controlaPorImei ? 'Registrar IMEI' : 'Entrada…'}
-            </Boton>
-            <Boton
-              tono="contorno"
-              onClick={() => setModo('venta')}
-              disabled={enviando || equipos.isPending || enUbicacion < 1}
-            >
-              Venta…
-            </Boton>
-          </div>
+          <Boton tono="contorno" ancho onClick={() => {
+            if (controlaPorImei) avisos.información(`Registra el IMEI de ${producto.nombre} desde la ficha del producto para agregar unidades`)
+            else setModo('entrada')
+          }} disabled={enviando || equipos.isPending}>
+            {controlaPorImei ? 'Registrar IMEI' : 'Entrada…'}
+          </Boton>
 
           <div className="flex flex-col gap-2">
             <DesgloseStock producto={producto} ubicacionActivaId={ubicacion.id} />
@@ -288,6 +266,8 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
           {modo === 'venta' && controlaPorImei ? (
             <SelectorEquipo
               equipos={equiposDisponibles}
+              nombreProducto={producto.nombre}
+              claveImagen={producto.claveImagen}
               seleccionadoId={equipoElegidoId}
               onSeleccionar={setEquipoElegidoId}
             />
@@ -358,6 +338,8 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
           {modo === 'merma' && controlaPorImei ? (
             <SelectorEquipo
               equipos={equiposDisponibles}
+              nombreProducto={producto.nombre}
+              claveImagen={producto.claveImagen}
               seleccionadoId={equipoElegidoId}
               onSeleccionar={setEquipoElegidoId}
             />
@@ -410,10 +392,14 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
 
 function SelectorEquipo({
   equipos,
+  nombreProducto,
+  claveImagen,
   seleccionadoId,
   onSeleccionar,
 }: {
   equipos: Equipo[]
+  nombreProducto: string
+  claveImagen: string | null
   seleccionadoId: string | null
   onSeleccionar: (id: string) => void
 }) {
@@ -437,7 +423,8 @@ function SelectorEquipo({
                   seleccionado ? 'border-accion bg-accion-tenue' : 'border-borde bg-superficie active:bg-papel-hundido',
                 ].join(' ')}
               >
-                <span className="min-w-0"><span className="block truncate cifras text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI'}</span>{equipo.imei2 !== null && <span className="block truncate cifras text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</span>}</span>
+                <Miniatura nombre={nombreProducto} claveImagen={claveImagen} tamano="pequena" />
+                <span className="min-w-0 flex-1"><span className="block truncate cifras text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI'}</span>{equipo.imei2 !== null && <span className="block truncate cifras text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</span>}</span>
                 <span className="ml-3 shrink-0 text-right text-[0.6875rem] text-tinta-tenue">{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}<br />{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span>
               </button>
             )
