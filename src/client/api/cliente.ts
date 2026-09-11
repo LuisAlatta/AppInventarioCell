@@ -155,11 +155,12 @@ export const api = {
   // Productos
   // -------------------------------------------------------------------------
 
-  buscar: (q: string, senal?: AbortSignal, opciones: { ubicacionId?: string | undefined; filtro?: FiltroStock; listaBlanca?: 'registered' | 'not_registered'; condicion?: 'new' | 'used' } = {}): Promise<{ productos: ResultadoBusqueda[] }> => {
+  buscar: (q: string, senal?: AbortSignal, opciones: { ubicacionId?: string | undefined; filtro?: FiltroStock; listaBlanca?: 'registered' | 'not_registered'; condicion?: 'new' | 'used'; vendidos?: boolean } = {}): Promise<{ productos: ResultadoBusqueda[] }> => {
     const parametros = new URLSearchParams({ q, limite: '50', filtro: opciones.filtro ?? 'todos' })
     if (opciones.ubicacionId) parametros.set('ubicacionId', opciones.ubicacionId)
     if (opciones.listaBlanca) parametros.set('listaBlanca', opciones.listaBlanca)
     if (opciones.condicion) parametros.set('condicion', opciones.condicion)
+    if (opciones.vendidos) parametros.set('vendidos', '1')
     return pedir(`/productos?${parametros}`, senal === undefined ? {} : { senal })
   },
 

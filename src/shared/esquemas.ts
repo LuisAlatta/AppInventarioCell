@@ -246,6 +246,7 @@ export const esquemaBusqueda = z.object({
   filtro: z.enum(['todos', 'disponibles', 'agotados', 'bajo']).default('todos'),
   listaBlanca: z.enum(['registered', 'not_registered']).optional(),
   condicion: z.enum(['new', 'used']).optional(),
+  vendidos: z.enum(['1']).optional(),
   limite: z.coerce.number().int().min(1).max(50).default(20),
 })
 

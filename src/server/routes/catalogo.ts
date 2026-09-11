@@ -99,9 +99,9 @@ rutasCatalogo.get('/marcas', async (c) => c.json({ marcas: await listarMarcas(c.
  * Busqueda de productos. Es la ruta mas usada de la aplicacion.
  */
 rutasCatalogo.get('/productos', zValidator('query', esquemaBusqueda), async (c) => {
-  const { q, limite, ubicacionId, filtro, listaBlanca, condicion } = c.req.valid('query')
+  const { q, limite, ubicacionId, filtro, listaBlanca, condicion, vendidos } = c.req.valid('query')
   if (ubicacionId) await exigirUbicacion(c.env.DB, ubicacionId)
-  return c.json({ productos: await buscarProductos(c.env.DB, q, limite, { ubicacionId, filtro, listaBlanca, condicion }) })
+  return c.json({ productos: await buscarProductos(c.env.DB, q, limite, { ubicacionId, filtro, listaBlanca, condicion, vendidos: vendidos === '1' }) })
 })
 
 /**

@@ -42,12 +42,12 @@ async function conConteoEquiposCoincidentes(
   resultados: ResultadoBusqueda[],
   opciones: FiltroInventario,
 ): Promise<ResultadoBusqueda[]> {
-  if (resultados.length === 0 || (opciones.listaBlanca === undefined && opciones.condicion === undefined)) {
+  if (resultados.length === 0 || (opciones.listaBlanca === undefined && opciones.condicion === undefined && !opciones.vendidos)) {
     return resultados
   }
 
   const marcadores = resultados.map(() => '?').join(', ')
-  const condiciones = ['d.is_active = 1']
+  const condiciones = [`d.is_active = ${opciones.vendidos ? 0 : 1}`]
   const valores: string[] = []
   if (opciones.ubicacionId !== undefined) {
     condiciones.push('d.location_id = ?')

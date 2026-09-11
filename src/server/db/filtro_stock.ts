@@ -5,6 +5,7 @@ export interface FiltroInventario {
   filtro?: FiltroStock | undefined
   listaBlanca?: EstadoListaBlanca | undefined
   condicion?: CondicionEquipo | undefined
+  vendidos?: boolean | undefined
 }
 
 /** Fragmentos internos; los valores del usuario siempre se enlazan como parámetros. */
@@ -22,11 +23,11 @@ export function condicionStock(opciones: FiltroInventario = {}) {
   const valoresEquipo: string[] = []
   if (opciones.listaBlanca !== undefined) { filtrosEquipo.push('d.whitelist_status = ?'); valoresEquipo.push(opciones.listaBlanca) }
   if (opciones.condicion !== undefined) { filtrosEquipo.push('d.condition = ?'); valoresEquipo.push(opciones.condicion) }
-  const equipos = filtrosEquipo.length === 0 ? { sql: '1 = 1', valores: [] as string[] } : {
+  const equipos = filtrosEquipo.length === 0 && !opciones.vendidos ? { sql: '1 = 1', valores: [] as string[] } : {
     // El estado pertenece a una unidad física. Cuando se eligió un local, la
     // unidad también debe estar ahí; de otro modo un equipo del almacén haría
     // aparecer el mismo modelo como registrado dentro de una tienda.
-    sql: `EXISTS (SELECT 1 FROM devices d WHERE d.product_id = p.id AND d.is_active = 1${opciones.ubicacionId === undefined ? '' : ' AND d.location_id = ?'} AND ${filtrosEquipo.join(' AND ')})`,
+    sql: `EXISTS (SELECT 1 FROM devices d WHERE d.product_id = p.id AND d.is_active = ${opciones.vendidos ? 0 : 1}${opciones.ubicacionId === undefined ? '' : ' AND d.location_id = ?'}${filtrosEquipo.length === 0 ? '' : ` AND ${filtrosEquipo.join(' AND ')}`})`,
     valores: [...(opciones.ubicacionId === undefined ? [] : [opciones.ubicacionId]), ...valoresEquipo],
   }
   switch (opciones.filtro) {

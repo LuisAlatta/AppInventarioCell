@@ -184,7 +184,7 @@ export interface ResultadoBusqueda extends ProductoConStock {
    *   `aproximado` coincidencia tolerante a errores de escritura
    */
   coincidencia: 'codigo' | 'texto' | 'aproximado'
-  /** Unidades físicas que cumplen los filtros de IMEI activos. */
+  /** Unidades físicas que cumplen los filtros de IMEI, activas o vendidas. */
   equiposCoincidentes?: number
 }
 

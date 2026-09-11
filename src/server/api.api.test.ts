@@ -777,6 +777,19 @@ describe('equipos por IMEI', () => {
       await conSesion(cookie, `/api/equipos/producto/${productoId}?todos=1`),
     )
     expect(equipos.equipos.find((equipo) => equipo.id === equipoId)?.activo).toBe(false)
+
+    const parametros = new URLSearchParams({
+      ubicacionId: almacenId,
+      vendidos: '1',
+      listaBlanca: 'registered',
+      condicion: 'new',
+      limite: '50',
+    })
+    const vendidos = await json<{ productos: { id: string; equiposCoincidentes?: number }[] }>(
+      await conSesion(cookie, `/api/productos?${parametros}`),
+    )
+    expect(vendidos.productos).toHaveLength(1)
+    expect(vendidos.productos[0]).toMatchObject({ id: productoId, equiposCoincidentes: 1 })
   })
 
   test('rechaza vender un modelo con IMEI sin elegir la unidad física', async () => {

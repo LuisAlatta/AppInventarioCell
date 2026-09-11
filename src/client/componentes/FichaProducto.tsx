@@ -102,6 +102,9 @@ interface RenglonProductoProps {
   onClick?: () => void
   /** Contenido a la derecha en lugar de las cifras de stock. */
   derecha?: React.ReactNode
+  /** Cantidad calculada por un filtro de unidades, por ejemplo equipos vendidos. */
+  cantidadVisible?: number | undefined
+  etiquetaCantidad?: string | undefined
 }
 
 export function RenglonProducto({
@@ -110,14 +113,16 @@ export function RenglonProducto({
   ubicacionId,
   onClick,
   derecha,
+  cantidadVisible,
+  etiquetaCantidad,
 }: RenglonProductoProps) {
   const enUbicacion =
     ubicacionId === undefined
       ? null
       : (producto.stock.find((s) => s.ubicacionId === ubicacionId)?.cantidad ?? 0)
 
-  const bajoMinimo =
-    (enUbicacion ?? producto.stockTotal) === 0 || (enUbicacion ?? producto.stockTotal) < producto.stockMinimo
+  const cantidad = cantidadVisible ?? enUbicacion ?? producto.stockTotal
+  const bajoMinimo = cantidadVisible === undefined && (cantidad === 0 || cantidad < producto.stockMinimo)
 
   const contenido = (
     <>
@@ -151,10 +156,10 @@ export function RenglonProducto({
               bajoMinimo ? 'text-alerta' : 'text-tinta',
             ].join(' ')}
           >
-            {numero(enUbicacion ?? producto.stockTotal)}
+            {numero(cantidad)}
           </span>
           <span className="text-[0.6875rem] text-tinta-tenue">
-            {enUbicacion === null ? 'en total' : `aquí · ${numero(producto.stockTotal)} total`}
+            {etiquetaCantidad ?? (enUbicacion === null ? 'en total' : `aquí · ${numero(producto.stockTotal)} total`)}
           </span>
         </div>
       )}

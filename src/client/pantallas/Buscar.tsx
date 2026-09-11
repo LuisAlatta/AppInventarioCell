@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { BadgeCheck, Grid3X3, List, MapPin, RefreshCw, ShieldAlert, Sparkles, type LucideIcon } from 'lucide-react'
+import { BadgeCheck, Grid3X3, List, MapPin, RefreshCw, ShieldAlert, ShoppingBag, Sparkles, type LucideIcon } from 'lucide-react'
 import { api } from '../api/cliente'
 import { ErrorEnPantalla, Esqueleto, Vacio } from '../componentes/Estados'
 import { Miniatura, RenglonProducto } from '../componentes/FichaProducto'
@@ -34,10 +34,14 @@ export function Buscar() {
   const listaBlanca: 'registered' | 'not_registered' | undefined = valorListaBlanca === 'registered' || valorListaBlanca === 'not_registered' ? valorListaBlanca : undefined
   const valorCondicion = parametros.get('condicion')
   const condicion: 'new' | 'used' | undefined = valorCondicion === 'new' || valorCondicion === 'used' ? valorCondicion : undefined
+  const vendidos = parametros.get('vendidos') === '1'
   const ubicacionElegida = ubicaciones.find((ubicacion) => ubicacion.id === parametros.get('ubicacion')) ?? activa
+  // Al abrir Vendidos se revisa todo el historial. Si luego se toca un local,
+  // se limita a las ventas registradas desde ese local.
+  const ubicacionIdFiltro = vendidos && !parametros.has('ubicacion') ? undefined : ubicacionElegida?.id
   // En las tiendas solo interesa lo que realmente se puede vender. El almacén
   // conserva el catálogo completo para poder revisar y reponer los agotados.
-  const filtroStock = ubicacionElegida?.tipo === 'store' ? 'disponibles' : 'todos'
+  const filtroStock = vendidos ? 'todos' : ubicacionElegida?.tipo === 'store' ? 'disponibles' : 'todos'
   const [recientes, setRecientes] = useState(leerBusquedas)
   const [vista, setVista] = useState<PreferenciasVistaBusqueda>(leerVistaBusqueda)
   const [opcionesVista, setOpcionesVista] = useState(false)
@@ -66,15 +70,15 @@ export function Buscar() {
   }, [texto, q, setParametros])
 
   const resultados = useQuery({
-    queryKey: ['buscar', consulta, ubicacionElegida?.id, filtroStock, listaBlanca, condicion],
-    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: ubicacionElegida?.id, filtro: filtroStock, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined }),
+    queryKey: ['buscar', consulta, ubicacionIdFiltro, filtroStock, listaBlanca, condicion, vendidos],
+    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: ubicacionIdFiltro, filtro: filtroStock, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined, vendidos }),
     // Conserva la lista anterior mientras llega la nueva, para que no parpadee.
-    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === ubicacionElegida?.id && anterior.queryKey[3] === filtroStock && anterior.queryKey[4] === listaBlanca && anterior.queryKey[5] === condicion ? keepPreviousData(previas) : undefined,
+    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === ubicacionIdFiltro && anterior.queryKey[3] === filtroStock && anterior.queryKey[4] === listaBlanca && anterior.queryKey[5] === condicion && anterior.queryKey[6] === vendidos ? keepPreviousData(previas) : undefined,
   })
 
   const productos = resultados.data?.productos ?? []
   const buscando = consulta.trim().length > 0
-  const hayFiltros = listaBlanca !== undefined || condicion !== undefined
+  const hayFiltros = listaBlanca !== undefined || condicion !== undefined || vendidos
   const etiquetaResultados = resultados.isFetching || texto !== consulta ? 'Buscando…' : resultados.isSuccess ? `${productos.length}${productos.length === 50 ? ' primeros' : ''} resultados` : ''
   const usarFiltro = (filtroRapido: FiltroEquipoRapido): void => {
     if (filtroRapido === 'registered' || filtroRapido === 'not_registered') {
@@ -146,12 +150,24 @@ export function Buscar() {
         <div className="grid grid-cols-4 gap-2" aria-label="Filtros rápidos de equipos">
           {FILTROS_EQUIPO.map((filtroRapido) => <FiltroRapido key={filtroRapido} activo={filtroRapido === listaBlanca || filtroRapido === condicion} texto={NOMBRE_FILTRO[filtroRapido]} icono={ICONO_FILTRO[filtroRapido]} onClick={() => usarFiltro(filtroRapido)} tono={TONO_FILTRO[filtroRapido]} />)}
         </div>
-        <div className="grid grid-cols-4 gap-2" aria-label="Filtrar existencias por local">
-          {ubicaciones.filter((ubicacion) => ubicacion.activa).map((ubicacion) => <FiltroLocal key={ubicacion.id} ubicacion={ubicacion} activo={ubicacion.id === ubicacionElegida?.id} onClick={() => cambiarFiltro(setParametros, 'ubicacion', ubicacion.id)} />)}
+        <div className="grid grid-cols-5 gap-2" aria-label="Filtrar existencias por local o ventas">
+          {ubicaciones.filter((ubicacion) => ubicacion.activa).map((ubicacion) => <FiltroLocal key={ubicacion.id} ubicacion={ubicacion} activo={ubicacion.id === ubicacionElegida?.id && (!vendidos || parametros.has('ubicacion'))} onClick={() => cambiarFiltro(setParametros, 'ubicacion', ubicacion.id)} />)}
+          <FiltroVendidos activo={vendidos} onClick={() => setParametros((previos) => {
+            const nuevos = new URLSearchParams(previos)
+            if (vendidos) nuevos.delete('vendidos')
+            else {
+              nuevos.set('vendidos', '1')
+              nuevos.delete('ubicacion')
+            }
+            return nuevos
+          }, { replace: true })} />
         </div>
         <div className="flex min-h-8 items-center gap-2 px-1 text-[0.75rem] text-tinta-suave">
           <p role="status" className="flex min-w-0 flex-1 items-center gap-2 truncate">
-            <span className="flex min-w-0 items-center gap-1 truncate" title={`Mostrando existencias en ${ubicacionElegida?.nombre ?? 'todas las ubicaciones'}`}><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{ubicacionElegida?.nombre ?? 'Todas las ubicaciones'}</span>
+            <span className="flex min-w-0 items-center gap-1 truncate" title={vendidos ? `Mostrando equipos vendidos${ubicacionIdFiltro === undefined ? '' : ` en ${ubicacionElegida?.nombre}`}` : `Mostrando existencias en ${ubicacionElegida?.nombre ?? 'todas las ubicaciones'}`}>
+              {vendidos ? <ShoppingBag aria-hidden="true" className="size-3.5 shrink-0 text-falta" /> : <MapPin aria-hidden="true" className="size-3.5 shrink-0" />}
+              {vendidos ? ubicacionIdFiltro === undefined ? 'Vendidos' : `Vendidos · ${ubicacionElegida?.nombre}` : ubicacionElegida?.nombre ?? 'Todas las ubicaciones'}
+            </span>
             {etiquetaResultados !== '' && <span className="shrink-0">{etiquetaResultados}</span>}
           </p>
           {productos.length > 0 && <button type="button" aria-expanded={opcionesVista} onClick={() => setOpcionesVista(!opcionesVista)} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2 text-[0.8125rem] font-semibold text-accion active:bg-accion-tenue"><IconoVista /><span>Vista</span></button>}
@@ -178,9 +194,9 @@ export function Buscar() {
 
         {resultados.isSuccess && productos.length === 0 && (
           <Vacio
-            titulo={buscando ? 'Nada con esa búsqueda' : hayFiltros ? 'No hay equipos con estos filtros' : 'Todavía no hay productos'}
+            titulo={buscando ? 'Nada con esa búsqueda' : vendidos ? 'No hay equipos vendidos' : hayFiltros ? 'No hay equipos con estos filtros' : 'Todavía no hay productos'}
             detalle={
-              hayFiltros ? 'Quita un filtro o cambia la ubicación de arriba.' : buscando
+              vendidos ? 'Prueba con otro local o quita el filtro Vendidos.' : hayFiltros ? 'Quita un filtro o cambia la ubicación de arriba.' : buscando
                 ? 'Prueba con menos palabras, o escanea el codigo del producto.'
                 : 'Escanea el codigo de un producto para darlo de alta.'
             }
@@ -191,7 +207,7 @@ export function Buscar() {
         {productos.length > 0 && (
           <>
             {opcionesVista && <ControlesVista vista={vista} onChange={(nueva) => { setVista(nueva); guardarVistaBusqueda(nueva) }} />}
-            {vista.modo === 'lista' ? <ul className={`flex flex-col gap-2 ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><RenglonProducto producto={producto} coincidencia={producto.coincidencia} ubicacionId={ubicacionElegida?.id} onClick={() => abrirProducto(producto.id, ubicacionElegida?.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul> : <ul className={`grid gap-2 ${vista.columnas === 1 ? 'grid-cols-1' : vista.columnas === 2 ? 'grid-cols-2' : 'grid-cols-3'} ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><TarjetaBusqueda producto={producto} imagen={vista.imagen} ubicacionId={ubicacionElegida?.id} onClick={() => abrirProducto(producto.id, ubicacionElegida?.id, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul>}
+            {vista.modo === 'lista' ? <ul className={`flex flex-col gap-2 ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><RenglonProducto producto={producto} coincidencia={producto.coincidencia} ubicacionId={ubicacionIdFiltro} cantidadVisible={producto.equiposCoincidentes} etiquetaCantidad={producto.equiposCoincidentes === undefined ? undefined : vendidos ? 'vendidos' : 'equipos'} onClick={() => abrirProducto(producto.id, ubicacionIdFiltro, vendidos, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul> : <ul className={`grid gap-2 ${vista.columnas === 1 ? 'grid-cols-1' : vista.columnas === 2 ? 'grid-cols-2' : 'grid-cols-3'} ${resultados.isPlaceholderData ? 'pointer-events-none opacity-60' : ''}`} aria-busy={resultados.isFetching}>{productos.map((producto) => <li key={producto.id}><TarjetaBusqueda producto={producto} imagen={vista.imagen} ubicacionId={ubicacionIdFiltro} onClick={() => abrirProducto(producto.id, ubicacionIdFiltro, vendidos, resultados.isPlaceholderData, texto, consulta, recientes, navegar, setRecientes)} /></li>)}</ul>}
           </>
         )}
       </div>
@@ -201,7 +217,7 @@ export function Buscar() {
 
 function cambiarFiltro(setParametros: ReturnType<typeof useSearchParams>[1], clave: string, valor: string | null) { setParametros(previos => { const nuevos = new URLSearchParams(previos); if (valor === null) nuevos.delete(clave); else nuevos.set(clave, valor); return nuevos }, { replace: true }) }
 
-function abrirProducto(id: string, ubicacionId: string | undefined, pendiente: boolean, texto: string, consulta: string, recientes: string[], navegar: ReturnType<typeof useNavigate>, setRecientes: (v: string[]) => void) { if (pendiente || texto !== consulta) return; const nuevas = recordarBusqueda(recientes, consulta); guardarBusquedas(nuevas); setRecientes(nuevas); const parametros = new URLSearchParams({ accion: 'venta' }); if (ubicacionId !== undefined) parametros.set('ubicacion', ubicacionId); navegar(`/producto/${id}?${parametros}`) }
+function abrirProducto(id: string, ubicacionId: string | undefined, esHistorico: boolean, pendiente: boolean, texto: string, consulta: string, recientes: string[], navegar: ReturnType<typeof useNavigate>, setRecientes: (v: string[]) => void) { if (pendiente || texto !== consulta) return; const nuevas = recordarBusqueda(recientes, consulta); guardarBusquedas(nuevas); setRecientes(nuevas); const parametros = new URLSearchParams(); if (!esHistorico) parametros.set('accion', 'venta'); if (ubicacionId !== undefined) parametros.set('ubicacion', ubicacionId); navegar(`/producto/${id}${parametros.size > 0 ? `?${parametros}` : ''}`) }
 
 const FILTROS_EQUIPO: readonly FiltroEquipoRapido[] = ['registered', 'not_registered', 'new', 'used']
 const NOMBRE_FILTRO: Record<FiltroEquipoRapido, string> = { registered: 'Registrados', not_registered: 'No registrados', new: 'Nuevos', used: 'Segunda mano' }
@@ -213,6 +229,10 @@ function FiltroRapido({ activo, texto, onClick, tono, icono: Icono }: { activo: 
 function FiltroLocal({ ubicacion, activo, onClick }: { ubicacion: ReturnType<typeof useUbicacion>['ubicaciones'][number]; activo: boolean; onClick: () => void }) {
   const color = ubicacion.color ?? '#315DB8'
   return <button type="button" aria-pressed={activo} onClick={onClick} className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 text-center text-[0.6875rem] leading-tight font-semibold transition" style={{ borderColor: color, backgroundColor: activo ? `${color}1f` : undefined, color }}><IconoUbicacion icono={ubicacion.icono} tipo={ubicacion.tipo} className="size-4 shrink-0" /><span className="line-clamp-2">{ubicacion.nombre}</span></button>
+}
+
+function FiltroVendidos({ activo, onClick }: { activo: boolean; onClick: () => void }) {
+  return <button type="button" aria-pressed={activo} onClick={onClick} className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 text-center text-[0.6875rem] leading-tight font-semibold transition ${activo ? 'border-falta bg-falta-tenue text-falta' : 'border-falta/70 bg-superficie text-falta'}`}><ShoppingBag aria-hidden="true" className="size-4 shrink-0" strokeWidth={2} /><span className="line-clamp-2">Vendidos</span></button>
 }
 
 function ControlesVista({ vista, onChange }: { vista: PreferenciasVistaBusqueda; onChange: (vista: PreferenciasVistaBusqueda) => void }) { return <div className="rounded-2xl border border-borde bg-superficie p-3"><div className="grid grid-cols-2 gap-2"><FiltroRapido activo={vista.modo === 'lista'} texto="Lista" icono={List} onClick={() => onChange({ ...vista, modo: 'lista' })} tono="accion" /><FiltroRapido activo={vista.modo === 'cuadricula'} texto="Cuadrícula" icono={Grid3X3} onClick={() => onChange({ ...vista, modo: 'cuadricula' })} tono="accion" /></div>{vista.modo === 'cuadricula' && <><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Columnas</p><div className="mt-1 grid grid-cols-3 gap-2">{([1, 2, 3] as const).map((columnas) => <FiltroRapido key={columnas} activo={vista.columnas === columnas} texto={`${columnas}`} onClick={() => onChange({ ...vista, columnas })} tono="accion" />)}</div><p className="mt-3 text-[0.75rem] font-semibold text-tinta-suave">Tamaño de imagen</p><div className="mt-1 grid grid-cols-3 gap-2">{(['pequena', 'mediana', 'grande'] as const).map((imagen) => <FiltroRapido key={imagen} activo={vista.imagen === imagen} texto={imagen === 'pequena' ? 'Pequeña' : imagen === 'mediana' ? 'Mediana' : 'Grande'} onClick={() => onChange({ ...vista, imagen })} tono="accion" />)}</div></>}</div> }
