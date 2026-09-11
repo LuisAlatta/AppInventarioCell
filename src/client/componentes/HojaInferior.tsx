@@ -17,6 +17,7 @@
 
 import { ArrowLeft, X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 interface HojaInferiorProps {
   abierta: boolean
@@ -63,7 +64,7 @@ export function HojaInferior({ abierta, onCerrar, onVolver, etiquetaVolver = 'Vo
 
   if (!abierta) return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden">
       <button
         type="button"
@@ -101,6 +102,7 @@ export function HojaInferior({ abierta, onCerrar, onVolver, etiquetaVolver = 'Vo
 
         <div className="area-segura-abajo min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

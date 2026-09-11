@@ -289,7 +289,7 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
           </div>
           )}
 
-          <div className="grid grid-cols-[1fr_2fr] gap-2.5">
+          <div className={`grid grid-cols-[1fr_2fr] gap-2.5 ${modo === 'venta' ? 'sticky bottom-0 z-10 -mx-4 border-t border-borde bg-superficie/95 px-4 py-3 backdrop-blur-md' : ''}`}>
             <Boton tono="contorno" onClick={() => setModo('rápido')} disabled={enviando}>
               Cancelar
             </Boton>
@@ -409,7 +409,7 @@ function SelectorEquipo({
       {equipos.length === 0 ? (
         <p className="rounded-xl border border-alerta/30 bg-alerta-tenue px-3 py-2 text-[0.8125rem] text-tinta-suave">No hay equipos disponibles en esta ubicación.</p>
       ) : (
-        <div className="flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
+        <div className="flex max-h-[min(19rem,42dvh)] flex-col gap-2 overflow-y-auto overscroll-contain pr-1">
           {equipos.map((equipo) => {
             const seleccionado = equipo.id === seleccionadoId
             return (
@@ -419,13 +419,13 @@ function SelectorEquipo({
                 aria-pressed={seleccionado}
                 onClick={() => onSeleccionar(equipo.id)}
                 className={[
-                  'flex min-h-toque items-center justify-between rounded-xl border px-3 py-2 text-left transition',
+                  'flex min-h-20 items-center gap-3 rounded-2xl border p-2.5 text-left transition',
                   seleccionado ? 'border-accion bg-accion-tenue' : 'border-borde bg-superficie active:bg-papel-hundido',
                 ].join(' ')}
               >
-                <Miniatura nombre={nombreProducto} claveImagen={claveImagen} tamano="pequena" />
-                <span className="min-w-0 flex-1"><span className="block truncate cifras text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI'}</span>{equipo.imei2 !== null && <span className="block truncate cifras text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</span>}</span>
-                <span className="ml-3 shrink-0 text-right text-[0.6875rem] text-tinta-tenue">{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}<br />{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span>
+                <Miniatura nombre={nombreProducto} claveImagen={claveImagen} tamano="normal" />
+                <span className="min-w-0 flex-1"><span className="block truncate cifras text-[0.9375rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI'}</span>{equipo.imei2 !== null && <span className="mt-0.5 block truncate cifras text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</span>}</span>
+                <span className="flex shrink-0 flex-col items-end gap-1 text-right text-[0.6875rem] font-semibold"><span className={`rounded-full px-2 py-1 ${equipo.listaBlanca === 'registered' ? 'bg-exito-tenue text-exito' : 'bg-falta-tenue text-falta'}`}>{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}</span><span className={`rounded-full px-2 py-1 ${equipo.condicion === 'new' ? 'bg-accion-tenue text-accion' : 'bg-alerta-tenue text-alerta'}`}>{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span></span>
               </button>
             )
           })}
