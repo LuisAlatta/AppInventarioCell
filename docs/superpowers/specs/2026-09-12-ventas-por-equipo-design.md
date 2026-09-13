@@ -86,7 +86,9 @@ los totales de ingresos o ganancia.
 
 ### Alta y ficha de equipo
 
-Cada fila de alta de un equipo muestra IMEI 1, IMEI 2, estado de lista blanca,
+Cada fila de alta de un equipo muestra IMEI 1 e IMEI 2 en controles separados y
+apilados verticalmente: cada campo ocupa todo el ancho disponible para poder
+leer y corregir el número completo. Debajo van estado de lista blanca,
 condición, costo y precio de venta. Los precios se inician desde la sugerencia
 del modelo y siempre se pueden editar. La ficha del modelo lista sus equipos
 con sus precios individuales, costo, precio de venta y margen.
@@ -155,4 +157,3 @@ ventas como el reporte solicitado.
 - Clientes, comprobantes, impuestos, descuentos, pagos parciales o facturación.
 - Precios por unidad en inventarios no celulares.
 - Corrección automática de ventas históricas que no registraron precio final.
-
