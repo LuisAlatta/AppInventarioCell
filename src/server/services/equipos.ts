@@ -8,6 +8,7 @@ import { equiposPorIds } from '../db/equipos'
 import { exigirProducto } from '../db/productos'
 import { exigirUbicacion } from '../db/ubicaciones'
 import { sentenciasDeStock } from '../db/stock'
+import { resultadoOperacion, sentenciaGuardarOperacion } from '../db/operaciones'
 
 function imeisDe(datos: DatosAltaEquipos): string[] {
   return datos.equipos.flatMap((equipo) => [equipo.imei1, equipo.imei2].filter((imei): imei is string => imei !== null))
@@ -45,7 +46,13 @@ export async function registrarEquipos(
   db: D1Database,
   datos: DatosAltaEquipos,
   usuarioId: string,
+  huellaOperacion: string,
 ): Promise<Equipo[]> {
+  if (datos.idOperacion !== undefined) {
+    const anterior = await resultadoOperacion(db, datos.idOperacion, 'devices', usuarioId, huellaOperacion)
+    if (anterior?.equipoIds !== undefined) return equiposPorIds(db, anterior.equipoIds)
+  }
+
   const [producto] = await Promise.all([
     exigirProducto(db, datos.productoId),
     exigirUbicacion(db, datos.ubicacionId),
@@ -95,6 +102,9 @@ export async function registrarEquipos(
     sentencias.push(...sentenciasDeStock(db, datos.productoId, datos.ubicacionId, 1))
   }
 
+  if (datos.idOperacion !== undefined) {
+    sentencias.push(sentenciaGuardarOperacion(db, datos.idOperacion, 'devices', usuarioId, huellaOperacion, { equipoIds: ids }))
+  }
   await db.batch(sentencias)
   return equiposPorIds(db, ids)
 }

@@ -19,6 +19,7 @@ import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
+import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
 import { useUbicacion } from '../contexto/Ubicacion'
 
 export type CampoEscaneable = 'codigo' | `imei1:${string}` | `imei2:${string}`
@@ -33,12 +34,23 @@ interface DatosEquipoNuevo {
 
 function equipoVacio(): DatosEquipoNuevo {
   return {
-    id: crypto.randomUUID(),
+    // `randomUUID` no existe en algunos Safari instalados como app. Un id
+    // local solo identifica esta fila mientras el formulario está abierto.
+    id: typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `equipo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
     imei1: '',
     imei2: '',
     listaBlanca: 'not_registered',
     condicion: 'new',
   }
+}
+
+function nuevaOperacion(): string {
+  const id = typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  return `operacion-${id}`
 }
 
 interface FormularioProductoProps {
@@ -66,6 +78,8 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [foto, setFoto] = useState<{ archivo: Blob; vista: string } | null>(null)
   const [campos, setCampos] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
+  const [idOperacionProducto] = useState(nuevaOperacion)
+  const [idOperacionEquipos] = useState(nuevaOperacion)
 
   const refArchivo = useRef<HTMLInputElement | null>(null)
   const refBusquedaModelo = useRef<HTMLDivElement | null>(null)
@@ -166,28 +180,33 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     setCampos({})
 
     try {
-      const producto = productoExistente ?? (await api.crearProducto({
-        codigo: codigo.trim(),
-        nombre: nombre.trim(),
-        marca: marca.trim() === '' ? null : marca.trim(),
-        modelo: null,
-        categoriaId: categoriaId === '' ? null : categoriaId,
-        precioVenta: aNumero(precioVenta),
-        precioCosto: aNumero(precioCosto),
-      })).producto
+      const producto = productoExistente ?? await resolverProductoGuardado(
+        async () => (await api.crearProducto({
+          codigo: codigo.trim(),
+          nombre: nombre.trim(),
+          marca: marca.trim() === '' ? null : marca.trim(),
+          modelo: null,
+          categoriaId: categoriaId === '' ? null : categoriaId,
+          precioVenta: aNumero(precioVenta),
+          precioCosto: aNumero(precioCosto),
+          idOperacion: idOperacionProducto,
+        })).producto,
+      )
 
       const hayImei = equiposConImei.length > 0
       if (hayImei && activa !== null) {
-        await api.registrarEquipos({
+        const datosEquipos = {
           productoId: producto.id,
           ubicacionId: activa.id,
+          idOperacion: idOperacionEquipos,
           equipos: equiposConImei.map((equipo) => ({
             imei1: equipo.imei1.trim() === '' ? null : equipo.imei1.trim(),
             imei2: equipo.imei2.trim() === '' ? null : equipo.imei2.trim(),
             listaBlanca: equipo.listaBlanca,
             condicion: equipo.condicion,
           })),
-        })
+        }
+        await registrarEquiposConRecuperacion(() => api.registrarEquipos(datosEquipos))
       }
 
       // La foto se sube después de crear el producto porque necesita su id.

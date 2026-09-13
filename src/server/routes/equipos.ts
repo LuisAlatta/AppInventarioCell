@@ -4,7 +4,8 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { esquemaAltaEquipos } from '@compartido/esquemas'
 import { ErrorApp } from '../lib/errores'
-import { listarEquiposDeProducto } from '../db/equipos'
+import { equiposPorIds, listarEquiposDeProducto } from '../db/equipos'
+import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { exigirProducto } from '../db/productos'
 import { registrarEquipos } from '../services/equipos'
 import type { Variables } from '../tipos_hono'
@@ -18,7 +19,14 @@ function usuarioDe(c: { get: (k: 'usuarioId') => string | undefined }): string {
 }
 
 rutasEquipos.post('/', zValidator('json', esquemaAltaEquipos), async (c) => {
-  const equipos = await registrarEquipos(c.env.DB, c.req.valid('json'), usuarioDe(c))
+  const datos = c.req.valid('json')
+  const usuarioId = usuarioDe(c)
+  const huella = await huellaOperacion(datos)
+  if (datos.idOperacion !== undefined) {
+    const anterior = await resultadoOperacion(c.env.DB, datos.idOperacion, 'devices', usuarioId, huella)
+    if (anterior?.equipoIds !== undefined) return c.json({ equipos: await equiposPorIds(c.env.DB, anterior.equipoIds) })
+  }
+  const equipos = await registrarEquipos(c.env.DB, datos, usuarioId, huella)
   return c.json({ equipos }, 201)
 })
 

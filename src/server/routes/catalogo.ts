@@ -36,10 +36,17 @@ import {
 } from '../db/productos'
 import { movimientosDeProducto, movimientosRecientes } from '../db/movimientos'
 import { listarMarcas } from '../db/marcas'
+import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { buscarProductos } from '../services/busqueda'
 import type { Variables } from '../tipos_hono'
 
 export const rutasCatalogo = new Hono<{ Bindings: Env; Variables: Variables }>()
+
+function usuarioDe(c: { get: (k: 'usuarioId') => string | undefined }): string {
+  const usuarioId = c.get('usuarioId')
+  if (usuarioId === undefined) throw new ErrorApp('no_autenticado', 'Entra con tu PIN')
+  return usuarioId
+}
 
 // ---------------------------------------------------------------------------
 // Ubicaciones
@@ -121,7 +128,14 @@ rutasCatalogo.get('/productos/codigo/:codigo', async (c) => {
 })
 
 rutasCatalogo.post('/productos', zValidator('json', esquemaProducto), async (c) => {
-  const producto = await crearProducto(c.env.DB, c.req.valid('json'))
+  const datos = c.req.valid('json')
+  const usuarioId = usuarioDe(c)
+  const huella = await huellaOperacion(datos)
+  if (datos.idOperacion !== undefined) {
+    const anterior = await resultadoOperacion(c.env.DB, datos.idOperacion, 'product', usuarioId, huella)
+    if (anterior?.productoId !== undefined) return c.json({ producto: await unoConStock(c.env.DB, anterior.productoId) })
+  }
+  const producto = await crearProducto(c.env.DB, datos, usuarioId, huella)
   return c.json({ producto: await unoConStock(c.env.DB, producto.id) }, 201)
 })
 

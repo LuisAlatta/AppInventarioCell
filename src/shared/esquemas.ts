@@ -21,6 +21,7 @@ const nota = z.string().trim().max(500)
 
 /** Los identificadores los genera el servidor; el cliente solo los reenvia. */
 const id = z.string().trim().min(1).max(40)
+const idOperacion = z.string().trim().regex(/^[A-Za-z0-9_-]{16,100}$/, 'La operación no es válida')
 
 const dinero = z
   .number()
@@ -94,10 +95,11 @@ export const esquemaProducto = z.object({
   precioVenta: dinero.default(0),
   stockMinimo: z.number().int().min(0).max(1_000_000).default(0),
   notas: nota.nullish(),
+  idOperacion: idOperacion.optional(),
 })
 
 /** Al editar, el codigo de barras no se toca: identifica al producto fisico. */
-export const esquemaProductoParcial = esquemaProducto.omit({ codigo: true }).partial().extend({
+export const esquemaProductoParcial = esquemaProducto.omit({ codigo: true, idOperacion: true }).partial().extend({
   activo: z.boolean().optional(),
 })
 
@@ -128,6 +130,7 @@ export const esquemaEquipo = z
 export const esquemaAltaEquipos = z.object({
   productoId: id,
   ubicacionId: id,
+  idOperacion: idOperacion.optional(),
   equipos: z.array(esquemaEquipo).min(1, 'Agrega al menos un equipo').max(50, 'Demasiados equipos'),
 })
 

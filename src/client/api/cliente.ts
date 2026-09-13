@@ -34,7 +34,12 @@ export class ErrorDeApi extends Error {
   readonly campos: Record<string, string> | undefined
 
   constructor(estado: number, detalle: ErrorDeApiDetalle) {
-    super(detalle.mensaje)
+    // Un proxy, una versión anterior del Worker o una respuesta truncada no
+    // puede dejar un aviso rojo sin explicación en el teléfono.
+    const mensaje = typeof detalle.mensaje === 'string' && detalle.mensaje.trim() !== ''
+      ? detalle.mensaje
+      : 'No se pudo completar la operación. Intenta de nuevo.'
+    super(mensaje)
     this.codigo = detalle.codigo
     this.estado = estado
     this.campos = detalle.campos
@@ -178,6 +183,7 @@ export const api = {
     precioCosto?: number
     precioVenta?: number
     stockMinimo?: number
+    idOperacion?: string
   }): Promise<{ producto: ProductoConStock }> => pedir('/productos', { metodo: 'POST', cuerpo: datos }),
 
   actualizarProducto: (
@@ -197,6 +203,7 @@ export const api = {
   registrarEquipos: (datos: {
     productoId: string
     ubicacionId: string
+    idOperacion?: string
     equipos: {
       imei1?: string | null
       imei2?: string | null

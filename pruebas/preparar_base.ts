@@ -31,6 +31,7 @@ await applyD1Migrations(env.DB, migraciones)
  * busqueda, asi que esas tablas no se tocan a mano.
  */
 const TABLAS = [
+  'idempotency_operations',
   'movements',
   'count_items',
   'count_sessions',

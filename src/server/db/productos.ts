@@ -10,6 +10,7 @@ import { aProducto, aStock, type FilaProducto, type FilaStock } from './mapeo'
 import { cantidadStock } from './filtro_stock'
 import type { ResumenStock } from '@compartido/tipos'
 import { sentenciaGuardarMarca } from './marcas'
+import { resultadoOperacion, sentenciaGuardarOperacion } from './operaciones'
 
 const COLUMNAS = `
   p.id, p.barcode, p.name, p.brand, p.model, p.category_id,
@@ -105,7 +106,17 @@ export async function unoConStock(db: D1Database, id: string): Promise<ProductoC
   return conjunto
 }
 
-export async function crearProducto(db: D1Database, datos: DatosProducto): Promise<Producto> {
+export async function crearProducto(
+  db: D1Database,
+  datos: DatosProducto,
+  usuarioId: string,
+  huellaOperacion: string,
+): Promise<Producto> {
+  if (datos.idOperacion !== undefined) {
+    const anterior = await resultadoOperacion(db, datos.idOperacion, 'product', usuarioId, huellaOperacion)
+    if (anterior?.productoId !== undefined) return exigirProducto(db, anterior.productoId)
+  }
+
   const id = nuevoId('prod')
 
   const producto = db
@@ -129,7 +140,10 @@ export async function crearProducto(db: D1Database, datos: DatosProducto): Promi
       datos.notas ?? null,
     )
   const marca = sentenciaGuardarMarca(db, datos.marca)
-  await db.batch(marca === null ? [producto] : [marca, producto])
+  const operacion = datos.idOperacion === undefined
+    ? null
+    : sentenciaGuardarOperacion(db, datos.idOperacion, 'product', usuarioId, huellaOperacion, { productoId: id })
+  await db.batch([...(marca === null ? [] : [marca]), producto, ...(operacion === null ? [] : [operacion])])
 
   return exigirProducto(db, id)
 }

@@ -840,6 +840,62 @@ describe('equipos por IMEI', () => {
   })
 })
 
+describe('altas idempotentes desde móviles', () => {
+  test('repite la misma alta de producto sin crear duplicados', async () => {
+    const cookie = await entrar()
+    const cuerpo = { codigo: '7500000000088', nombre: 'iPhone para reintento', idOperacion: 'producto-reintento-001' }
+
+    const primera = await conSesion(cookie, '/api/productos', { metodo: 'POST', cuerpo })
+    expect(primera.status).toBe(201)
+    const { producto: productoCreado } = await json<{ producto: { id: string } }>(primera)
+
+    const repetida = await conSesion(cookie, '/api/productos', { metodo: 'POST', cuerpo })
+    expect(repetida.status).toBe(200)
+    expect((await json<{ producto: { id: string } }>(repetida)).producto.id).toBe(productoCreado.id)
+
+    const mismaClaveConOtroProducto = await conSesion(cookie, '/api/productos', {
+      metodo: 'POST', cuerpo: { ...cuerpo, nombre: 'Otro nombre' },
+    })
+    expect(mismaClaveConOtroProducto.status).toBe(409)
+
+    const conflicto = await conSesion(cookie, '/api/productos', {
+      metodo: 'POST', cuerpo: { ...cuerpo, idOperacion: 'producto-reintento-002' },
+    })
+    expect(conflicto.status).toBe(409)
+  })
+
+  test('repite la misma alta de IMEI sin duplicar stock ni ocultar un conflicto ajeno', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const cuerpo = {
+      productoId,
+      ubicacionId: almacenId,
+      idOperacion: 'equipo-reintento-001',
+      equipos: [{ imei1: '356000000000088', listaBlanca: 'registered', condicion: 'new' }],
+    }
+
+    const primera = await conSesion(cookie, '/api/equipos', { metodo: 'POST', cuerpo })
+    expect(primera.status).toBe(201)
+    const { equipos: equiposCreados } = await json<{ equipos: { id: string }[] }>(primera)
+
+    const repetida = await conSesion(cookie, '/api/equipos', { metodo: 'POST', cuerpo })
+    expect(repetida.status).toBe(200)
+    expect((await json<{ equipos: { id: string }[] }>(repetida)).equipos).toEqual(equiposCreados)
+    expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
+
+    const mismaClaveConOtroImei = await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST', cuerpo: { ...cuerpo, equipos: [{ ...cuerpo.equipos[0], imei1: '356000000000089' }] },
+    })
+    expect(mismaClaveConOtroImei.status).toBe(409)
+
+    const conflicto = await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST', cuerpo: { ...cuerpo, idOperacion: 'equipo-reintento-002' },
+    })
+    expect(conflicto.status).toBe(409)
+    expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
+  })
+})
+
 describe('conteo fisico y mermas', () => {
   let cookie = ''
 
