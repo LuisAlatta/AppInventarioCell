@@ -157,6 +157,8 @@ export const esquemaVenta = z.object({
   productoId: id,
   ubicacionId: id,
   cantidad: cantidadPositiva,
+  costoUnitario: dinero.optional(),
+  precioVentaUnitario: dinero.optional(),
   equipoIds: z.array(id).min(1).max(500).optional(),
   nota: nota.nullish(),
 }).refine((datos) => datos.equipoIds === undefined || datos.equipoIds.length === datos.cantidad, {

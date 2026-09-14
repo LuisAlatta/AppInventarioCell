@@ -245,6 +245,8 @@ export const api = {
     productoId: string
     ubicacionId: string
     cantidad: number
+    costoUnitario?: number
+    precioVentaUnitario?: number
     equipoIds?: string[]
     nota?: string | null
   }): Promise<{ movimiento: Movimiento } | { movimientos: Movimiento[] }> =>

@@ -77,12 +77,14 @@ rutasMovimientos.post('/entrada', zValidator('json', esquemaEntrada), async (c) 
 rutasMovimientos.post('/venta', zValidator('json', esquemaVenta), async (c) => {
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
+  const costoUnitario = datos.costoUnitario ?? producto.precioCosto
+  const precioVentaUnitario = datos.precioVentaUnitario ?? producto.precioVenta
 
   if (datos.equipoIds !== undefined) {
     const movimientos = await aplicarSalidaDeEquipos(c.env.DB, {
       tipo: 'sale', productoId: datos.productoId, cantidad: datos.cantidad,
       ubicacionOrigenId: datos.ubicacionId, ubicacionDestinoId: null,
-      costoUnitario: producto.precioCosto, precioVentaUnitario: producto.precioVenta, nota: datos.nota ?? null,
+      costoUnitario, precioVentaUnitario, nota: datos.nota ?? null,
     }, datos.equipoIds, usuarioDe(c))
     return c.json({ movimientos }, 201)
   }
@@ -99,8 +101,8 @@ rutasMovimientos.post('/venta', zValidator('json', esquemaVenta), async (c) => {
       cantidad: datos.cantidad,
       ubicacionOrigenId: datos.ubicacionId,
       ubicacionDestinoId: null,
-      costoUnitario: producto.precioCosto,
-      precioVentaUnitario: producto.precioVenta,
+      costoUnitario,
+      precioVentaUnitario,
       nota: datos.nota ?? null,
     },
     usuarioDe(c),

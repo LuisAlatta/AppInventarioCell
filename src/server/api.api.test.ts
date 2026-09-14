@@ -8,6 +8,7 @@
 
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, test } from 'vitest'
+import type { Movimiento } from '@compartido/tipos'
 import app from './index'
 
 const PIN = '246810'
@@ -265,6 +266,92 @@ describe('movimientos y stock', () => {
     })
 
     expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(7)
+  })
+
+  test('una venta conserva los importes definitivos enviados, también con IMEI', async () => {
+    const { almacenId, productoId } = await escenario(cookie)
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        cantidad: 1,
+        costoUnitario: 125.5,
+        precioVentaUnitario: 310.25,
+      },
+    })
+
+    expect(venta.status).toBe(201)
+    const movimiento = (await json<{ movimiento: Movimiento }>(venta)).movimiento
+    expect(movimiento.costoUnitario).toBe(125.5)
+    expect(movimiento.precioVentaUnitario).toBe(310.25)
+
+    const historial = await json<{ movimientos: Movimiento[] }>(
+      await conSesion(cookie, '/api/movimientos?limite=200'),
+    )
+    expect(historial.movimientos.find((item) => item.id === movimiento.id)).toMatchObject({
+      costoUnitario: 125.5,
+      precioVentaUnitario: 310.25,
+    })
+
+    const alta = await json<{ equipos: { id: string }[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000090', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    }))
+    const equipoId = alta.equipos[0]?.id
+    expect(equipoId).toBeDefined()
+    if (equipoId === undefined) throw new Error('Falta el equipo creado')
+
+    const ventaConImei = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        cantidad: 1,
+        costoUnitario: 125.5,
+        precioVentaUnitario: 310.25,
+        equipoIds: [equipoId],
+      },
+    })
+
+    expect(ventaConImei.status).toBe(201)
+    const movimientos = (await json<{ movimientos: Movimiento[] }>(ventaConImei)).movimientos
+    expect(movimientos).toHaveLength(1)
+    expect(movimientos[0]).toMatchObject({
+      costoUnitario: 125.5,
+      precioVentaUnitario: 310.25,
+    })
+  })
+
+  test('rechaza importes definitivos fuera de rango sin cambiar el stock', async () => {
+    const { almacenId, productoId } = await escenario(cookie)
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+
+    for (const importesInvalidos of [
+      { costoUnitario: -1 },
+      { precioVentaUnitario: 10_000_000 },
+    ]) {
+      const respuesta = await conSesion(cookie, '/api/movimientos/venta', {
+        metodo: 'POST',
+        cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, ...importesInvalidos },
+      })
+
+      expect(respuesta.status).toBe(400)
+      expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
+    }
   })
 
   test('no deja vender mas de lo que hay', async () => {
