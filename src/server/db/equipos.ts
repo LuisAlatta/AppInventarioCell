@@ -39,6 +39,18 @@ export async function equiposPorIds(db: D1Database, ids: readonly string[]): Pro
   })
 }
 
+/** Busca una unidad física por cualquiera de sus IMEI, incluso si ya fue vendida. */
+export async function buscarEquipoPorImei(db: D1Database, imei: string): Promise<Equipo | null> {
+  const fila = await db
+    .prepare(`SELECT ${COLUMNAS} ${DESDE}
+      WHERE EXISTS (SELECT 1 FROM device_imeis buscado WHERE buscado.device_id = d.id AND buscado.imei = ?)
+      ${AGRUPACION}`)
+    .bind(imei)
+    .first<FilaEquipo>()
+
+  return fila === null ? null : aEquipo(fila)
+}
+
 /** Un producto con equipos individuales debe salir siempre por su IMEI. */
 export async function productoTieneEquipos(db: D1Database, productoId: string): Promise<boolean> {
   const fila = await db

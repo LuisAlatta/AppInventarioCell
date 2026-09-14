@@ -8,6 +8,7 @@
 
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, test } from 'vitest'
+import type { Equipo, Movimiento, ReporteVentas } from '@compartido/tipos'
 import app from './index'
 
 const PIN = '246810'
@@ -143,6 +144,7 @@ describe('proteccion de rutas', () => {
     ['/api/movimientos'],
     ['/api/conteos'],
     ['/api/reportes/valor'],
+    ['/api/reportes/ventas'],
     ['/api/conteos/reportes/mermas'],
   ])('%s exige sesion', async (ruta) => {
     const respuesta = await llamar(ruta)
@@ -265,6 +267,92 @@ describe('movimientos y stock', () => {
     })
 
     expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(7)
+  })
+
+  test('una venta conserva los importes definitivos enviados, también con IMEI', async () => {
+    const { almacenId, productoId } = await escenario(cookie)
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        cantidad: 1,
+        costoUnitario: 125.5,
+        precioVentaUnitario: 310.25,
+      },
+    })
+
+    expect(venta.status).toBe(201)
+    const movimiento = (await json<{ movimiento: Movimiento }>(venta)).movimiento
+    expect(movimiento.costoUnitario).toBe(125.5)
+    expect(movimiento.precioVentaUnitario).toBe(310.25)
+
+    const historial = await json<{ movimientos: Movimiento[] }>(
+      await conSesion(cookie, '/api/movimientos?limite=200'),
+    )
+    expect(historial.movimientos.find((item) => item.id === movimiento.id)).toMatchObject({
+      costoUnitario: 125.5,
+      precioVentaUnitario: 310.25,
+    })
+
+    const alta = await json<{ equipos: { id: string }[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000090', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    }))
+    const equipoId = alta.equipos[0]?.id
+    expect(equipoId).toBeDefined()
+    if (equipoId === undefined) throw new Error('Falta el equipo creado')
+
+    const ventaConImei = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        cantidad: 1,
+        costoUnitario: 125.5,
+        precioVentaUnitario: 310.25,
+        equipoIds: [equipoId],
+      },
+    })
+
+    expect(ventaConImei.status).toBe(201)
+    const movimientos = (await json<{ movimientos: Movimiento[] }>(ventaConImei)).movimientos
+    expect(movimientos).toHaveLength(1)
+    expect(movimientos[0]).toMatchObject({
+      costoUnitario: 125.5,
+      precioVentaUnitario: 310.25,
+    })
+  })
+
+  test('rechaza importes definitivos fuera de rango sin cambiar el stock', async () => {
+    const { almacenId, productoId } = await escenario(cookie)
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+
+    for (const importesInvalidos of [
+      { costoUnitario: -1 },
+      { precioVentaUnitario: 10_000_000 },
+    ]) {
+      const respuesta = await conSesion(cookie, '/api/movimientos/venta', {
+        metodo: 'POST',
+        cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, ...importesInvalidos },
+      })
+
+      expect(respuesta.status).toBe(400)
+      expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
+    }
   })
 
   test('no deja vender mas de lo que hay', async () => {
@@ -506,10 +594,11 @@ describe('productos', () => {
 
 describe('busqueda', () => {
   let cookie = ''
+  let inventario: Awaited<ReturnType<typeof escenario>>
 
   beforeEach(async () => {
     cookie = await entrar()
-    await escenario(cookie)
+    inventario = await escenario(cookie)
     await conSesion(cookie, '/api/productos', {
       metodo: 'POST',
       cuerpo: { codigo: '7509999999999', nombre: 'Cargador Turbo Tipo C', marca: 'Genérico' },
@@ -546,6 +635,33 @@ describe('busqueda', () => {
 
   test('con el buscador vacio devuelve productos, no un error', async () => {
     expect((await buscar('')).length).toBeGreaterThan(0)
+  })
+
+  test('no muestra un producto agotado entre las existencias disponibles y conserva su venta', async () => {
+    const { almacenId, productoId } = inventario
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    expect(venta.status).toBe(201)
+    const movimientoVendido = (await json<RespuestaMovimiento>(venta)).movimiento
+
+    const disponibles = await conSesion(cookie, '/api/productos?q=Audifonos&filtro=disponibles')
+    expect(disponibles.status).toBe(200)
+    expect((await json<{ productos: unknown[] }>(disponibles)).productos).toEqual([])
+
+    const historial = await json<{ movimientos: Movimiento[] }>(
+      await conSesion(cookie, '/api/movimientos'),
+    )
+    expect(historial.movimientos).toContainEqual(expect.objectContaining({
+      id: movimientoVendido.id,
+      tipo: 'sale',
+    }))
   })
 })
 
@@ -792,6 +908,66 @@ describe('equipos por IMEI', () => {
     expect(vendidos.productos[0]).toMatchObject({ id: productoId, equiposCoincidentes: 1 })
   })
 
+  test('encuentra por IMEI una unidad vendida para impedir volver a venderla', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: Equipo[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000029', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    }))
+    const equipo = alta.equipos[0]
+    expect(equipo).toBeDefined()
+    if (equipo === undefined || equipo.imei1 === null) throw new Error('Falta el equipo creado')
+
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, equipoIds: [equipo.id] },
+    })
+    expect(venta.status).toBe(201)
+
+    const encontrado = await conSesion(cookie, `/api/equipos/imei/${equipo.imei1}`)
+    expect(encontrado.status).toBe(200)
+    expect((await json<{ equipo: Equipo | null }>(encontrado)).equipo).toMatchObject({
+      id: equipo.id,
+      activo: false,
+    })
+  })
+
+  test('encuentra un equipo dual-SIM completo por cualquiera de sus IMEI', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: Equipo[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{
+          imei1: '356000000000030',
+          imei2: '356000000000031',
+          listaBlanca: 'registered',
+          condicion: 'new',
+        }],
+      },
+    }))
+    const equipo = alta.equipos[0]
+    expect(equipo).toBeDefined()
+    if (equipo === undefined || equipo.imei1 === null || equipo.imei2 === null) throw new Error('Falta el equipo dual-SIM creado')
+
+    for (const imei of [equipo.imei1, equipo.imei2]) {
+      const encontrado = await conSesion(cookie, `/api/equipos/imei/${imei}`)
+      expect(encontrado.status).toBe(200)
+      expect((await json<{ equipo: Equipo | null }>(encontrado)).equipo).toMatchObject({
+        id: equipo.id,
+        imei1: equipo.imei1,
+        imei2: equipo.imei2,
+      })
+    }
+  })
+
   test('rechaza vender un modelo con IMEI sin elegir la unidad física', async () => {
     const cookie = await entrar()
     const { almacenId, productoId } = await escenario(cookie)
@@ -961,6 +1137,104 @@ describe('actividad reciente e historial', () => {
 
     const historial = await json<{ movimientos: { id: string }[] }>(await conSesion(cookie, '/api/movimientos?limite=200'))
     expect(historial.movimientos).toHaveLength(4)
+  })
+})
+
+describe('reporte de ventas y ganancias', () => {
+  test.each([
+    ['dia', 1],
+    ['semana', 7],
+  ] as const)('agrupa por %s una venta del domingo a las 20:30 de Lima', async (agrupacion, diasHastaInicio) => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    const respuestaVenta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, costoUnitario: 100, precioVentaUnitario: 250 },
+    })
+    expect(respuestaVenta.status).toBe(201)
+    const { movimiento } = await json<RespuestaMovimiento>(respuestaVenta)
+
+    // Lunes UTC de la semana anterior, dentro del filtro de 30 días en cualquier fecha.
+    // Las 01:30 UTC corresponden al domingo anterior a las 20:30 en Lima.
+    const lunesUtc = new Date()
+    lunesUtc.setUTCDate(lunesUtc.getUTCDate() - ((lunesUtc.getUTCDay() + 6) % 7) - 7)
+    lunesUtc.setUTCHours(1, 30, 0, 0)
+    const inicioEsperado = new Date(lunesUtc)
+    inicioEsperado.setUTCDate(inicioEsperado.getUTCDate() - diasHastaInicio)
+    await env.DB.prepare('UPDATE movements SET created_at = ? WHERE id = ?')
+      .bind(lunesUtc.toISOString().slice(0, 19).replace('T', ' '), movimiento.id).run()
+
+    const respuesta = await conSesion(cookie, `/api/reportes/ventas?agrupacion=${agrupacion}&dias=30`)
+    expect(respuesta.status).toBe(200)
+    const reporte = await json<ReporteVentas>(respuesta)
+    expect(reporte.resumen).toEqual({ unidades: 1, ventas: 250, costo: 100, ganancia: 150, operaciones: 1 })
+    expect(reporte.periodos).toEqual([{
+      inicio: inicioEsperado.toISOString().slice(0, 10),
+      etiqueta: inicioEsperado.toISOString().slice(0, 10),
+      unidades: 1, ventas: 250, costo: 100, ganancia: 150,
+    }])
+  })
+
+  test('calcula ganancias con precios definitivos, excluye reversiones e historicos incompletos', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 4 },
+    })
+
+    const ventas: { id: string }[] = []
+    for (const [costoUnitario, precioVentaUnitario] of [[100, 250], [120, 300], [90, 200]] as const) {
+      const respuesta = await conSesion(cookie, '/api/movimientos/venta', {
+        metodo: 'POST',
+        cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, costoUnitario, precioVentaUnitario },
+      })
+      expect(respuesta.status).toBe(201)
+      ventas.push((await json<RespuestaMovimiento>(respuesta)).movimiento)
+    }
+
+    await conSesion(cookie, `/api/movimientos/${ventas[2]?.id}/deshacer`, { metodo: 'POST' })
+
+    const respuestaReporte = await conSesion(cookie, '/api/reportes/ventas?agrupacion=dia&dias=30')
+    expect(respuestaReporte.status).toBe(200)
+    const reporte = await json<{
+      resumen: { unidades: number; ventas: number; costo: number; ganancia: number; operaciones: number }
+      productos: { productoId: string; unidades: number; ventas: number; costo: number; ganancia: number }[]
+      ubicaciones: { unidades: number; ventas: number; costo: number; ganancia: number }[]
+      periodos: { inicio: string; unidades: number; ventas: number; costo: number; ganancia: number }[]
+    }>(respuestaReporte)
+
+    expect(reporte.resumen).toMatchObject({ unidades: 2, ventas: 550, costo: 220, ganancia: 330, operaciones: 2 })
+    expect(reporte.productos[0]).toMatchObject({ productoId, unidades: 2, ventas: 550, costo: 220, ganancia: 330 })
+    expect(reporte.ubicaciones[0]).toMatchObject({ unidades: 2, ventas: 550, costo: 220, ganancia: 330 })
+    expect(reporte.periodos[0]).toMatchObject({ unidades: 2, ventas: 550, costo: 220, ganancia: 330 })
+
+    const semanal = await json<typeof reporte>(
+      await conSesion(cookie, '/api/reportes/ventas?agrupacion=semana&dias=30'),
+    )
+    expect(semanal.resumen).toEqual(reporte.resumen)
+    expect(semanal.periodos).toHaveLength(1)
+    for (const periodo of semanal.periodos) {
+      expect(new Date(`${periodo.inicio}T00:00:00Z`).getUTCDay()).toBe(1)
+    }
+
+    const incompleta = await json<RespuestaMovimiento>(
+      await conSesion(cookie, '/api/movimientos/venta', {
+        metodo: 'POST',
+        cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, costoUnitario: 80, precioVentaUnitario: 180 },
+      }),
+    )
+    await env.DB.prepare('UPDATE movements SET unit_sale_price = NULL WHERE id = ?')
+      .bind(incompleta.movimiento.id)
+      .run()
+
+    const sinHistorico = await json<typeof reporte>(
+      await conSesion(cookie, '/api/reportes/ventas?agrupacion=dia&dias=30'),
+    )
+    expect(sinHistorico).toEqual(reporte)
   })
 })
 

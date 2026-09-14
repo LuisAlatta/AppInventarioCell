@@ -23,6 +23,7 @@ import { Historial } from './pantallas/Historial'
 import { Producto } from './pantallas/Producto'
 import { Reportes } from './pantallas/Reportes'
 import { Sucursales } from './pantallas/Sucursales'
+import { Ventas } from './pantallas/Ventas'
 
 /**
  * Las tres pantallas que usan la camara se cargan aparte.
@@ -168,6 +169,7 @@ function Aplicacion() {
           <Route path="/" element={<Inicio />} />
           <Route path="/movimientos" element={<Historial />} />
           <Route path="/buscar" element={<Buscar />} />
+          <Route path="/ventas" element={<Ventas />} />
           <Route path="/escanear" element={<Escanear />} />
           <Route path="/producto/:id" element={<Producto />} />
           <Route path="/traspaso" element={<Traspaso />} />

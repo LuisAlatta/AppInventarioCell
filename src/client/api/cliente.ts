@@ -9,9 +9,12 @@
 
 import type {
   Categoria,
+  AgrupacionVentas,
+  Equipo,
   Movimiento,
   ProductoConStock,
   ReporteMerma,
+  ReporteVentas,
   ResultadoBusqueda,
   SesionConteo,
   RenglonConteo,
@@ -200,6 +203,9 @@ export const api = {
   equiposDeProducto: (id: string, todos = false): Promise<{ equipos: import('@compartido/tipos').Equipo[] }> =>
     pedir(`/equipos/producto/${id}${todos ? '?todos=1' : ''}`),
 
+  buscarEquipoPorImei: (imei: string): Promise<{ equipo: Equipo | null }> =>
+    pedir(`/equipos/imei/${encodeURIComponent(imei)}`),
+
   registrarEquipos: (datos: {
     productoId: string
     ubicacionId: string
@@ -245,6 +251,8 @@ export const api = {
     productoId: string
     ubicacionId: string
     cantidad: number
+    costoUnitario?: number
+    precioVentaUnitario?: number
     equipoIds?: string[]
     nota?: string | null
   }): Promise<{ movimiento: Movimiento } | { movimientos: Movimiento[] }> =>
@@ -352,6 +360,11 @@ export const api = {
   valorInventario: (): Promise<{
     ubicaciones: { ubicacionId: string; ubicacionNombre: string; piezas: number; valor: number }[]
   }> => pedir('/reportes/valor'),
+
+  reporteVentas: (agrupacion: AgrupacionVentas = 'dia', dias = 30): Promise<ReporteVentas> => {
+    const parametros = new URLSearchParams({ agrupacion, dias: String(dias) })
+    return pedir(`/reportes/ventas?${parametros}`)
+  },
 
   // -------------------------------------------------------------------------
   // Imagenes

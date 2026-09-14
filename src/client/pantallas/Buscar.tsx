@@ -39,10 +39,9 @@ export function Buscar() {
   // Al abrir Vendidos se revisa todo el historial. Si luego se toca un local,
   // se limita a las ventas registradas desde ese local.
   const ubicacionIdFiltro = vendidos && !parametros.has('ubicacion') ? undefined : ubicacionElegida?.id
-  // Buscar consulta el catálogo completo. Ocultar los modelos agotados en una
-  // sucursal hacía que un alta recién confirmada pareciera perdida hasta que
-  // recibiera su primera unidad. La venta sigue validando stock en el servidor.
-  const filtroStock = 'todos'
+  // La búsqueda operativa muestra solo existencias disponibles. Los agotados
+  // no se eliminan: siguen accesibles desde Vendidos para conservar su historial.
+  const filtroStock = vendidos ? 'todos' : 'disponibles'
   const [recientes, setRecientes] = useState(leerBusquedas)
   const [vista, setVista] = useState<PreferenciasVistaBusqueda>(leerVistaBusqueda)
   const [opcionesVista, setOpcionesVista] = useState(false)
