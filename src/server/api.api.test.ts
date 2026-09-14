@@ -1017,6 +1017,43 @@ describe('equipos por IMEI', () => {
 })
 
 describe('altas idempotentes desde móviles', () => {
+  test('explica el campo concreto cuando el alta de un producto es inválida', async () => {
+    const cookie = await entrar()
+    const respuesta = await conSesion(cookie, '/api/productos', {
+      metodo: 'POST',
+      cuerpo: { codigo: '123', nombre: 'Teléfono de prueba' },
+    })
+
+    expect(respuesta.status).toBe(400)
+    expect(await json<CuerpoDeError>(respuesta)).toEqual({
+      error: {
+        codigo: 'datos_invalidos',
+        mensaje: 'Revisa los datos',
+        campos: { codigo: 'El código es demasiado corto' },
+      },
+    })
+  })
+
+  test('explica el campo concreto cuando el alta de equipos tiene un IMEI inválido', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const respuesta = await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '123' }],
+      },
+    })
+
+    expect(respuesta.status).toBe(400)
+    const errorBody = await json<CuerpoDeError>(respuesta)
+    expect(errorBody.error.codigo).toBe('datos_invalidos')
+    expect(errorBody.error.mensaje).toBe('Revisa los datos')
+    expect(errorBody.error.campos?.['equipos.0.imei1']).toBe('El IMEI debe tener entre 14 y 17 dígitos')
+    expect(errorBody.error.campos?.imei1).toBe('El IMEI debe tener entre 14 y 17 dígitos')
+  })
+
   test('repite la misma alta de producto sin crear duplicados', async () => {
     const cookie = await entrar()
     const cuerpo = { codigo: '7500000000088', nombre: 'iPhone para reintento', idOperacion: 'producto-reintento-001' }

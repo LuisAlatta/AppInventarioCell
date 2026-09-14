@@ -9,9 +9,9 @@
 
 import { Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { zValidator } from '@hono/zod-validator'
 import { esquemaAcceso, esquemaCambioPin } from '@compartido/esquemas'
 import { ErrorApp } from '../lib/errores'
+import { validador } from '../lib/validador'
 import { nuevoId } from '../lib/id'
 import {
   INTENTOS_MAXIMOS,
@@ -71,7 +71,7 @@ rutasAcceso.get('/estado', async (c) => {
  * se comprueba dentro de la propia escritura para que dos peticiones
  * simultaneas no puedan crear dos duenos.
  */
-rutasAcceso.post('/inicial', zValidator('json', esquemaAcceso), async (c) => {
+rutasAcceso.post('/inicial', validador('json', esquemaAcceso), async (c) => {
   const { pin } = c.req.valid('json')
   const secreto = secretoDeSesion(c.env)
 
@@ -103,7 +103,7 @@ rutasAcceso.post('/inicial', zValidator('json', esquemaAcceso), async (c) => {
  * Tras varios fallos la cuenta se bloquea un rato. Es la defensa que de verdad
  * importa: con seis digitos, sin freno se prueban todas las combinaciones.
  */
-rutasAcceso.post('/', zValidator('json', esquemaAcceso), async (c) => {
+rutasAcceso.post('/', validador('json', esquemaAcceso), async (c) => {
   const { pin } = c.req.valid('json')
   const secreto = secretoDeSesion(c.env)
 
@@ -168,7 +168,7 @@ rutasAcceso.post('/salir', (c) => {
   return c.json({ ok: true })
 })
 
-rutasAcceso.post('/pin', zValidator('json', esquemaCambioPin), async (c) => {
+rutasAcceso.post('/pin', validador('json', esquemaCambioPin), async (c) => {
   const { pinActual, pinNuevo } = c.req.valid('json')
   const secreto = secretoDeSesion(c.env)
   const usuarioId = c.get('usuarioId')

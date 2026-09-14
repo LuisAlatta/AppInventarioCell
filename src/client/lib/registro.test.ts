@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { ErrorDeApi } from '../api/cliente'
+import { ErrorDeApi, extraerDetalleError } from '../api/cliente'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from './registro'
 
 const producto = {
@@ -12,6 +12,19 @@ describe('recuperación de altas interrumpidas', () => {
   test('nunca deja un aviso de error sin mensaje', () => {
     expect(new ErrorDeApi(500, { codigo: 'error_interno', mensaje: '' }).message)
       .toBe('No se pudo completar la operación. Intenta de nuevo.')
+  })
+
+  test('extrae mensajes y campos de respuestas con ZodError', () => {
+    const detalle = extraerDetalleError({
+      success: false,
+      error: {
+        name: 'ZodError',
+        issues: [{ path: ['equipos', 0, 'imei1'], message: 'El IMEI debe tener entre 14 y 17 dígitos' }],
+      },
+    })
+    expect(detalle.mensaje).toBe('El IMEI debe tener entre 14 y 17 dígitos')
+    expect(detalle.campos?.['equipos.0.imei1']).toBe('El IMEI debe tener entre 14 y 17 dígitos')
+    expect(detalle.campos?.imei1).toBe('El IMEI debe tener entre 14 y 17 dígitos')
   })
 
   test('recupera el producto si el servidor lo guardó pero la respuesta se perdió', async () => {

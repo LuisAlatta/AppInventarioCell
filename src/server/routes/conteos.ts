@@ -3,9 +3,9 @@
  */
 
 import { Hono } from 'hono'
-import { zValidator } from '@hono/zod-validator'
 import { esquemaAbrirConteo, esquemaCerrarConteo, esquemaRenglonConteo } from '@compartido/esquemas'
 import { ErrorApp } from '../lib/errores'
+import { validador } from '../lib/validador'
 import {
   abrirConteo,
   cancelarConteo,
@@ -42,7 +42,7 @@ rutasConteos.get('/abierto/:ubicacionId', async (c) =>
  * avisar "continuando el conteo de ayer" en lugar de dar a entender que
  * empieza de cero.
  */
-rutasConteos.post('/', zValidator('json', esquemaAbrirConteo), async (c) => {
+rutasConteos.post('/', validador('json', esquemaAbrirConteo), async (c) => {
   const datos = c.req.valid('json')
   const { sesion, yaExistia } = await abrirConteo(
     c.env.DB,
@@ -61,14 +61,14 @@ rutasConteos.get('/:id/reporte', async (c) =>
 )
 
 /** Registra lo contado de un producto. Repetir el escaneo reemplaza la cantidad. */
-rutasConteos.post('/:id/renglones', zValidator('json', esquemaRenglonConteo), async (c) => {
+rutasConteos.post('/:id/renglones', validador('json', esquemaRenglonConteo), async (c) => {
   const datos = c.req.valid('json')
   const renglon = await registrarConteo(c.env.DB, c.req.param('id'), datos.productoId, datos.cantidad)
 
   return c.json({ renglon })
 })
 
-rutasConteos.post('/:id/cerrar', zValidator('json', esquemaCerrarConteo), async (c) => {
+rutasConteos.post('/:id/cerrar', validador('json', esquemaCerrarConteo), async (c) => {
   const datos = c.req.valid('json')
   const reporte = await cerrarConteo(
     c.env.DB,

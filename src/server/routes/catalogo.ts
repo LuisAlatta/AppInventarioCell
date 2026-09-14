@@ -3,7 +3,6 @@
  */
 
 import { Hono } from 'hono'
-import { zValidator } from '@hono/zod-validator'
 import {
   esquemaBusqueda,
   esquemaCategoria,
@@ -14,6 +13,7 @@ import {
   esquemaUbicacionParcial,
 } from '@compartido/esquemas'
 import { ErrorApp, noEncontrado } from '../lib/errores'
+import { validador } from '../lib/validador'
 import {
   actualizarUbicacion,
   crearCategoria,
@@ -59,11 +59,11 @@ rutasCatalogo.get('/ubicaciones', async (c) => {
   return c.json({ ubicaciones: await listarUbicaciones(c.env.DB, incluirInactivas) })
 })
 
-rutasCatalogo.post('/ubicaciones', zValidator('json', esquemaUbicacion), async (c) =>
+rutasCatalogo.post('/ubicaciones', validador('json', esquemaUbicacion), async (c) =>
   c.json({ ubicacion: await crearUbicacion(c.env.DB, c.req.valid('json')) }, 201),
 )
 
-rutasCatalogo.patch('/ubicaciones/:id', zValidator('json', esquemaUbicacionParcial), async (c) => {
+rutasCatalogo.patch('/ubicaciones/:id', validador('json', esquemaUbicacionParcial), async (c) => {
   const id = c.req.param('id')
   const datos = c.req.valid('json')
 
@@ -94,7 +94,7 @@ rutasCatalogo.get('/categorias', async (c) =>
   c.json({ categorias: await listarCategorias(c.env.DB) }),
 )
 
-rutasCatalogo.post('/categorias', zValidator('json', esquemaCategoria), async (c) =>
+rutasCatalogo.post('/categorias', validador('json', esquemaCategoria), async (c) =>
   c.json({ categoria: await crearCategoria(c.env.DB, c.req.valid('json')) }, 201),
 )
 
@@ -107,7 +107,7 @@ rutasCatalogo.get('/marcas', async (c) => c.json({ marcas: await listarMarcas(c.
 /**
  * Busqueda de productos. Es la ruta mas usada de la aplicacion.
  */
-rutasCatalogo.get('/productos', zValidator('query', esquemaBusqueda), async (c) => {
+rutasCatalogo.get('/productos', validador('query', esquemaBusqueda), async (c) => {
   const { q, limite, ubicacionId, filtro, listaBlanca, condicion, vendidos } = c.req.valid('query')
   if (ubicacionId) await exigirUbicacion(c.env.DB, ubicacionId)
   return c.json({ productos: await buscarProductos(c.env.DB, q, limite, { ubicacionId, filtro, listaBlanca, condicion, vendidos: vendidos === '1' }) })
@@ -129,7 +129,7 @@ rutasCatalogo.get('/productos/codigo/:codigo', async (c) => {
   return c.json({ producto: conjunto })
 })
 
-rutasCatalogo.post('/productos', zValidator('json', esquemaProducto), async (c) => {
+rutasCatalogo.post('/productos', validador('json', esquemaProducto), async (c) => {
   const datos = c.req.valid('json')
   const usuarioId = usuarioDe(c)
   const huella = await huellaOperacion(datos)
@@ -145,7 +145,7 @@ rutasCatalogo.get('/productos/:id', async (c) =>
   c.json({ producto: await unoConStock(c.env.DB, c.req.param('id')) }),
 )
 
-rutasCatalogo.patch('/productos/:id', zValidator('json', esquemaProductoParcial), async (c) => {
+rutasCatalogo.patch('/productos/:id', validador('json', esquemaProductoParcial), async (c) => {
   const producto = await actualizarProducto(c.env.DB, c.req.param('id'), c.req.valid('json'))
   return c.json({ producto: await unoConStock(c.env.DB, producto.id) })
 })
@@ -163,7 +163,7 @@ rutasCatalogo.get('/productos/:id/movimientos', async (c) =>
 // Panel de inicio y reportes de catalogo
 // ---------------------------------------------------------------------------
 
-rutasCatalogo.get('/inicio', zValidator('query', esquemaBusqueda.pick({ ubicacionId: true })), async (c) => {
+rutasCatalogo.get('/inicio', validador('query', esquemaBusqueda.pick({ ubicacionId: true })), async (c) => {
   const { ubicacionId } = c.req.valid('query')
   if (ubicacionId) await exigirUbicacion(c.env.DB, ubicacionId)
   const [ubicaciones, bajoMinimo, recientes, resumen] = await Promise.all([
@@ -190,7 +190,7 @@ rutasCatalogo.get('/reportes/valor', async (c) =>
   c.json({ ubicaciones: await valorInventario(c.env.DB) }),
 )
 
-rutasCatalogo.get('/reportes/ventas', zValidator('query', esquemaReporteVentas), async (c) => {
+rutasCatalogo.get('/reportes/ventas', validador('query', esquemaReporteVentas), async (c) => {
   const { agrupacion, dias } = c.req.valid('query')
   return c.json(await reporteVentas(c.env.DB, agrupacion, dias))
 })

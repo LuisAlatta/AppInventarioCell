@@ -1,9 +1,9 @@
 /** Rutas de equipos celulares individuales. */
 
 import { Hono } from 'hono'
-import { zValidator } from '@hono/zod-validator'
 import { esquemaAltaEquipos } from '@compartido/esquemas'
 import { ErrorApp } from '../lib/errores'
+import { validador } from '../lib/validador'
 import { buscarEquipoPorImei, equiposPorIds, listarEquiposDeProducto } from '../db/equipos'
 import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { exigirProducto } from '../db/productos'
@@ -18,7 +18,7 @@ function usuarioDe(c: { get: (k: 'usuarioId') => string | undefined }): string {
   return usuarioId
 }
 
-rutasEquipos.post('/', zValidator('json', esquemaAltaEquipos), async (c) => {
+rutasEquipos.post('/', validador('json', esquemaAltaEquipos), async (c) => {
   const datos = c.req.valid('json')
   const usuarioId = usuarioDe(c)
   const huella = await huellaOperacion(datos)

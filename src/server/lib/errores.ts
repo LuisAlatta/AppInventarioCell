@@ -83,6 +83,20 @@ export function cuerpoDeError(e: ErrorApp): CuerpoError {
   }
 }
 
+/** Convierte la validación de Zod al mismo contrato que consume la app. */
+export function datosInvalidos(error: { issues: readonly { path: readonly PropertyKey[]; message: string }[] }): ErrorApp {
+  const campos: Record<string, string> = {}
+  for (const problema of error.issues) {
+    const campo = problema.path.join('.') || 'general'
+    campos[campo] ??= problema.message
+    const ultimoSegmento = String(problema.path[problema.path.length - 1] ?? '')
+    if (ultimoSegmento && campos[ultimoSegmento] === undefined) {
+      campos[ultimoSegmento] = problema.message
+    }
+  }
+  return new ErrorApp('datos_invalidos', 'Revisa los datos', { campos })
+}
+
 /**
  * Traduce cualquier excepcion a un `ErrorApp`.
  *

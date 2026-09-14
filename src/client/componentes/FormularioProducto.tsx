@@ -198,6 +198,27 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       return
     }
 
+    const erroresImei: Record<string, string> = {}
+    for (let i = 0; i < equipos.length; i++) {
+      const eq = equipos[i]
+      if (eq.imei1.trim() !== '' && !/^\d{14,17}$/.test(eq.imei1.trim())) {
+        erroresImei[`equipos.${i}.imei1`] = 'El IMEI debe tener entre 14 y 17 dígitos'
+        erroresImei.imei1 ??= 'El IMEI debe tener entre 14 y 17 dígitos'
+      }
+      if (eq.imei2.trim() !== '' && !/^\d{14,17}$/.test(eq.imei2.trim())) {
+        erroresImei[`equipos.${i}.imei2`] = 'El IMEI debe tener entre 14 y 17 dígitos'
+        erroresImei.imei2 ??= 'El IMEI debe tener entre 14 y 17 dígitos'
+      }
+      if (eq.imei1.trim() !== '' && eq.imei2.trim() !== '' && eq.imei1.trim() === eq.imei2.trim()) {
+        erroresImei[`equipos.${i}.imei2`] = 'IMEI 1 e IMEI 2 deben ser distintos'
+      }
+    }
+    if (Object.keys(erroresImei).length > 0) {
+      setCampos(erroresImei)
+      avisos.error(Object.values(erroresImei)[0] ?? 'Revisa los IMEI ingresados')
+      return
+    }
+
     setEnviando(true)
     setCampos({})
 
@@ -214,6 +235,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           idOperacion: idOperacionProducto,
         })).producto,
       )
+      setProductoExistente(producto)
 
       const hayImei = equiposConImei.length > 0
       if (hayImei && activa !== null) {
@@ -317,7 +339,77 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           <span className="cifras rounded-lg bg-superficie px-2 py-1 text-[0.75rem] font-semibold text-accion">{equipos.length}/50</span>
         </div>
         {campos.equipos !== undefined && <p className="text-[0.75rem] font-medium text-falta">{campos.equipos}</p>}
-        {equipos.map((equipo, indice) => <fieldset key={equipo.id} className="flex flex-col gap-3 rounded-xl border border-accion/20 bg-superficie p-3"><div className="flex items-center justify-between gap-2"><legend className="text-[0.8125rem] font-semibold text-tinta">Equipo {indice + 1}</legend>{equipos.length > 1 && <button type="button" onClick={() => setEquipos((anteriores) => anteriores.filter((actual) => actual.id !== equipo.id))} aria-label={`Quitar equipo ${indice + 1}`} className="flex size-9 items-center justify-center rounded-lg text-falta active:bg-falta-tenue"><Trash2 aria-hidden="true" className="size-4" strokeWidth={2} /></button>}</div><div className="flex flex-col gap-3"><CampoConEscaner etiqueta="IMEI 1" value={equipo.imei1} onChange={(valor) => actualizarEquipo(equipo.id, { imei1: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)} onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei1:${equipo.id}`, archivo)} leyendoFoto={leyendoFoto === `imei1:${equipo.id}`} inputMode="numeric" placeholder="Opcional" /><CampoConEscaner etiqueta="IMEI 2" value={equipo.imei2} onChange={(valor) => actualizarEquipo(equipo.id, { imei2: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)} onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei2:${equipo.id}`, archivo)} leyendoFoto={leyendoFoto === `imei2:${equipo.id}`} inputMode="numeric" placeholder="Opcional" /></div><div className="grid grid-cols-2 gap-3"><GrupoChecks etiqueta="Lista blanca" valor={equipo.listaBlanca} opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { listaBlanca: valor })} /><GrupoChecks etiqueta="Condición" valor={equipo.condicion} opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { condicion: valor })} /></div></fieldset>)}
+        {equipos.map((equipo, indice) => (
+          <fieldset key={equipo.id} className="flex flex-col gap-3 rounded-xl border border-accion/20 bg-superficie p-3">
+            <div className="flex items-center justify-between gap-2">
+              <legend className="text-[0.8125rem] font-semibold text-tinta">Equipo {indice + 1}</legend>
+              {equipos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setEquipos((anteriores) => anteriores.filter((actual) => actual.id !== equipo.id))}
+                  aria-label={`Quitar equipo ${indice + 1}`}
+                  className="flex size-9 items-center justify-center rounded-lg text-falta active:bg-falta-tenue"
+                >
+                  <Trash2 aria-hidden="true" className="size-4" strokeWidth={2} />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-3">
+              <CampoConEscaner
+                etiqueta="IMEI 1"
+                value={equipo.imei1}
+                error={campos[`equipos.${indice}.imei1`] ?? (indice === 0 ? campos.imei1 : undefined)}
+                onChange={(valor) => {
+                  actualizarEquipo(equipo.id, { imei1: valor.replace(/\D/g, '') })
+                  setCampos((prev) => {
+                    const copia = { ...prev }
+                    delete copia[`equipos.${indice}.imei1`]
+                    if (indice === 0) delete copia.imei1
+                    return copia
+                  })
+                }}
+                onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)}
+                onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei1:${equipo.id}`, archivo)}
+                leyendoFoto={leyendoFoto === `imei1:${equipo.id}`}
+                inputMode="numeric"
+                placeholder="Opcional"
+              />
+              <CampoConEscaner
+                etiqueta="IMEI 2"
+                value={equipo.imei2}
+                error={campos[`equipos.${indice}.imei2`] ?? (indice === 0 ? campos.imei2 : undefined)}
+                onChange={(valor) => {
+                  actualizarEquipo(equipo.id, { imei2: valor.replace(/\D/g, '') })
+                  setCampos((prev) => {
+                    const copia = { ...prev }
+                    delete copia[`equipos.${indice}.imei2`]
+                    if (indice === 0) delete copia.imei2
+                    return copia
+                  })
+                }}
+                onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)}
+                onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei2:${equipo.id}`, archivo)}
+                leyendoFoto={leyendoFoto === `imei2:${equipo.id}`}
+                inputMode="numeric"
+                placeholder="Opcional"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <GrupoChecks
+                etiqueta="Lista blanca"
+                valor={equipo.listaBlanca}
+                opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]}
+                onChange={(valor) => actualizarEquipo(equipo.id, { listaBlanca: valor })}
+              />
+              <GrupoChecks
+                etiqueta="Condición"
+                valor={equipo.condicion}
+                opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]}
+                onChange={(valor) => actualizarEquipo(equipo.id, { condicion: valor })}
+              />
+            </div>
+          </fieldset>
+        ))}
         <button type="button" disabled={equipos.length >= 50} onClick={() => setEquipos((anteriores) => [...anteriores, equipoVacio()])} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-accion/45 bg-superficie px-3 text-[0.875rem] font-semibold text-accion active:bg-accion/10 disabled:opacity-40"><Plus aria-hidden="true" className="size-4" strokeWidth={2.3} />Agregar otro equipo</button>
       </section>
 

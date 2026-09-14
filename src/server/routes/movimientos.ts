@@ -9,7 +9,6 @@
  */
 
 import { Hono } from 'hono'
-import { zValidator } from '@hono/zod-validator'
 import {
   esquemaAjuste,
   esquemaDevolucion,
@@ -19,6 +18,7 @@ import {
   esquemaVenta,
 } from '@compartido/esquemas'
 import { ErrorApp } from '../lib/errores'
+import { validador } from '../lib/validador'
 import { exigirProducto } from '../db/productos'
 import { productoTieneEquipos } from '../db/equipos'
 import { movimientosRecientes } from '../db/movimientos'
@@ -48,7 +48,7 @@ rutasMovimientos.get('/', async (c) => {
 })
 
 /** Compra a proveedor. El costo se toma del producto si no viene en la peticion. */
-rutasMovimientos.post('/entrada', zValidator('json', esquemaEntrada), async (c) => {
+rutasMovimientos.post('/entrada', validador('json', esquemaEntrada), async (c) => {
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
 
@@ -74,7 +74,7 @@ rutasMovimientos.post('/entrada', zValidator('json', esquemaEntrada), async (c) 
   return c.json({ movimiento }, 201)
 })
 
-rutasMovimientos.post('/venta', zValidator('json', esquemaVenta), async (c) => {
+rutasMovimientos.post('/venta', validador('json', esquemaVenta), async (c) => {
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
   const costoUnitario = datos.costoUnitario ?? producto.precioCosto
@@ -111,7 +111,7 @@ rutasMovimientos.post('/venta', zValidator('json', esquemaVenta), async (c) => {
   return c.json({ movimiento }, 201)
 })
 
-rutasMovimientos.post('/devolucion', zValidator('json', esquemaDevolucion), async (c) => {
+rutasMovimientos.post('/devolucion', validador('json', esquemaDevolucion), async (c) => {
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
 
@@ -133,7 +133,7 @@ rutasMovimientos.post('/devolucion', zValidator('json', esquemaDevolucion), asyn
   return c.json({ movimiento }, 201)
 })
 
-rutasMovimientos.post('/merma', zValidator('json', esquemaMerma), async (c) => {
+rutasMovimientos.post('/merma', validador('json', esquemaMerma), async (c) => {
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
 
@@ -169,7 +169,7 @@ rutasMovimientos.post('/merma', zValidator('json', esquemaMerma), async (c) => {
 })
 
 /** Correccion manual. La cantidad lleva signo: "+4" suma, "-4" resta. */
-rutasMovimientos.post('/ajuste', zValidator('json', esquemaAjuste), async (c) => {
+rutasMovimientos.post('/ajuste', validador('json', esquemaAjuste), async (c) => {
   const datos = c.req.valid('json')
   const producto = await exigirProducto(c.env.DB, datos.productoId)
 
@@ -186,7 +186,7 @@ rutasMovimientos.post('/ajuste', zValidator('json', esquemaAjuste), async (c) =>
   return c.json({ movimiento }, 201)
 })
 
-rutasMovimientos.post('/traspaso', zValidator('json', esquemaTraspaso), async (c) => {
+rutasMovimientos.post('/traspaso', validador('json', esquemaTraspaso), async (c) => {
   const resultado = await aplicarTraspaso(c.env.DB, c.req.valid('json'), usuarioDe(c))
   return c.json(resultado, 201)
 })

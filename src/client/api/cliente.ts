@@ -30,6 +30,67 @@ export interface ErrorDeApiDetalle {
   campos?: Record<string, string>
 }
 
+export function extraerDetalleError(datos: unknown, mensajePorDefecto = 'Algo falló. Intenta de nuevo.'): ErrorDeApiDetalle {
+  if (datos !== null && typeof datos === 'object') {
+    const obj = datos as Record<string, unknown>
+
+    if (obj.error !== null && typeof obj.error === 'object') {
+      const errorObj = obj.error as Record<string, unknown>
+      const codigo = typeof errorObj.codigo === 'string' ? errorObj.codigo : 'error_interno'
+      let mensaje = typeof errorObj.mensaje === 'string' && errorObj.mensaje.trim() !== '' ? errorObj.mensaje : ''
+      let campos = (errorObj.campos !== null && typeof errorObj.campos === 'object')
+        ? (errorObj.campos as Record<string, string>)
+        : undefined
+
+      if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
+        campos ??= {}
+        for (const issue of errorObj.issues as { path?: (string | number)[]; message?: string }[]) {
+          const ruta = (issue.path ?? []).join('.') || 'general'
+          if (issue.message) {
+            campos[ruta] ??= issue.message
+            if (!mensaje) mensaje = issue.message
+            const ultimo = String(issue.path?.[issue.path.length - 1] ?? '')
+            if (ultimo && !campos[ultimo]) campos[ultimo] = issue.message
+          }
+        }
+      }
+
+      if (!mensaje && typeof errorObj.message === 'string' && errorObj.message.trim() !== '') {
+        mensaje = errorObj.message
+      }
+
+      if (mensaje) {
+        return { codigo, mensaje, campos }
+      }
+    }
+
+    if (Array.isArray(obj.issues) && obj.issues.length > 0) {
+      const campos: Record<string, string> = {}
+      let mensaje = ''
+      for (const issue of obj.issues as { path?: (string | number)[]; message?: string }[]) {
+        const ruta = (issue.path ?? []).join('.') || 'general'
+        if (issue.message) {
+          campos[ruta] ??= issue.message
+          if (!mensaje) mensaje = issue.message
+          const ultimo = String(issue.path?.[issue.path.length - 1] ?? '')
+          if (ultimo && !campos[ultimo]) campos[ultimo] = issue.message
+        }
+      }
+      return { codigo: 'datos_invalidos', mensaje: mensaje || 'Revisa los datos', campos }
+    }
+
+    if (typeof obj.error === 'string' && obj.error.trim() !== '') {
+      return { codigo: 'error_interno', mensaje: obj.error }
+    }
+
+    if (typeof obj.message === 'string' && obj.message.trim() !== '') {
+      return { codigo: 'error_interno', mensaje: obj.message }
+    }
+  }
+
+  return { codigo: 'error_interno', mensaje: mensajePorDefecto }
+}
+
 export class ErrorDeApi extends Error {
   override readonly name = 'ErrorDeApi'
   readonly codigo: string
@@ -98,11 +159,7 @@ async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
   }
 
   if (!respuesta.ok) {
-    const cuerpoError = datos as { error?: ErrorDeApiDetalle }
-    throw new ErrorDeApi(
-      respuesta.status,
-      cuerpoError.error ?? { codigo: 'error_interno', mensaje: 'Algo fallo. Intenta de nuevo.' },
-    )
+    throw new ErrorDeApi(respuesta.status, extraerDetalleError(datos))
   }
 
   return datos as T
@@ -388,11 +445,8 @@ export const api = {
     })
 
     if (!respuesta.ok) {
-      const cuerpo = (await respuesta.json().catch(() => ({}))) as { error?: ErrorDeApiDetalle }
-      throw new ErrorDeApi(
-        respuesta.status,
-        cuerpo.error ?? { codigo: 'error_interno', mensaje: 'No se pudo subir la foto.' },
-      )
+      const cuerpo: unknown = await respuesta.json().catch(() => ({}))
+      throw new ErrorDeApi(respuesta.status, extraerDetalleError(cuerpo, 'No se pudo subir la foto.'))
     }
 
     return (await respuesta.json()) as { claveImagen: string }
@@ -403,7 +457,10 @@ export const api = {
 
   agregarImagenProducto: async (id: string, archivo: Blob): Promise<{ imagen: import('@compartido/tipos').ImagenProducto }> => {
     const respuesta = await fetch(`/api/imagenes/producto/${id}`, { method: 'POST', headers: { 'content-type': archivo.type }, body: archivo, credentials: 'same-origin' })
-    if (!respuesta.ok) { const cuerpo = (await respuesta.json().catch(() => ({}))) as { error?: ErrorDeApiDetalle }; throw new ErrorDeApi(respuesta.status, cuerpo.error ?? { codigo: 'error_interno', mensaje: 'No se pudo subir la foto.' }) }
+    if (!respuesta.ok) {
+      const cuerpo: unknown = await respuesta.json().catch(() => ({}))
+      throw new ErrorDeApi(respuesta.status, extraerDetalleError(cuerpo, 'No se pudo subir la foto.'))
+    }
     return respuesta.json() as Promise<{ imagen: import('@compartido/tipos').ImagenProducto }>
   },
 
