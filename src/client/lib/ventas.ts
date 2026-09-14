@@ -7,6 +7,18 @@ export function importeDesdeCampo(valor: string): number | null {
   return Math.round(numero * 100) / 100
 }
 
+/** Convierte los dos importes que deben quedar congelados en cada venta. */
+export function importesVentaDesdeCampos(
+  costoTexto: string,
+  precioTexto: string,
+): { costoUnitario: number; precioVentaUnitario: number } | null {
+  const costoUnitario = importeDesdeCampo(costoTexto)
+  const precioVentaUnitario = importeDesdeCampo(precioTexto)
+  return costoUnitario === null || precioVentaUnitario === null
+    ? null
+    : { costoUnitario, precioVentaUnitario }
+}
+
 export function gananciaDeVenta(costoUnitario: number, precioVentaUnitario: number, cantidad: number): number {
   return Math.round((precioVentaUnitario - costoUnitario) * cantidad * 100) / 100
 }

@@ -15,7 +15,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Equipo, ProductoConStock, Ubicacion } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
-import { CampoNota, SelectorCantidad } from './Campo'
+import { CampoNota, CampoTexto, SelectorCantidad } from './Campo'
 import { Confirmacion } from './Confirmacion'
 import { DesgloseStock, Miniatura } from './FichaProducto'
 import { useAvisos } from '../contexto/Avisos'
@@ -23,6 +23,7 @@ import { useUbicacion } from '../contexto/Ubicacion'
 import { dinero, numero } from '../lib/formato'
 import { avisarError } from '../lib/retroalimentacion'
 import { invalidarConsultasMovimiento } from '../lib/consultas_movimiento'
+import { gananciaDeVenta, importeDesdeCampo, importesVentaDesdeCampos } from '../lib/ventas'
 import { SugerenciaReposicion } from './SugerenciaReposicion'
 
 type Modo = 'rápido' | 'entrada' | 'venta' | 'merma' | 'ajuste'
@@ -52,6 +53,9 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
   const [errorNota, setErrorNota] = useState<string | undefined>(undefined)
   const [enviando, setEnviando] = useState(false)
   const [confirmandoVenta, setConfirmandoVenta] = useState(false)
+  const [costoVentaTexto, setCostoVentaTexto] = useState('')
+  const [precioVentaTexto, setPrecioVentaTexto] = useState('')
+  const [validandoImportesVenta, setValidandoImportesVenta] = useState(false)
 
   const enUbicacion =
     ubicacion === null
@@ -83,7 +87,7 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
   const aplicar = async (
     accion: () => Promise<{ movimiento: { id: string } } | { movimientos: { id: string }[] }>,
     textoExito: string,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     setEnviando(true)
     try {
       const resultado = await accion()
@@ -107,9 +111,11 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
       setNota('')
       setEquipoElegidoId(null)
       onListo?.()
+      return true
     } catch (causa) {
       avisarError()
       avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo registrar')
+      return false
     } finally {
       setEnviando(false)
     }
@@ -123,12 +129,15 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
     aplicar(
       () => api.entrada({ productoId: producto.id, ubicacionId: ubicacion.id, cantidad: piezas }),
       `+${numero(piezas)} en ${ubicacion.nombre}`,
-    )
+    ).then(() => undefined)
 
-  const venta = (piezas: number): Promise<void> => {
+  const venta = (
+    piezas: number,
+    importes: { costoUnitario: number; precioVentaUnitario: number },
+  ): Promise<boolean> => {
     if (controlaPorImei && equipoElegidoId === null) {
       avisos.información(`Elige el IMEI de ${producto.nombre} antes de registrar la venta`)
-      return Promise.resolve()
+      return Promise.resolve(false)
     }
 
     return aplicar(
@@ -136,6 +145,7 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
         productoId: producto.id,
         ubicacionId: ubicacion.id,
         cantidad: controlaPorImei ? 1 : piezas,
+        ...importes,
         ...(controlaPorImei ? { equipoIds: [equipoElegidoId as string] } : {}),
       }),
       `Venta de ${numero(controlaPorImei ? 1 : piezas)} en ${ubicacion.nombre}`,
@@ -147,8 +157,15 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
       avisos.información(`Elige el IMEI de ${producto.nombre} antes de marcarlo como vendido`)
       return
     }
+    setCostoVentaTexto(producto.precioCosto.toFixed(2))
+    setPrecioVentaTexto(producto.precioVenta.toFixed(2))
+    setValidandoImportesVenta(false)
     setConfirmandoVenta(true)
   }
+
+  const costoVenta = importeDesdeCampo(costoVentaTexto)
+  const precioVentaFinal = importeDesdeCampo(precioVentaTexto)
+  const importesVenta = importesVentaDesdeCampos(costoVentaTexto, precioVentaTexto)
 
   const conMotivo = async (tipo: 'merma' | 'ajuste'): Promise<void> => {
     const motivo = nota.trim()
@@ -382,8 +399,39 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
         detalle={`Se descontará ${numero(controlaPorImei ? 1 : cantidad)} ${controlaPorImei ? 'equipo' : 'pieza(s)'} de ${ubicacion.nombre}${controlaPorImei ? ` · IMEI ${equiposDisponibles.find((equipo) => equipo.id === equipoElegidoId)?.imei1 ?? equiposDisponibles.find((equipo) => equipo.id === equipoElegidoId)?.imei2 ?? ''}` : ''}.`}
         confirmar="Marcar vendido"
         peligro
+        confirmarDeshabilitado={enviando}
+        confirmando={enviando}
         onCancelar={() => setConfirmandoVenta(false)}
-        onConfirmar={() => { setConfirmandoVenta(false); void venta(cantidad) }}
+        onConfirmar={() => {
+          setValidandoImportesVenta(true)
+          if (importesVenta === null) return
+          void venta(cantidad, importesVenta).then((registrada) => {
+            if (registrada) setConfirmandoVenta(false)
+          })
+        }}
+        contenido={
+          <div className="flex flex-col gap-3">
+            <CampoTexto
+              etiqueta="Costo de compra real"
+              type="text"
+              inputMode="decimal"
+              value={costoVentaTexto}
+              onChange={(evento) => setCostoVentaTexto(evento.target.value)}
+              error={validandoImportesVenta && costoVenta === null ? 'Ingresa un importe entre 0 y 9,999,999.' : undefined}
+              ayuda="Por unidad, en soles."
+            />
+            <CampoTexto
+              etiqueta="Precio final de venta"
+              type="text"
+              inputMode="decimal"
+              value={precioVentaTexto}
+              onChange={(evento) => setPrecioVentaTexto(evento.target.value)}
+              error={validandoImportesVenta && precioVentaFinal === null ? 'Ingresa un importe entre 0 y 9,999,999.' : undefined}
+              ayuda="Por unidad, en soles."
+            />
+            <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.875rem]">Ganancia bruta: <strong>{importesVenta === null ? 'Revisa los importes' : dinero(gananciaDeVenta(importesVenta.costoUnitario, importesVenta.precioVentaUnitario, controlaPorImei ? 1 : cantidad))}</strong></p>
+          </div>
+        }
       />
     </div>
   )

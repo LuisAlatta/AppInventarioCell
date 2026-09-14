@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Equipo, ProductoConStock } from '../../shared/tipos'
-import { estadoEquipoVenta, gananciaDeVenta, importeDesdeCampo, seleccionVentaValida } from './ventas'
+import { estadoEquipoVenta, gananciaDeVenta, importeDesdeCampo, importesVentaDesdeCampos, seleccionVentaValida } from './ventas'
 
 describe('importeDesdeCampo', () => {
   it('normaliza una cifra válida a dos decimales', () => expect(importeDesdeCampo(' 310.256 ')).toBe(310.26))
@@ -16,6 +16,20 @@ describe('importeDesdeCampo', () => {
   it('rechaza textos no finitos', () => {
     expect(importeDesdeCampo('NaN')).toBeNull()
     expect(importeDesdeCampo('Infinity')).toBeNull()
+  })
+})
+
+describe('importesVentaDesdeCampos', () => {
+  it('conserva el costo y el precio final normalizados para registrar una venta', () => {
+    expect(importesVentaDesdeCampos(' 125,256 ', '310.999')).toEqual({
+      costoUnitario: 125.26,
+      precioVentaUnitario: 311,
+    })
+  })
+
+  it('rechaza la venta si falta o es inválido alguno de los dos importes', () => {
+    expect(importesVentaDesdeCampos('', '310')).toBeNull()
+    expect(importesVentaDesdeCampos('125', '-1')).toBeNull()
   })
 })
 
