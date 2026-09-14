@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, Crop, RotateCw, X } from 'lucide-react'
 import { Boton } from './Boton'
 
@@ -218,14 +219,14 @@ export function ModalRecorteImagen({
     }
   }
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white backdrop-blur-sm select-none"
+      className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col bg-black/95 text-white backdrop-blur-sm select-none"
     >
       {/* Barra superior */}
-      <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+      <div className="area-segura-arriba flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1 pr-2">
           <h2 className="truncate text-[1rem] font-semibold">{titulo}</h2>
           <p className="truncate text-[0.75rem] text-white/60">{subtitulo}</p>
@@ -255,17 +256,17 @@ export function ModalRecorteImagen({
       </div>
 
       {/* Área central interactiva de la imagen */}
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden p-4">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-3">
         <div
           ref={contenedorRef}
-          className="relative inline-block max-h-[62vh] max-w-[94vw] overflow-hidden rounded-lg shadow-2xl"
+          className="relative inline-block max-h-full max-w-full overflow-hidden rounded-lg shadow-2xl"
           style={{ touchAction: 'none' }}
         >
           <img
             ref={imgRef}
             src={urlVista}
             alt="Imagen a recortar"
-            className="max-h-[62vh] max-w-[94vw] object-contain transition-transform duration-150"
+            className="max-h-[50dvh] max-w-[88vw] object-contain transition-transform duration-150"
             style={{ transform: `rotate(${rotacion}deg)` }}
           />
 
@@ -321,9 +322,9 @@ export function ModalRecorteImagen({
         </div>
       </div>
 
-      {/* Barra de opciones inferior */}
-      <div className="shrink-0 border-t border-white/10 bg-black/60 p-4 backdrop-blur-md">
-        <p className="mb-3 text-center text-[0.8125rem] text-white/70">
+      {/* Barra de opciones inferior fija y sobre cualquier elemento */}
+      <div className="area-segura-abajo shrink-0 border-t border-white/10 bg-black/85 p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] backdrop-blur-md">
+        <p className="mb-2.5 text-center text-[0.8125rem] text-white/70">
           Arrastra el marco para enfocar el código o la zona deseada.
         </p>
 
@@ -332,9 +333,9 @@ export function ModalRecorteImagen({
             type="button"
             disabled={recortando}
             onClick={() => void procesarRecorte(true)}
-            className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-[0.875rem] font-semibold text-white transition active:bg-white/20 disabled:opacity-50"
+            className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/15 px-3 text-[0.875rem] font-semibold text-white transition active:bg-white/30 disabled:opacity-50"
           >
-            <Check className="size-4.5 text-white/80" strokeWidth={2.25} />
+            <Check className="size-4.5 text-white" strokeWidth={2.25} />
             <span>Usar completa</span>
           </button>
 
@@ -348,6 +349,7 @@ export function ModalRecorteImagen({
           </Boton>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
