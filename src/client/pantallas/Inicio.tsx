@@ -88,10 +88,15 @@ export function Inicio() {
 
         {inicio.isSuccess && inicio.data.recientes.length > 0 && (
           <section className="flex flex-col gap-2">
-            <Etiqueta>Últimos movimientos</Etiqueta>
+            <div className="flex items-center justify-between gap-3">
+              <Etiqueta>Últimos movimientos</Etiqueta>
+              <button type="button" onClick={() => navegar('/movimientos')} className="min-h-11 shrink-0 px-2 text-[0.8125rem] font-semibold text-accion active:bg-accion-tenue">
+                Ver todos
+              </button>
+            </div>
 
             <ul className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
-              {inicio.data.recientes.slice(0, 8).map((movimiento) => (
+              {inicio.data.recientes.slice(0, 3).map((movimiento) => (
                 <li key={movimiento.id}>
                 <button type="button" onClick={() => navegar(`/producto/${movimiento.productoId}`)} className="flex w-full items-center gap-3 px-3.5 py-3 text-left">
                   <Miniatura nombre={movimiento.productoNombre} claveImagen={movimiento.claveImagenProducto} />

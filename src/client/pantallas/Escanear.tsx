@@ -63,6 +63,7 @@ export function Escanear() {
           onCancelar={() => navegar(-1)}
           onCreado={(producto) => {
             void cliente.invalidateQueries({ queryKey: ['inicio'] })
+            void cliente.invalidateQueries({ queryKey: ['movimientos'] })
             void cliente.invalidateQueries({ queryKey: ['buscar'] })
             avisos.exito(`${producto.nombre} registrado`)
             navegar(`/producto/${producto.id}`)

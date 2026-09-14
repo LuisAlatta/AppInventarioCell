@@ -167,7 +167,7 @@ rutasCatalogo.get('/inicio', zValidator('query', esquemaBusqueda.pick({ ubicacio
   const [ubicaciones, bajoMinimo, recientes, resumen] = await Promise.all([
     listarUbicaciones(c.env.DB),
     productosBajoMinimo(c.env.DB, 4, ubicacionId),
-    movimientosRecientes(c.env.DB, 8, ubicacionId),
+    movimientosRecientes(c.env.DB, 3, ubicacionId),
     resumenStock(c.env.DB, ubicacionId),
   ])
 

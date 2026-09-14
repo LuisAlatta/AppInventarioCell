@@ -78,6 +78,7 @@ export function Producto() {
       avisos.información('Movimiento deshecho')
       void cliente.invalidateQueries({ queryKey: ['producto', id] })
       void cliente.invalidateQueries({ queryKey: ['movimientos', id] })
+      void cliente.invalidateQueries({ queryKey: ['movimientos'] })
       void cliente.invalidateQueries({ queryKey: ['inicio'] })
     } catch (causa) {
       avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo deshacer')
@@ -285,13 +286,14 @@ export function Producto() {
           modoInicial={modoAcciones}
           onCambio={() => {
             void cliente.invalidateQueries({ queryKey: ['movimientos', id] })
+            void cliente.invalidateQueries({ queryKey: ['movimientos'] })
           }}
           onListo={() => setAcciones(false)}
         />
       </HojaInferior>
 
       <HojaInferior abierta={altaEquipo} onCerrar={() => setAltaEquipo(false)} titulo={`Registrar equipo · ${ficha.nombre}`}>
-        <FormularioAltaEquipo productoId={ficha.id} productoNombre={ficha.nombre} onListo={() => { setAltaEquipo(false); void cliente.invalidateQueries({ queryKey: ['equipos', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos', id] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
+        <FormularioAltaEquipo productoId={ficha.id} productoNombre={ficha.nombre} onListo={() => { setAltaEquipo(false); void cliente.invalidateQueries({ queryKey: ['equipos', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
       </HojaInferior>
 
       <HojaInferior abierta={administrar} onCerrar={() => setAdministrar(false)} titulo={`Administrar · ${ficha.nombre}`}>

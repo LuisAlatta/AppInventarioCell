@@ -69,6 +69,7 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
 
   const refrescar = (): void => {
     void cliente.invalidateQueries({ queryKey: ['inicio'] })
+    void cliente.invalidateQueries({ queryKey: ['movimientos'] })
     void cliente.invalidateQueries({ queryKey: ['producto', producto.id] })
     void cliente.invalidateQueries({ queryKey: ['buscar'] })
     onCambio?.()

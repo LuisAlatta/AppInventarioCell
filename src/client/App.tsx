@@ -19,6 +19,7 @@ import { Acceso } from './pantallas/Acceso'
 import { Ajustes } from './pantallas/Ajustes'
 import { Buscar } from './pantallas/Buscar'
 import { Inicio } from './pantallas/Inicio'
+import { Historial } from './pantallas/Historial'
 import { Producto } from './pantallas/Producto'
 import { Reportes } from './pantallas/Reportes'
 import { Sucursales } from './pantallas/Sucursales'
@@ -165,6 +166,7 @@ function Aplicacion() {
       <Suspense fallback={<PantallaCargando />}>
         <Routes>
           <Route path="/" element={<Inicio />} />
+          <Route path="/movimientos" element={<Historial />} />
           <Route path="/buscar" element={<Buscar />} />
           <Route path="/escanear" element={<Escanear />} />
           <Route path="/producto/:id" element={<Producto />} />

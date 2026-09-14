@@ -229,6 +229,9 @@ export const api = {
   // Movimientos
   // -------------------------------------------------------------------------
 
+  movimientos: (limite = 200): Promise<{ movimientos: Movimiento[] }> =>
+    pedir(`/movimientos?limite=${Math.min(200, Math.max(1, Math.trunc(limite)))}`),
+
   entrada: (datos: {
     productoId: string
     ubicacionId: string

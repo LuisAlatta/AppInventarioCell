@@ -896,6 +896,32 @@ describe('altas idempotentes desde móviles', () => {
   })
 })
 
+describe('actividad reciente e historial', () => {
+  test('inicio expone solo los tres últimos movimientos y el historial conserva todos', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+
+    const creados: string[] = []
+    const entrada = await json<{ movimiento: { id: string } }>(await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    }))
+    creados.push(entrada.movimiento.id)
+    for (const nota of ['ajuste uno', 'ajuste dos', 'ajuste tres']) {
+      const ajuste = await json<{ movimiento: { id: string } }>(await conSesion(cookie, '/api/movimientos/ajuste', {
+        metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, nota },
+      }))
+      creados.push(ajuste.movimiento.id)
+    }
+
+    const inicio = await json<{ recientes: { id: string }[] }>(await conSesion(cookie, '/api/inicio'))
+    expect(inicio.recientes).toHaveLength(3)
+    expect(inicio.recientes.map((movimiento) => movimiento.id)).toEqual(creados.slice(-3).reverse())
+
+    const historial = await json<{ movimientos: { id: string }[] }>(await conSesion(cookie, '/api/movimientos?limite=200'))
+    expect(historial.movimientos).toHaveLength(4)
+  })
+})
+
 describe('conteo fisico y mermas', () => {
   let cookie = ''
 
