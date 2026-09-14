@@ -53,8 +53,8 @@ export function Inicio() {
       }
     >
       <div className="flex flex-col gap-6">
-        <section className="grid grid-cols-2 gap-2.5">
-          <div className="col-span-2">
+        <section className="grid grid-cols-3 gap-2.5 [&>button]:px-3">
+          <div className="col-span-3">
             <BotonAccion
               tono="accion"
               icono={<IconoEscanear />}
@@ -65,6 +65,7 @@ export function Inicio() {
           </div>
 
           <BotonAccion icono={<IconoBuscar />} titulo="Buscar" onClick={() => navegar('/buscar')} />
+          <BotonAccion icono={<IconoVentas />} titulo="Ventas" onClick={() => navegar('/ventas')} />
           <BotonAccion
             icono={<IconoTraspaso />}
             titulo="Traspaso"
@@ -176,3 +177,11 @@ function IconoTraspaso() {
   )
 }
 
+function IconoVentas() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-7" aria-hidden="true" fill="none">
+      <path d="M3 4h8l10 10-8 8L3 12V4Z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
+      <circle cx="7.5" cy="8" r="1.5" stroke="currentColor" strokeWidth="1.9" />
+    </svg>
+  )
+}
