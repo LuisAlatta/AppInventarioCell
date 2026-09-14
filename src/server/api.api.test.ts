@@ -8,7 +8,7 @@
 
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, test } from 'vitest'
-import type { Movimiento } from '@compartido/tipos'
+import type { Equipo, Movimiento } from '@compartido/tipos'
 import app from './index'
 
 const PIN = '246810'
@@ -594,10 +594,11 @@ describe('productos', () => {
 
 describe('busqueda', () => {
   let cookie = ''
+  let inventario: Awaited<ReturnType<typeof escenario>>
 
   beforeEach(async () => {
     cookie = await entrar()
-    await escenario(cookie)
+    inventario = await escenario(cookie)
     await conSesion(cookie, '/api/productos', {
       metodo: 'POST',
       cuerpo: { codigo: '7509999999999', nombre: 'Cargador Turbo Tipo C', marca: 'Genérico' },
@@ -634,6 +635,33 @@ describe('busqueda', () => {
 
   test('con el buscador vacio devuelve productos, no un error', async () => {
     expect((await buscar('')).length).toBeGreaterThan(0)
+  })
+
+  test('no muestra un producto agotado entre las existencias disponibles y conserva su venta', async () => {
+    const { almacenId, productoId } = inventario
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    expect(venta.status).toBe(201)
+    const movimientoVendido = (await json<RespuestaMovimiento>(venta)).movimiento
+
+    const disponibles = await conSesion(cookie, '/api/productos?q=Audifonos&filtro=disponibles')
+    expect(disponibles.status).toBe(200)
+    expect((await json<{ productos: unknown[] }>(disponibles)).productos).toEqual([])
+
+    const historial = await json<{ movimientos: Movimiento[] }>(
+      await conSesion(cookie, '/api/movimientos'),
+    )
+    expect(historial.movimientos).toContainEqual(expect.objectContaining({
+      id: movimientoVendido.id,
+      tipo: 'sale',
+    }))
   })
 })
 
@@ -878,6 +906,35 @@ describe('equipos por IMEI', () => {
     )
     expect(vendidos.productos).toHaveLength(1)
     expect(vendidos.productos[0]).toMatchObject({ id: productoId, equiposCoincidentes: 1 })
+  })
+
+  test('encuentra por IMEI una unidad vendida para impedir volver a venderla', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: Equipo[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000029', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    }))
+    const equipo = alta.equipos[0]
+    expect(equipo).toBeDefined()
+    if (equipo === undefined || equipo.imei1 === null) throw new Error('Falta el equipo creado')
+
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, equipoIds: [equipo.id] },
+    })
+    expect(venta.status).toBe(201)
+
+    const encontrado = await conSesion(cookie, `/api/equipos/imei/${equipo.imei1}`)
+    expect(encontrado.status).toBe(200)
+    expect((await json<{ equipo: Equipo | null }>(encontrado)).equipo).toMatchObject({
+      id: equipo.id,
+      activo: false,
+    })
   })
 
   test('rechaza vender un modelo con IMEI sin elegir la unidad física', async () => {

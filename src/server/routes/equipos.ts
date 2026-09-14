@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { esquemaAltaEquipos } from '@compartido/esquemas'
 import { ErrorApp } from '../lib/errores'
-import { equiposPorIds, listarEquiposDeProducto } from '../db/equipos'
+import { buscarEquipoPorImei, equiposPorIds, listarEquiposDeProducto } from '../db/equipos'
 import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { exigirProducto } from '../db/productos'
 import { registrarEquipos } from '../services/equipos'
@@ -29,6 +29,10 @@ rutasEquipos.post('/', zValidator('json', esquemaAltaEquipos), async (c) => {
   const equipos = await registrarEquipos(c.env.DB, datos, usuarioId, huella)
   return c.json({ equipos }, 201)
 })
+
+rutasEquipos.get('/imei/:imei', async (c) =>
+  c.json({ equipo: await buscarEquipoPorImei(c.env.DB, c.req.param('imei')) }),
+)
 
 rutasEquipos.get('/producto/:productoId', async (c) => {
   const productoId = c.req.param('productoId')

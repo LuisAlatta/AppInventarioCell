@@ -10,6 +10,7 @@
 import type {
   Categoria,
   AgrupacionVentas,
+  Equipo,
   Movimiento,
   ProductoConStock,
   ReporteMerma,
@@ -201,6 +202,9 @@ export const api = {
 
   equiposDeProducto: (id: string, todos = false): Promise<{ equipos: import('@compartido/tipos').Equipo[] }> =>
     pedir(`/equipos/producto/${id}${todos ? '?todos=1' : ''}`),
+
+  buscarEquipoPorImei: (imei: string): Promise<{ equipo: Equipo | null }> =>
+    pedir(`/equipos/imei/${encodeURIComponent(imei)}`),
 
   registrarEquipos: (datos: {
     productoId: string
