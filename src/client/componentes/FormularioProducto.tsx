@@ -18,6 +18,7 @@ import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
 import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
+import { ModalRecorteImagen } from './ModalRecorteImagen'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
@@ -84,6 +85,12 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [leyendoFoto, setLeyendoFoto] = useState<CampoEscaneable | null>(null)
   const [idOperacionProducto] = useState(nuevaOperacion)
   const [idOperacionEquipos] = useState(nuevaOperacion)
+  const [recortePendiente, setRecortePendiente] = useState<{
+    archivo: File | Blob
+    titulo: string
+    subtitulo?: string
+    onListo: (resultado: Blob) => void
+  } | null>(null)
 
   const refArchivoGaleria = useRef<HTMLInputElement | null>(null)
   const refArchivoCamara = useRef<HTMLInputElement | null>(null)
@@ -220,7 +227,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     })
   }
 
-  const leerFotoDeCodigo = async (campo: CampoEscaneable, archivo: File): Promise<void> => {
+  const leerFotoDeCodigo = async (campo: CampoEscaneable, archivo: Blob | File): Promise<void> => {
     setLeyendoFoto(campo)
     try {
       const valor = await leerCodigoDeFoto(archivo)
@@ -245,6 +252,17 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     }
   }
 
+  const iniciarLecturaFoto = (campo: CampoEscaneable, etiqueta: string, archivo: File): void => {
+    setRecortePendiente({
+      archivo,
+      titulo: `Recortar ${etiqueta}`,
+      subtitulo: 'Enfoca las líneas del código o usa la foto completa',
+      onListo: (resultado) => {
+        void leerFotoDeCodigo(campo, resultado)
+      },
+    })
+  }
+
   // Las URL de vista previa hay que liberarlas o se acumulan en memoria
   // durante una sesion de altas.
   useEffect(() => {
@@ -258,6 +276,38 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     const cupo = 5 - fotos.length
     if (cupo <= 0) {
       avisos.información('El límite es de 5 fotos por producto')
+      return
+    }
+
+    if (archivos.length === 1 && archivos[0]) {
+      const archivoUnico = archivos[0]
+      setRecortePendiente({
+        archivo: archivoUnico,
+        titulo: 'Ajustar foto del producto',
+        subtitulo: 'Puedes recortar el encuadre o usar la foto completa',
+        onListo: async (resultado) => {
+          try {
+            const preparada = await prepararFoto(resultado)
+            setFotos((anteriores) => {
+              if (anteriores.length >= 5) {
+                liberarVista(preparada.vista)
+                return anteriores
+              }
+              return [
+                ...anteriores,
+                {
+                  id: Math.random().toString(36).slice(2, 9),
+                  archivo: preparada.archivo,
+                  vista: preparada.vista,
+                },
+              ]
+            })
+            avisos.exito('Foto agregada')
+          } catch {
+            avisos.error('No se pudo procesar la foto')
+          }
+        },
+      })
       return
     }
 
@@ -424,7 +474,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         error={campos.codigo}
         onChange={setCodigo}
         onEscanear={onEscanear === undefined ? undefined : () => onEscanear('codigo')}
-        onSubirFoto={(archivo) => void leerFotoDeCodigo('codigo', archivo)}
+        onSubirFoto={(archivo) => iniciarLecturaFoto('codigo', 'código de barras', archivo)}
         leyendoFoto={leyendoFoto === 'codigo'}
         inputMode="text"
         autoComplete="off"
@@ -502,7 +552,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
                 }
                 onChange={(valor) => manejarCambioImei(indice, equipo.id, 'imei1', valor)}
                 onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)}
-                onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei1:${equipo.id}`, archivo)}
+                onSubirFoto={(archivo) => iniciarLecturaFoto(`imei1:${equipo.id}`, `IMEI 1 (Equipo ${indice + 1})`, archivo)}
                 leyendoFoto={leyendoFoto === `imei1:${equipo.id}`}
                 inputMode="numeric"
                 placeholder="15 dígitos"
@@ -520,7 +570,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
                 }
                 onChange={(valor) => manejarCambioImei(indice, equipo.id, 'imei2', valor)}
                 onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)}
-                onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei2:${equipo.id}`, archivo)}
+                onSubirFoto={(archivo) => iniciarLecturaFoto(`imei2:${equipo.id}`, `IMEI 2 (Equipo ${indice + 1})`, archivo)}
                 leyendoFoto={leyendoFoto === `imei2:${equipo.id}`}
                 inputMode="numeric"
                 placeholder="Opcional"
@@ -692,6 +742,19 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           {productoExistente === null ? 'Guardar producto' : `Agregar a ${productoExistente.nombre}`}
         </Boton>
       </div>
+
+      <ModalRecorteImagen
+        abierto={recortePendiente !== null}
+        archivo={recortePendiente?.archivo ?? null}
+        titulo={recortePendiente?.titulo}
+        subtitulo={recortePendiente?.subtitulo}
+        onConfirmar={(resultado) => {
+          const accion = recortePendiente?.onListo
+          setRecortePendiente(null)
+          accion?.(resultado)
+        }}
+        onCancelar={() => setRecortePendiente(null)}
+      />
     </div>
   )
 }

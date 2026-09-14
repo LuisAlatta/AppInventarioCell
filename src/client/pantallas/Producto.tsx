@@ -21,6 +21,7 @@ import { CampoTexto } from '../componentes/Campo'
 import { CampoMarcaPredictivo } from '../componentes/CampoMarcaPredictivo'
 import { Confirmacion } from '../componentes/Confirmacion'
 import { Marco } from '../componentes/Marco'
+import { ModalRecorteImagen } from '../componentes/ModalRecorteImagen'
 import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { NOMBRE_MOVIMIENTO, cuandoFue, dinero, fechaLarga, numero } from '../lib/formato'
@@ -45,6 +46,7 @@ export function Producto() {
   const [accionProducto, setAccionProducto] = useState<'desactivar' | 'eliminar' | null>(null)
   const [imagenPorQuitar, setImagenPorQuitar] = useState<{ id: string; clave: string } | null>(null)
   const [subiendoImagen, setSubiendoImagen] = useState(false)
+  const [fotoParaRecortar, setFotoParaRecortar] = useState<File | null>(null)
   const refFotos = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -182,6 +184,10 @@ export function Producto() {
               const archivos = e.target.files
               e.target.value = ''
               if (!archivos || archivos.length === 0) return
+              if (archivos.length === 1 && archivos[0]) {
+                setFotoParaRecortar(archivos[0])
+                return
+              }
               void (async () => {
                 setSubiendoImagen(true)
                 try {
@@ -348,6 +354,31 @@ export function Producto() {
       >
         Buscar otro producto
       </button>
+
+      <ModalRecorteImagen
+        abierto={fotoParaRecortar !== null}
+        archivo={fotoParaRecortar}
+        titulo={`Foto de ${ficha.nombre}`}
+        subtitulo="Puedes recortar el encuadre o usar la foto completa"
+        onConfirmar={(resultado) => {
+          setFotoParaRecortar(null)
+          void (async () => {
+            setSubiendoImagen(true)
+            try {
+              const preparada = await prepararFoto(resultado)
+              await api.agregarImagenProducto(ficha.id, preparada.archivo)
+              void cliente.invalidateQueries({ queryKey: ['imagenes', id] })
+              void cliente.invalidateQueries({ queryKey: ['producto', id] })
+              avisos.exito('Foto agregada')
+            } catch (causa) {
+              avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo agregar la foto')
+            } finally {
+              setSubiendoImagen(false)
+            }
+          })()
+        }}
+        onCancelar={() => setFotoParaRecortar(null)}
+      />
     </Marco>
   )
 }
