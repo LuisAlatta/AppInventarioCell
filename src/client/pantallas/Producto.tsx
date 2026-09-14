@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { Camera, ImageUp, X } from 'lucide-react'
 import { ErrorDeApi, api, urlDeImagen } from '../api/cliente'
 import { AccionesProducto } from '../componentes/AccionesProducto'
 import { SugerenciaReposicion } from '../componentes/SugerenciaReposicion'
@@ -26,6 +26,7 @@ import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { NOMBRE_MOVIMIENTO, cuandoFue, dinero, fechaLarga, numero } from '../lib/formato'
 import { prepararFoto } from '../lib/imagen'
+import { leerCodigoDeFoto } from '../escaner/lecturaCodigo'
 import { verificarImeiEnBd } from '../lib/validacionImei'
 import type { ProductoConStock } from '@compartido/tipos'
 
@@ -48,6 +49,7 @@ export function Producto() {
   const [subiendoImagen, setSubiendoImagen] = useState(false)
   const [fotoParaRecortar, setFotoParaRecortar] = useState<File | null>(null)
   const refFotos = useRef<HTMLInputElement>(null)
+  const refCamara = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (abrirVenta) {
@@ -172,8 +174,43 @@ export function Producto() {
           <div className="flex items-center justify-between"><Etiqueta>Fotos del producto</Etiqueta><span className="text-[0.75rem] text-tinta-tenue">{galeria.data?.imagenes.length ?? 0}/5</span></div>
           <div className="grid grid-cols-3 gap-2">
             {(galeria.data?.imagenes ?? []).map((imagen) => <div key={imagen.id} className="relative aspect-square overflow-hidden rounded-2xl border border-borde bg-papel-hundido"><img src={urlDeImagen(imagen.clave) ?? ''} alt={`Foto ${imagen.posicion + 1} de ${ficha.nombre}`} className="size-full object-cover" /><button type="button" aria-label={`Quitar foto ${imagen.posicion + 1}`} onClick={() => setImagenPorQuitar(imagen)} className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-tinta/70 text-white"><X aria-hidden="true" className="size-4" strokeWidth={2.5} /></button></div>)}
-            {(galeria.data?.imagenes.length ?? 0) < 5 && <button type="button" disabled={subiendoImagen} onClick={() => refFotos.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-accion/40 bg-accion-tenue text-[0.8125rem] font-semibold text-accion disabled:opacity-50">{subiendoImagen ? 'Subiendo…' : '+ Foto'}</button>}
+            {(galeria.data?.imagenes.length ?? 0) < 5 && (
+              <>
+                <button
+                  type="button"
+                  disabled={subiendoImagen}
+                  onClick={() => refCamara.current?.click()}
+                  className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-accion/40 bg-accion-tenue p-2 text-center text-[0.75rem] font-semibold text-accion transition active:scale-95 disabled:opacity-50"
+                >
+                  <Camera className="size-5" strokeWidth={2.2} />
+                  <span>Tomar foto</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={subiendoImagen}
+                  onClick={() => refFotos.current?.click()}
+                  className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-borde bg-papel-hundido p-2 text-center text-[0.75rem] font-semibold text-tinta-suave transition active:scale-95 disabled:opacity-50"
+                >
+                  <ImageUp className="size-5" strokeWidth={2.2} />
+                  <span>Subir foto</span>
+                </button>
+              </>
+            )}
           </div>
+
+          <input
+            ref={refCamara}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const archivo = e.target.files?.[0]
+              e.target.value = ''
+              if (archivo) setFotoParaRecortar(archivo)
+            }}
+          />
+
           <input
             ref={refFotos}
             type="file"
@@ -394,6 +431,32 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
   const [condicion, setCondicion] = useState<'new' | 'used'>('new')
   const [notas, setNotas] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [recorteImei, setRecorteImei] = useState<{
+    tipo: 'imei1' | 'imei2'
+    archivo: File | Blob
+  } | null>(null)
+  const [leyendoFotoImei, setLeyendoFotoImei] = useState<'imei1' | 'imei2' | null>(null)
+  const refCamaraImei1 = useRef<HTMLInputElement>(null)
+  const refGaleriaImei1 = useRef<HTMLInputElement>(null)
+  const refCamaraImei2 = useRef<HTMLInputElement>(null)
+  const refGaleriaImei2 = useRef<HTMLInputElement>(null)
+
+  const procesarFotoImei = async (tipo: 'imei1' | 'imei2', blob: Blob) => {
+    setLeyendoFotoImei(tipo)
+    try {
+      const valor = await leerCodigoDeFoto(blob)
+      if (!valor) {
+        avisos.error('No se encontró un código legible en esa foto')
+        return
+      }
+      if (tipo === 'imei1') cambiarImei1(valor)
+      else cambiarImei2(valor)
+    } catch {
+      avisos.error('No se pudo procesar la foto')
+    } finally {
+      setLeyendoFotoImei(null)
+    }
+  }
 
   useEffect(() => {
     let cancelado = false
@@ -473,26 +536,135 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
       <p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.875rem] text-tinta-suave">
         Entrada de una unidad en <strong>{activa?.nombre ?? 'sin ubicación'}</strong>.
       </p>
-      <div className="grid grid-cols-2 gap-3">
-        <CampoTexto
-          etiqueta="IMEI 1"
-          value={imei1}
-          error={errorImei1}
-          ayuda={!errorImei1 && imei1.length >= 14 && imei1.length <= 17 ? `IMEI válido (${imei1.length} dígitos)` : undefined}
-          onChange={(e) => cambiarImei1(e.target.value)}
-          inputMode="numeric"
-          placeholder="15 dígitos"
-          autoFocus
-        />
-        <CampoTexto
-          etiqueta="IMEI 2"
-          value={imei2}
-          error={errorImei2}
-          ayuda={!errorImei2 && imei2.length >= 14 && imei2.length <= 17 ? `IMEI válido (${imei2.length} dígitos)` : undefined}
-          onChange={(e) => cambiarImei2(e.target.value)}
-          inputMode="numeric"
-          placeholder="Opcional"
-        />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[0.8125rem] font-medium text-tinta-suave">IMEI 1</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              value={imei1}
+              aria-invalid={errorImei1 !== undefined}
+              onChange={(e) => cambiarImei1(e.target.value)}
+              className={`min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 py-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
+                errorImei1 === undefined ? 'border-borde' : 'border-falta'
+              }`}
+              inputMode="numeric"
+              placeholder="15 dígitos"
+              autoFocus
+            />
+            <input
+              ref={refCamaraImei1}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const a = e.target.files?.[0]
+                if (a) setRecorteImei({ tipo: 'imei1', archivo: a })
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Tomar foto de IMEI 1"
+              title="Tomar foto con cámara"
+              disabled={leyendoFotoImei !== null}
+              onClick={() => refCamaraImei1.current?.click()}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
+            >
+              <Camera className="size-5" strokeWidth={2} />
+            </button>
+            <input
+              ref={refGaleriaImei1}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const a = e.target.files?.[0]
+                if (a) setRecorteImei({ tipo: 'imei1', archivo: a })
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Subir foto de IMEI 1"
+              title="Subir foto de galería"
+              disabled={leyendoFotoImei !== null}
+              onClick={() => refGaleriaImei1.current?.click()}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
+            >
+              <ImageUp className="size-5" strokeWidth={2} />
+            </button>
+          </div>
+          {leyendoFotoImei === 'imei1' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 1…</p>}
+          {errorImei1 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei1}</p>}
+          {!errorImei1 && imei1.length >= 14 && imei1.length <= 17 && (
+            <p className="text-[0.75rem] text-tinta-tenue">IMEI válido ({imei1.length} dígitos)</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[0.8125rem] font-medium text-tinta-suave">IMEI 2</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              value={imei2}
+              aria-invalid={errorImei2 !== undefined}
+              onChange={(e) => cambiarImei2(e.target.value)}
+              className={`min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 py-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
+                errorImei2 === undefined ? 'border-borde' : 'border-falta'
+              }`}
+              inputMode="numeric"
+              placeholder="Opcional"
+            />
+            <input
+              ref={refCamaraImei2}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const a = e.target.files?.[0]
+                if (a) setRecorteImei({ tipo: 'imei2', archivo: a })
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Tomar foto de IMEI 2"
+              title="Tomar foto con cámara"
+              disabled={leyendoFotoImei !== null}
+              onClick={() => refCamaraImei2.current?.click()}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
+            >
+              <Camera className="size-5" strokeWidth={2} />
+            </button>
+            <input
+              ref={refGaleriaImei2}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const a = e.target.files?.[0]
+                if (a) setRecorteImei({ tipo: 'imei2', archivo: a })
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Subir foto de IMEI 2"
+              title="Subir foto de galería"
+              disabled={leyendoFotoImei !== null}
+              onClick={() => refGaleriaImei2.current?.click()}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
+            >
+              <ImageUp className="size-5" strokeWidth={2} />
+            </button>
+          </div>
+          {leyendoFotoImei === 'imei2' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 2…</p>}
+          {errorImei2 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei2}</p>}
+          {!errorImei2 && imei2.length >= 14 && imei2.length <= 17 && (
+            <p className="text-[0.75rem] text-tinta-tenue">IMEI válido ({imei2.length} dígitos)</p>
+          )}
+        </div>
       </div>
       <SelectorEquipo
         etiqueta="Lista blanca"
@@ -515,6 +687,19 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
       <Boton ancho cargando={enviando} onClick={() => void guardar()}>
         Guardar equipo
       </Boton>
+
+      <ModalRecorteImagen
+        abierto={recorteImei !== null}
+        archivo={recorteImei?.archivo ?? null}
+        titulo={recorteImei?.tipo === 'imei1' ? 'Recortar IMEI 1' : 'Recortar IMEI 2'}
+        subtitulo="Enfoca los dígitos del código o usa la foto completa"
+        onConfirmar={(resultado) => {
+          const tipo = recorteImei?.tipo
+          setRecorteImei(null)
+          if (tipo) void procesarFotoImei(tipo, resultado)
+        }}
+        onCancelar={() => setRecorteImei(null)}
+      />
     </div>
   )
 }

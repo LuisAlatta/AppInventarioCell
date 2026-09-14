@@ -12,7 +12,7 @@
 
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ImagePlus } from 'lucide-react'
+import { Camera, Check, ImagePlus, ImageUp } from 'lucide-react'
 import type { Ubicacion } from '@compartido/tipos'
 import { ErrorDeApi, api, urlDeImagen } from '../api/cliente'
 import { Boton } from '../componentes/Boton'
@@ -22,6 +22,7 @@ import { HojaInferior } from '../componentes/HojaInferior'
 import { IconoUbicacion, normalizarIconoUbicacion, OPCIONES_ICONO_UBICACION } from '../componentes/IconoUbicacion'
 import { Confirmacion } from '../componentes/Confirmacion'
 import { Marco } from '../componentes/Marco'
+import { ModalRecorteImagen } from '../componentes/ModalRecorteImagen'
 import { useAvisos } from '../contexto/Avisos'
 import { numero } from '../lib/formato'
 import { liberarVista, prepararFoto } from '../lib/imagen'
@@ -192,15 +193,18 @@ function FormularioUbicacion({
   const [confirmando, setConfirmando] = useState(false)
 
   const refArchivo = useRef<HTMLInputElement | null>(null)
+  const refCamara = useRef<HTMLInputElement | null>(null)
+  const [fotoParaRecortar, setFotoParaRecortar] = useState<File | null>(null)
   const fotoActual = urlDeImagen(ubicacion?.claveImagen ?? null)
 
-  const elegirFoto = async (archivo: File): Promise<void> => {
+  const aplicarFotoRecortada = async (resultado: Blob): Promise<void> => {
     try {
-      const lista = await prepararFoto(archivo)
+      const lista = await prepararFoto(resultado)
       setFoto((anterior) => {
         if (anterior !== null) liberarVista(anterior.vista)
         return lista
       })
+      avisos.exito('Foto ajustada')
     } catch {
       avisos.error('No se pudo procesar esa foto')
     }
@@ -318,11 +322,7 @@ function FormularioUbicacion({
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => refArchivo.current?.click()}
-          className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-borde-fuerte bg-superficie text-tinta-tenue transition active:bg-papel-hundido"
-        >
+        <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-borde-fuerte bg-superficie text-tinta-tenue">
           {foto !== null ? (
             <img src={foto.vista} alt="" className="size-full object-cover" />
           ) : fotoActual !== null ? (
@@ -330,12 +330,42 @@ function FormularioUbicacion({
           ) : (
             <ImagePlus aria-hidden="true" className="size-6" />
           )}
-        </button>
-
-        <div className="flex flex-col gap-0.5">
-          <p className="text-[0.9375rem] font-medium">Foto de la fachada</p>
-          <p className="text-[0.8125rem] text-tinta-tenue">Opcional.</p>
         </div>
+
+        <div className="flex flex-1 flex-col gap-1.5">
+          <p className="text-[0.875rem] font-semibold text-tinta">Foto de la fachada</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => refCamara.current?.click()}
+              className="flex min-h-10 items-center gap-1.5 rounded-xl border border-accion/30 bg-accion-tenue px-3 text-[0.8125rem] font-semibold text-accion transition active:scale-95"
+            >
+              <Camera className="size-4" strokeWidth={2.2} />
+              <span>Cámara</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => refArchivo.current?.click()}
+              className="flex min-h-10 items-center gap-1.5 rounded-xl border border-borde bg-papel-hundido px-3 text-[0.8125rem] font-semibold text-tinta-suave transition active:scale-95"
+            >
+              <ImageUp className="size-4" strokeWidth={2.2} />
+              <span>Galería</span>
+            </button>
+          </div>
+        </div>
+
+        <input
+          ref={refCamara}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const archivo = e.target.files?.[0]
+            if (archivo !== undefined) setFotoParaRecortar(archivo)
+            e.target.value = ''
+          }}
+        />
 
         <input
           ref={refArchivo}
@@ -344,7 +374,7 @@ function FormularioUbicacion({
           className="hidden"
           onChange={(e) => {
             const archivo = e.target.files?.[0]
-            if (archivo !== undefined) void elegirFoto(archivo)
+            if (archivo !== undefined) setFotoParaRecortar(archivo)
             e.target.value = ''
           }}
         />
@@ -376,6 +406,18 @@ function FormularioUbicacion({
         </Boton>
       </div>
       <Confirmacion abierta={confirmando} titulo={`${ubicacion === null ? '¿Crear' : '¿Guardar cambios de'} ${nombre.trim() || 'esta ubicación'}?`} detalle={ubicacion === null ? `Se creará ${nombre.trim() || 'la nueva ubicación'} con los datos elegidos.` : `Confirma los cambios para ${nombre.trim() || ubicacion.nombre}.`} confirmar={ubicacion === null ? 'Crear ubicación' : 'Guardar cambios'} onCancelar={() => setConfirmando(false)} onConfirmar={() => { setConfirmando(false); void guardar() }} />
+
+      <ModalRecorteImagen
+        abierto={fotoParaRecortar !== null}
+        archivo={fotoParaRecortar}
+        titulo="Foto de la fachada"
+        subtitulo="Puedes recortar el encuadre o usar la foto completa"
+        onConfirmar={(resultado) => {
+          setFotoParaRecortar(null)
+          void aplicarFotoRecortada(resultado)
+        }}
+        onCancelar={() => setFotoParaRecortar(null)}
+      />
     </div>
   )
 }

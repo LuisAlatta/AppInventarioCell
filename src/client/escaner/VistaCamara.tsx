@@ -11,6 +11,7 @@
  */
 
 import type { ReactNode } from 'react'
+import { Camera } from 'lucide-react'
 import type { Escaner } from './useEscaner'
 import { Boton, Girador } from '../componentes/Boton'
 import { ErrorEnPantalla } from '../componentes/Estados'
@@ -20,10 +21,25 @@ interface VistaCamaraProps {
   /** Texto de apoyo sobre la guia, por ejemplo el avance de un conteo. */
   indicacion?: ReactNode
   onEscribirCodigo: () => void
+  onTomarFoto?: (blob: Blob) => void
 }
 
-export function VistaCamara({ escaner, indicacion, onEscribirCodigo }: VistaCamaraProps) {
+export function VistaCamara({ escaner, indicacion, onEscribirCodigo, onTomarFoto }: VistaCamaraProps) {
   const { estado, problema, refVideo } = escaner
+
+  const capturarFotoActual = () => {
+    const video = refVideo.current
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) return
+    const lienzo = document.createElement('canvas')
+    lienzo.width = video.videoWidth
+    lienzo.height = video.videoHeight
+    const ctx = lienzo.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0, lienzo.width, lienzo.height)
+    lienzo.toBlob((blob) => {
+      if (blob) onTomarFoto?.(blob)
+    }, 'image/jpeg', 0.95)
+  }
 
   return (
     <div className="relative flex-1 overflow-hidden bg-tinta">
@@ -48,10 +64,23 @@ export function VistaCamara({ escaner, indicacion, onEscribirCodigo }: VistaCama
           </div>
 
           {indicacion !== undefined && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-tinta/75 px-4 py-2 text-[0.875rem] font-medium text-white backdrop-blur-sm">
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded-full bg-tinta/75 px-4 py-2 text-[0.875rem] font-medium text-white backdrop-blur-sm">
               {indicacion}
             </div>
           )}
+        </div>
+      )}
+
+      {estado === 'leyendo' && onTomarFoto !== undefined && (
+        <div className="absolute bottom-4 inset-x-0 flex justify-center z-10 px-4">
+          <button
+            type="button"
+            onClick={capturarFotoActual}
+            className="flex items-center gap-2 rounded-full border border-white/30 bg-black/60 px-5 py-2.5 text-[0.875rem] font-semibold text-white shadow-xl backdrop-blur-md transition active:scale-95 active:bg-black/80"
+          >
+            <Camera className="size-4.5" strokeWidth={2.2} />
+            <span>Tomar foto y recortar</span>
+          </button>
         </div>
       )}
 

@@ -61,11 +61,12 @@ interface FormularioProductoProps {
   codigoInicial?: string
   onEscanear?: (campo: CampoEscaneable) => void
   lectura?: { campo: CampoEscaneable; valor: string } | null
+  fotoParaRecortar?: { campo: CampoEscaneable; archivo: Blob } | null
   onCreado: (producto: ProductoConStock) => void
   onCancelar: () => void
 }
 
-export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = null, onCreado, onCancelar }: FormularioProductoProps) {
+export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = null, fotoParaRecortar = null, onCreado, onCancelar }: FormularioProductoProps) {
   const avisos = useAvisos()
   const { activa } = useUbicacion()
 
@@ -116,6 +117,17 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       }
     }
   }, [lectura])
+
+  useEffect(() => {
+    if (!fotoParaRecortar) return
+    const etiqueta =
+      fotoParaRecortar.campo === 'codigo'
+        ? 'código de barras'
+        : fotoParaRecortar.campo.startsWith('imei1:')
+          ? 'IMEI 1'
+          : 'IMEI 2'
+    iniciarLecturaFoto(fotoParaRecortar.campo, etiqueta, fotoParaRecortar.archivo)
+  }, [fotoParaRecortar])
 
   useEffect(() => {
     if (!mostrarModelos) return
@@ -252,7 +264,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     }
   }
 
-  const iniciarLecturaFoto = (campo: CampoEscaneable, etiqueta: string, archivo: File): void => {
+  const iniciarLecturaFoto = (campo: CampoEscaneable, etiqueta: string, archivo: File | Blob): void => {
     setRecortePendiente({
       archivo,
       titulo: `Recortar ${etiqueta}`,
@@ -759,13 +771,127 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   )
 }
 
-function CampoConEscaner({ etiqueta, value, onChange, onEscanear, onSubirFoto, leyendoFoto = false, error, ayuda, ...atributos }: { etiqueta: string; value: string; onChange: (valor: string) => void; onEscanear?: () => void; onSubirFoto?: (archivo: File) => void; leyendoFoto?: boolean; error?: string; ayuda?: string; inputMode?: 'text' | 'numeric'; autoComplete?: string; placeholder?: string }) {
+function CampoConEscaner({
+  etiqueta,
+  value,
+  onChange,
+  onEscanear,
+  onSubirFoto,
+  leyendoFoto = false,
+  error,
+  ayuda,
+  ...atributos
+}: {
+  etiqueta: string
+  value: string
+  onChange: (valor: string) => void
+  onEscanear?: () => void
+  onSubirFoto?: (archivo: File | Blob) => void
+  leyendoFoto?: boolean
+  error?: string
+  ayuda?: string
+  inputMode?: 'text' | 'numeric'
+  autoComplete?: string
+  placeholder?: string
+}) {
   const id = useId()
-  const refFotoCodigo = useRef<HTMLInputElement | null>(null)
+  const refFotoCamara = useRef<HTMLInputElement | null>(null)
+  const refFotoGaleria = useRef<HTMLInputElement | null>(null)
   const descripcion = error === undefined ? ayuda : error
   const idDescripcion = `${id}-descripcion`
 
-  return <div className="flex flex-col gap-1.5"><label htmlFor={id} className="text-[0.8125rem] font-medium text-tinta-suave">{etiqueta}</label><div className="grid grid-cols-[minmax(0,1fr)_3.25rem_3.25rem] items-center gap-2"><input id={id} value={value} aria-invalid={error !== undefined} aria-describedby={descripcion === undefined ? undefined : idDescripcion} onChange={(evento) => onChange(evento.target.value)} className={`w-full rounded-xl border bg-superficie px-4 py-3.5 text-[1rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${error === undefined ? 'border-borde' : 'border-falta'}`} {...atributos} /><button type="button" aria-label={`Escanear ${etiqueta}`} disabled={onEscanear === undefined} onClick={onEscanear} className="flex size-[3.25rem] items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"><ScanLine aria-hidden="true" className="size-5" strokeWidth={2} /></button><input ref={refFotoCodigo} type="file" accept="image/*" className="hidden" onChange={(evento) => { const archivo = evento.target.files?.[0]; if (archivo !== undefined) onSubirFoto?.(archivo); evento.target.value = '' }} /><button type="button" aria-label={`Leer ${etiqueta} desde una foto`} disabled={onSubirFoto === undefined || leyendoFoto} onClick={() => refFotoCodigo.current?.click()} className="flex size-[3.25rem] items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"><ImageUp aria-hidden="true" className="size-5" strokeWidth={2} /></button></div>{leyendoFoto && <p className="text-[0.75rem] text-accion">Leyendo código de la foto…</p>}{descripcion !== undefined && <p id={idDescripcion} className={`text-[0.75rem] ${error === undefined ? 'text-tinta-tenue' : 'font-medium text-falta'}`}>{descripcion}</p>}</div>
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-[0.8125rem] font-medium text-tinta-suave">
+        {etiqueta}
+      </label>
+      <div className="flex items-center gap-1.5">
+        <input
+          id={id}
+          value={value}
+          aria-invalid={error !== undefined}
+          aria-describedby={descripcion === undefined ? undefined : idDescripcion}
+          onChange={(evento) => onChange(evento.target.value)}
+          className={`min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 py-3.5 text-[1rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
+            error === undefined ? 'border-borde' : 'border-falta'
+          }`}
+          {...atributos}
+        />
+
+        {/* 1. Tomar foto directamente con la cámara del dispositivo */}
+        <input
+          ref={refFotoCamara}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(evento) => {
+            const archivo = evento.target.files?.[0]
+            if (archivo !== undefined) onSubirFoto?.(archivo)
+            evento.target.value = ''
+          }}
+        />
+        <button
+          type="button"
+          aria-label={`Tomar foto para ${etiqueta}`}
+          title={`Tomar foto con cámara para ${etiqueta}`}
+          disabled={onSubirFoto === undefined || leyendoFoto}
+          onClick={() => refFotoCamara.current?.click()}
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"
+        >
+          <Camera aria-hidden="true" className="size-5" strokeWidth={2} />
+        </button>
+
+        {/* 2. Subir foto desde la galería */}
+        <input
+          ref={refFotoGaleria}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(evento) => {
+            const archivo = evento.target.files?.[0]
+            if (archivo !== undefined) onSubirFoto?.(archivo)
+            evento.target.value = ''
+          }}
+        />
+        <button
+          type="button"
+          aria-label={`Subir foto de galería para ${etiqueta}`}
+          title={`Subir foto de galería para ${etiqueta}`}
+          disabled={onSubirFoto === undefined || leyendoFoto}
+          onClick={() => refFotoGaleria.current?.click()}
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave transition active:scale-95 active:bg-borde disabled:hidden"
+        >
+          <ImageUp aria-hidden="true" className="size-5" strokeWidth={2} />
+        </button>
+
+        {/* 3. Escáner en vivo con cámara */}
+        {onEscanear !== undefined && (
+          <button
+            type="button"
+            aria-label={`Escanear en vivo ${etiqueta}`}
+            title={`Escanear en vivo ${etiqueta}`}
+            onClick={onEscanear}
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion text-white transition active:scale-95 active:bg-accion/90"
+          >
+            <ScanLine aria-hidden="true" className="size-5" strokeWidth={2} />
+          </button>
+        )}
+      </div>
+
+      {leyendoFoto && (
+        <p className="text-[0.75rem] font-medium text-accion">Leyendo código de la foto…</p>
+      )}
+      {descripcion !== undefined && (
+        <p
+          id={idDescripcion}
+          className={`text-[0.75rem] ${error === undefined ? 'text-tinta-tenue' : 'font-medium text-falta'}`}
+        >
+          {descripcion}
+        </p>
+      )}
+    </div>
+  )
 }
 
 function GrupoChecks<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string, 'exito' | 'falta' | 'accion' | 'alerta'])[]; onChange: (valor: T) => void }) {
