@@ -14,7 +14,13 @@
 - Cada proyecto usa un token de Cloudflare distinto y limitado exclusivamente a su cuenta.
 - Antes de publicar, ejecutar `npx wrangler whoami` y comprobar cuenta y correo.
 - Para este proyecto, usar un token con permiso `Edit Cloudflare Workers`, restringido a la cuenta autorizada.
-- Los tokens no se guardan en Git, archivos del proyecto, documentación, chats ni variables persistentes compartidas.
+- Los tokens no se guardan en Git, documentación, chats ni variables persistentes compartidas.
+- La bóveda cifrada se guarda fuera del repositorio en `C:\Users\luis-\Documents\Proyectos\.credenciales\cloudflare.kdbx` y se abre con KeePassXC y su contraseña maestra.
+- Dentro de KeePassXC, crear el grupo `Cloudflare` y la entrada `AppInventarioCell deploy`:
+  - Usuario: `0acfa25b5f619f94d581b8cf882e2eec`.
+  - Contraseña: token de Cloudflare.
+  - URL: `https://inventario.luisalatta.workers.dev`.
+  - Notas: `Edit Cloudflare Workers`; cuenta `newluisalattago@gmail.com`.
 - El token se carga solo en la terminal de trabajo mediante `CLOUDFLARE_API_TOKEN` y se elimina al terminar.
 - Al cambiar de proyecto o cuenta, retirar el token de la sesión y cargar el token específico del nuevo proyecto.
 
