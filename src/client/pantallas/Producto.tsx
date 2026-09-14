@@ -25,6 +25,7 @@ import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { NOMBRE_MOVIMIENTO, cuandoFue, dinero, fechaLarga, numero } from '../lib/formato'
 import { prepararFoto } from '../lib/imagen'
+import { verificarImeiEnBd } from '../lib/validacionImei'
 import type { ProductoConStock } from '@compartido/tipos'
 
 export function Producto() {
@@ -356,12 +357,79 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
   const { activa } = useUbicacion()
   const [imei1, setImei1] = useState('')
   const [imei2, setImei2] = useState('')
+  const [errorImei1, setErrorImei1] = useState<string | undefined>()
+  const [errorImei2, setErrorImei2] = useState<string | undefined>()
   const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>('not_registered')
   const [condicion, setCondicion] = useState<'new' | 'used'>('new')
   const [notas, setNotas] = useState('')
   const [enviando, setEnviando] = useState(false)
+
+  useEffect(() => {
+    let cancelado = false
+    const temporizador = window.setTimeout(async () => {
+      const v1 = imei1.trim()
+      const v2 = imei2.trim()
+
+      if (v1 !== '' && v2 !== '' && v1 === v2) {
+        setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
+        return
+      }
+
+      if (/^\d{14,17}$/.test(v1)) {
+        const existe = await verificarImeiEnBd(v1)
+        if (!cancelado && existe) setErrorImei1('Este IMEI ya está registrado en el inventario')
+      }
+
+      if (/^\d{14,17}$/.test(v2)) {
+        const existe = await verificarImeiEnBd(v2)
+        if (!cancelado && existe) setErrorImei2('Este IMEI ya está registrado en el inventario')
+      }
+    }, 300)
+
+    return () => {
+      cancelado = true
+      window.clearTimeout(temporizador)
+    }
+  }, [imei1, imei2])
+
+  const cambiarImei1 = (valorRaw: string) => {
+    const val = valorRaw.replace(/\D/g, '').slice(0, 17)
+    setImei1(val)
+    if (val.length === 0) setErrorImei1(undefined)
+    else if (val.length < 14) setErrorImei1(`El IMEI debe tener al menos 14 dígitos (llevas ${val.length})`)
+    else setErrorImei1(undefined)
+  }
+
+  const cambiarImei2 = (valorRaw: string) => {
+    const val = valorRaw.replace(/\D/g, '').slice(0, 17)
+    setImei2(val)
+    if (val.length === 0) setErrorImei2(undefined)
+    else if (val.length < 14) setErrorImei2(`El IMEI debe tener al menos 14 dígitos (llevas ${val.length})`)
+    else if (imei1 !== '' && val === imei1) setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
+    else setErrorImei2(undefined)
+  }
+
   const guardar = async (): Promise<void> => {
     if (activa === null) { avisos.error('Elige una ubicación antes de registrar el equipo'); return }
+    if (errorImei1 || errorImei2) {
+      avisos.error(errorImei1 ?? errorImei2 ?? 'Revisa los IMEI ingresados')
+      return
+    }
+    if (imei1 !== '' && !/^\d{14,17}$/.test(imei1)) {
+      setErrorImei1('El IMEI debe tener entre 14 y 17 dígitos')
+      avisos.error('El IMEI debe tener entre 14 y 17 dígitos')
+      return
+    }
+    if (imei2 !== '' && !/^\d{14,17}$/.test(imei2)) {
+      setErrorImei2('El IMEI debe tener entre 14 y 17 dígitos')
+      avisos.error('El IMEI debe tener entre 14 y 17 dígitos')
+      return
+    }
+    if (imei1 !== '' && imei2 !== '' && imei1 === imei2) {
+      setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
+      avisos.error('IMEI 1 e IMEI 2 deben ser distintos')
+      return
+    }
     setEnviando(true)
     try {
       await api.registrarEquipos({ productoId, ubicacionId: activa.id, equipos: [{ imei1: imei1 || null, imei2: imei2 || null, listaBlanca, condicion, notas: notas.trim() || null }] })
@@ -369,7 +437,55 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
       onListo()
     } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo registrar el equipo') } finally { setEnviando(false) }
   }
-  return <div className="flex flex-col gap-4 pb-3"><p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.875rem] text-tinta-suave">Entrada de una unidad en <strong>{activa?.nombre ?? 'sin ubicación'}</strong>.</p><div className="grid grid-cols-2 gap-3"><CampoTexto etiqueta="IMEI 1" value={imei1} onChange={(e) => setImei1(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="15 dígitos" autoFocus /><CampoTexto etiqueta="IMEI 2" value={imei2} onChange={(e) => setImei2(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="Opcional" /></div><SelectorEquipo etiqueta="Lista blanca" valor={listaBlanca} opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]} onChange={setListaBlanca} /><SelectorEquipo etiqueta="Condición" valor={condicion} opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]} onChange={setCondicion} /><CampoTexto etiqueta="Nota u observación" value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Opcional" /><Boton ancho cargando={enviando} onClick={() => void guardar()}>Guardar equipo</Boton></div>
+  return (
+    <div className="flex flex-col gap-4 pb-3">
+      <p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.875rem] text-tinta-suave">
+        Entrada de una unidad en <strong>{activa?.nombre ?? 'sin ubicación'}</strong>.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <CampoTexto
+          etiqueta="IMEI 1"
+          value={imei1}
+          error={errorImei1}
+          ayuda={!errorImei1 && imei1.length >= 14 && imei1.length <= 17 ? `IMEI válido (${imei1.length} dígitos)` : undefined}
+          onChange={(e) => cambiarImei1(e.target.value)}
+          inputMode="numeric"
+          placeholder="15 dígitos"
+          autoFocus
+        />
+        <CampoTexto
+          etiqueta="IMEI 2"
+          value={imei2}
+          error={errorImei2}
+          ayuda={!errorImei2 && imei2.length >= 14 && imei2.length <= 17 ? `IMEI válido (${imei2.length} dígitos)` : undefined}
+          onChange={(e) => cambiarImei2(e.target.value)}
+          inputMode="numeric"
+          placeholder="Opcional"
+        />
+      </div>
+      <SelectorEquipo
+        etiqueta="Lista blanca"
+        valor={listaBlanca}
+        opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]}
+        onChange={setListaBlanca}
+      />
+      <SelectorEquipo
+        etiqueta="Condición"
+        valor={condicion}
+        opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]}
+        onChange={setCondicion}
+      />
+      <CampoTexto
+        etiqueta="Nota u observación"
+        value={notas}
+        onChange={(e) => setNotas(e.target.value)}
+        placeholder="Opcional"
+      />
+      <Boton ancho cargando={enviando} onClick={() => void guardar()}>
+        Guardar equipo
+      </Boton>
+    </div>
+  )
 }
 
 function FormularioEdicionProducto({ producto, onCerrar, onDesactivar, onEliminar, onGuardado }: { producto: ProductoConStock; onCerrar: () => void; onDesactivar: () => void; onEliminar: () => void; onGuardado: () => void }) {

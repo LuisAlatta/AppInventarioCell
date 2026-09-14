@@ -23,6 +23,7 @@ import { liberarVista, prepararFoto } from '../lib/imagen'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { leerCodigoDeFoto } from '../escaner/lecturaCodigo'
+import { validarDuplicadosLocales, validarFormatoImei, verificarImeiEnBd } from '../lib/validacionImei'
 
 export type CampoEscaneable = 'codigo' | `imei1:${string}` | `imei2:${string}`
 
@@ -100,7 +101,12 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     if (lectura.campo === 'codigo') setCodigo(lectura.valor)
     if (lectura.campo !== 'codigo') {
       const [campo, id] = lectura.campo.split(':') as ['imei1' | 'imei2', string]
-      setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, [campo]: lectura.valor.replace(/\D/g, '') } : equipo))
+      const indice = equipos.findIndex((e) => e.id === id)
+      if (indice !== -1) {
+        manejarCambioImei(indice, id, campo, lectura.valor)
+      } else {
+        setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, [campo]: lectura.valor.replace(/\D/g, '') } : equipo))
+      }
     }
   }, [lectura])
 
@@ -138,6 +144,82 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, ...cambio } : equipo))
   }
 
+  // Validación reactiva de IMEIs mientras el usuario digita (duplicados y existencia en BD)
+  useEffect(() => {
+    let cancelado = false
+
+    const temporizador = window.setTimeout(async () => {
+      const erroresDuplicados = validarDuplicadosLocales(equipos)
+      const nuevosErroresBd: Record<string, string> = {}
+
+      for (const [indice, eq] of equipos.entries()) {
+        for (const tipo of ['imei1', 'imei2'] as const) {
+          const valor = eq[tipo].trim()
+          const clave = `equipos.${indice}.${tipo}`
+
+          if (valor === '') continue
+          if (erroresDuplicados[clave] !== undefined) continue
+
+          if (/^\d{14,17}$/.test(valor)) {
+            const yaExiste = await verificarImeiEnBd(valor)
+            if (cancelado) return
+            if (yaExiste) {
+              nuevosErroresBd[clave] = 'Este IMEI ya está registrado en el inventario'
+            }
+          }
+        }
+      }
+
+      if (cancelado) return
+
+      setCampos((prev) => {
+        const siguiente = { ...prev }
+        for (const k of Object.keys(siguiente)) {
+          if (k.startsWith('equipos.') && (k.endsWith('.imei1') || k.endsWith('.imei2'))) {
+            if (erroresDuplicados[k] === undefined && nuevosErroresBd[k] === undefined) {
+              if (
+                siguiente[k]?.includes('ya está') ||
+                siguiente[k]?.includes('deben ser distintos')
+              ) {
+                delete siguiente[k]
+              }
+            }
+          }
+        }
+        return { ...siguiente, ...erroresDuplicados, ...nuevosErroresBd }
+      })
+    }, 300)
+
+    return () => {
+      cancelado = true
+      window.clearTimeout(temporizador)
+    }
+  }, [equipos])
+
+  const manejarCambioImei = (
+    indice: number,
+    equipoId: string,
+    tipo: 'imei1' | 'imei2',
+    valorRaw: string,
+  ): void => {
+    const soloNumeros = valorRaw.replace(/\D/g, '').slice(0, 17)
+    actualizarEquipo(equipoId, { [tipo]: soloNumeros })
+
+    const clave = `equipos.${indice}.${tipo}`
+    setCampos((prev) => {
+      const copia = { ...prev }
+      const res = validarFormatoImei(soloNumeros)
+      if (!res.valido) {
+        copia[clave] = res.error ?? res.ayuda ?? 'El IMEI debe tener entre 14 y 17 dígitos'
+        if (indice === 0 && tipo === 'imei1') copia.imei1 = copia[clave]
+      } else {
+        delete copia[clave]
+        if (indice === 0 && tipo === 'imei1') delete copia.imei1
+      }
+      return copia
+    })
+  }
+
   const leerFotoDeCodigo = async (campo: CampoEscaneable, archivo: File): Promise<void> => {
     setLeyendoFoto(campo)
     try {
@@ -149,7 +231,12 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       if (campo === 'codigo') setCodigo(valor)
       else {
         const [tipo, id] = campo.split(':') as ['imei1' | 'imei2', string]
-        actualizarEquipo(id, { [tipo]: valor.replace(/\D/g, '') })
+        const indice = equipos.findIndex((e) => e.id === id)
+        if (indice !== -1) {
+          manejarCambioImei(indice, id, tipo, valor)
+        } else {
+          actualizarEquipo(id, { [tipo]: valor.replace(/\D/g, '') })
+        }
       }
     } catch {
       avisos.error('No se pudo leer esa foto. Prueba con otra más nítida.')
@@ -225,7 +312,8 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       return
     }
 
-    const erroresImei: Record<string, string> = {}
+    const erroresDuplicados = validarDuplicadosLocales(equipos)
+    const erroresImei: Record<string, string> = { ...erroresDuplicados }
     for (const [i, eq] of equipos.entries()) {
       if (eq.imei1.trim() !== '' && !/^\d{14,17}$/.test(eq.imei1.trim())) {
         erroresImei[`equipos.${i}.imei1`] = 'El IMEI debe tener entre 14 y 17 dígitos'
@@ -235,12 +323,16 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         erroresImei[`equipos.${i}.imei2`] = 'El IMEI debe tener entre 14 y 17 dígitos'
         erroresImei.imei2 ??= 'El IMEI debe tener entre 14 y 17 dígitos'
       }
-      if (eq.imei1.trim() !== '' && eq.imei2.trim() !== '' && eq.imei1.trim() === eq.imei2.trim()) {
-        erroresImei[`equipos.${i}.imei2`] = 'IMEI 1 e IMEI 2 deben ser distintos'
+    }
+
+    for (const [clave, mensaje] of Object.entries(campos)) {
+      if (clave.startsWith('equipos.') && mensaje) {
+        erroresImei[clave] = mensaje
       }
     }
+
     if (Object.keys(erroresImei).length > 0) {
-      setCampos(erroresImei)
+      setCampos((prev) => ({ ...prev, ...erroresImei }))
       avisos.error(Object.values(erroresImei)[0] ?? 'Revisa los IMEI ingresados')
       return
     }
@@ -401,34 +493,32 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
                 etiqueta="IMEI 1"
                 value={equipo.imei1}
                 error={campos[`equipos.${indice}.imei1`] ?? (indice === 0 ? campos.imei1 : undefined)}
-                onChange={(valor) => {
-                  actualizarEquipo(equipo.id, { imei1: valor.replace(/\D/g, '') })
-                  setCampos((prev) => {
-                    const copia = { ...prev }
-                    delete copia[`equipos.${indice}.imei1`]
-                    if (indice === 0) delete copia.imei1
-                    return copia
-                  })
-                }}
+                ayuda={
+                  !campos[`equipos.${indice}.imei1`] &&
+                  equipo.imei1.length >= 14 &&
+                  equipo.imei1.length <= 17
+                    ? `IMEI válido (${equipo.imei1.length} dígitos)`
+                    : undefined
+                }
+                onChange={(valor) => manejarCambioImei(indice, equipo.id, 'imei1', valor)}
                 onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)}
                 onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei1:${equipo.id}`, archivo)}
                 leyendoFoto={leyendoFoto === `imei1:${equipo.id}`}
                 inputMode="numeric"
-                placeholder="Opcional"
+                placeholder="15 dígitos"
               />
               <CampoConEscaner
                 etiqueta="IMEI 2"
                 value={equipo.imei2}
                 error={campos[`equipos.${indice}.imei2`] ?? (indice === 0 ? campos.imei2 : undefined)}
-                onChange={(valor) => {
-                  actualizarEquipo(equipo.id, { imei2: valor.replace(/\D/g, '') })
-                  setCampos((prev) => {
-                    const copia = { ...prev }
-                    delete copia[`equipos.${indice}.imei2`]
-                    if (indice === 0) delete copia.imei2
-                    return copia
-                  })
-                }}
+                ayuda={
+                  !campos[`equipos.${indice}.imei2`] &&
+                  equipo.imei2.length >= 14 &&
+                  equipo.imei2.length <= 17
+                    ? `IMEI válido (${equipo.imei2.length} dígitos)`
+                    : undefined
+                }
+                onChange={(valor) => manejarCambioImei(indice, equipo.id, 'imei2', valor)}
                 onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)}
                 onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei2:${equipo.id}`, archivo)}
                 leyendoFoto={leyendoFoto === `imei2:${equipo.id}`}
