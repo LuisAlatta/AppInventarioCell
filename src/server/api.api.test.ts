@@ -68,7 +68,7 @@ interface RespuestaMovimiento {
   movimiento: { id: string; cantidad: number }
 }
 interface CuerpoDeError {
-  error: { codigo: string; mensaje: string }
+  error: { codigo: string; mensaje: string; campos?: Record<string, string> }
 }
 
 /** Escenario base: un almacen, una sucursal y un producto. */

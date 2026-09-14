@@ -199,8 +199,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     }
 
     const erroresImei: Record<string, string> = {}
-    for (let i = 0; i < equipos.length; i++) {
-      const eq = equipos[i]
+    for (const [i, eq] of equipos.entries()) {
       if (eq.imei1.trim() !== '' && !/^\d{14,17}$/.test(eq.imei1.trim())) {
         erroresImei[`equipos.${i}.imei1`] = 'El IMEI debe tener entre 14 y 17 dígitos'
         erroresImei.imei1 ??= 'El IMEI debe tener entre 14 y 17 dígitos'
