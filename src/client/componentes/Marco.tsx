@@ -26,6 +26,6 @@ export function Marco({ titulo, atras = false, accion, children }: MarcoProps) {
         {accion}
       </div>
     </header>
-    <main className="mx-auto min-h-0 w-full max-w-lg flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-32">{children}</main>
+    <main id="contenido-principal" className="mx-auto min-h-0 w-full max-w-lg flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-32">{children}</main>
   </div>
 }

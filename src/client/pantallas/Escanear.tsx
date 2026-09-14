@@ -1,6 +1,6 @@
 /** Registro de productos y equipos con escaneo opcional por campo. */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Camera, PackagePlus } from 'lucide-react'
@@ -23,10 +23,10 @@ export function Escanear() {
   const [campo, setCampo] = useState<CampoEscaneable | null>(null)
   const [lectura, setLectura] = useState<{ campo: CampoEscaneable; valor: string } | null>(null)
 
-  // La pantalla anterior puede haberse quedado desplazada. Registrar siempre
+  // El desplazamiento vive dentro de Marco, no en window. Registrar siempre
   // empieza por el código de barras, nunca a mitad del formulario.
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  useLayoutEffect(() => {
+    document.getElementById('contenido-principal')?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [])
 
   const escaner = useEscaner((valor) => {

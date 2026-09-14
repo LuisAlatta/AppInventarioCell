@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, PackageCheck, Plus, ScanLine, Search, Trash2 } from 'lucide-react'
+import { ChevronDown, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2 } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -21,6 +21,7 @@ import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
 import { useUbicacion } from '../contexto/Ubicacion'
+import { leerCodigoDeFoto } from '../escaner/lecturaCodigo'
 
 export type CampoEscaneable = 'codigo' | `imei1:${string}` | `imei2:${string}`
 
@@ -78,6 +79,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [foto, setFoto] = useState<{ archivo: Blob; vista: string } | null>(null)
   const [campos, setCampos] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
+  const [leyendoFoto, setLeyendoFoto] = useState<CampoEscaneable | null>(null)
   const [idOperacionProducto] = useState(nuevaOperacion)
   const [idOperacionEquipos] = useState(nuevaOperacion)
 
@@ -132,6 +134,26 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
 
   const actualizarEquipo = (id: string, cambio: Partial<DatosEquipoNuevo>): void => {
     setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, ...cambio } : equipo))
+  }
+
+  const leerFotoDeCodigo = async (campo: CampoEscaneable, archivo: File): Promise<void> => {
+    setLeyendoFoto(campo)
+    try {
+      const valor = await leerCodigoDeFoto(archivo)
+      if (valor === null) {
+        avisos.error('No se encontró un código de barras legible en esa foto')
+        return
+      }
+      if (campo === 'codigo') setCodigo(valor)
+      else {
+        const [tipo, id] = campo.split(':') as ['imei1' | 'imei2', string]
+        actualizarEquipo(id, { [tipo]: valor.replace(/\D/g, '') })
+      }
+    } catch {
+      avisos.error('No se pudo leer esa foto. Prueba con otra más nítida.')
+    } finally {
+      setLeyendoFoto(null)
+    }
   }
 
   // Las URL de vista previa hay que liberarlas o se acumulan en memoria
@@ -246,6 +268,8 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         error={campos.codigo}
         onChange={setCodigo}
         onEscanear={onEscanear === undefined ? undefined : () => onEscanear('codigo')}
+        onSubirFoto={(archivo) => void leerFotoDeCodigo('codigo', archivo)}
+        leyendoFoto={leyendoFoto === 'codigo'}
         inputMode="text"
         autoComplete="off"
         placeholder="Escanea o escribe el código"
@@ -293,7 +317,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           <span className="cifras rounded-lg bg-superficie px-2 py-1 text-[0.75rem] font-semibold text-accion">{equipos.length}/50</span>
         </div>
         {campos.equipos !== undefined && <p className="text-[0.75rem] font-medium text-falta">{campos.equipos}</p>}
-        {equipos.map((equipo, indice) => <fieldset key={equipo.id} className="flex flex-col gap-3 rounded-xl border border-accion/20 bg-superficie p-3"><div className="flex items-center justify-between gap-2"><legend className="text-[0.8125rem] font-semibold text-tinta">Equipo {indice + 1}</legend>{equipos.length > 1 && <button type="button" onClick={() => setEquipos((anteriores) => anteriores.filter((actual) => actual.id !== equipo.id))} aria-label={`Quitar equipo ${indice + 1}`} className="flex size-9 items-center justify-center rounded-lg text-falta active:bg-falta-tenue"><Trash2 aria-hidden="true" className="size-4" strokeWidth={2} /></button>}</div><div className="grid grid-cols-2 gap-2.5"><CampoConEscaner etiqueta="IMEI 1" value={equipo.imei1} onChange={(valor) => actualizarEquipo(equipo.id, { imei1: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)} inputMode="numeric" placeholder="Opcional" /><CampoConEscaner etiqueta="IMEI 2" value={equipo.imei2} onChange={(valor) => actualizarEquipo(equipo.id, { imei2: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)} inputMode="numeric" placeholder="Opcional" /></div><div className="grid grid-cols-2 gap-3"><GrupoChecks etiqueta="Lista blanca" valor={equipo.listaBlanca} opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { listaBlanca: valor })} /><GrupoChecks etiqueta="Condición" valor={equipo.condicion} opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { condicion: valor })} /></div></fieldset>)}
+        {equipos.map((equipo, indice) => <fieldset key={equipo.id} className="flex flex-col gap-3 rounded-xl border border-accion/20 bg-superficie p-3"><div className="flex items-center justify-between gap-2"><legend className="text-[0.8125rem] font-semibold text-tinta">Equipo {indice + 1}</legend>{equipos.length > 1 && <button type="button" onClick={() => setEquipos((anteriores) => anteriores.filter((actual) => actual.id !== equipo.id))} aria-label={`Quitar equipo ${indice + 1}`} className="flex size-9 items-center justify-center rounded-lg text-falta active:bg-falta-tenue"><Trash2 aria-hidden="true" className="size-4" strokeWidth={2} /></button>}</div><div className="flex flex-col gap-3"><CampoConEscaner etiqueta="IMEI 1" value={equipo.imei1} onChange={(valor) => actualizarEquipo(equipo.id, { imei1: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)} onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei1:${equipo.id}`, archivo)} leyendoFoto={leyendoFoto === `imei1:${equipo.id}`} inputMode="numeric" placeholder="Opcional" /><CampoConEscaner etiqueta="IMEI 2" value={equipo.imei2} onChange={(valor) => actualizarEquipo(equipo.id, { imei2: valor.replace(/\D/g, '') })} onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)} onSubirFoto={(archivo) => void leerFotoDeCodigo(`imei2:${equipo.id}`, archivo)} leyendoFoto={leyendoFoto === `imei2:${equipo.id}`} inputMode="numeric" placeholder="Opcional" /></div><div className="grid grid-cols-2 gap-3"><GrupoChecks etiqueta="Lista blanca" valor={equipo.listaBlanca} opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { listaBlanca: valor })} /><GrupoChecks etiqueta="Condición" valor={equipo.condicion} opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]} onChange={(valor) => actualizarEquipo(equipo.id, { condicion: valor })} /></div></fieldset>)}
         <button type="button" disabled={equipos.length >= 50} onClick={() => setEquipos((anteriores) => [...anteriores, equipoVacio()])} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-accion/45 bg-superficie px-3 text-[0.875rem] font-semibold text-accion active:bg-accion/10 disabled:opacity-40"><Plus aria-hidden="true" className="size-4" strokeWidth={2.3} />Agregar otro equipo</button>
       </section>
 
@@ -350,7 +374,6 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         error={campos.nombre}
         onChange={(e) => setNombre(e.target.value)}
         placeholder="iPhone 15 Pro 128 GB"
-        autoFocus
         autoComplete="off"
       />
 
@@ -409,12 +432,13 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   )
 }
 
-function CampoConEscaner({ etiqueta, value, onChange, onEscanear, error, ayuda, ...atributos }: { etiqueta: string; value: string; onChange: (valor: string) => void; onEscanear?: () => void; error?: string; ayuda?: string; inputMode?: 'text' | 'numeric'; autoComplete?: string; placeholder?: string }) {
+function CampoConEscaner({ etiqueta, value, onChange, onEscanear, onSubirFoto, leyendoFoto = false, error, ayuda, ...atributos }: { etiqueta: string; value: string; onChange: (valor: string) => void; onEscanear?: () => void; onSubirFoto?: (archivo: File) => void; leyendoFoto?: boolean; error?: string; ayuda?: string; inputMode?: 'text' | 'numeric'; autoComplete?: string; placeholder?: string }) {
   const id = useId()
+  const refFotoCodigo = useRef<HTMLInputElement | null>(null)
   const descripcion = error === undefined ? ayuda : error
   const idDescripcion = `${id}-descripcion`
 
-  return <div className="flex flex-col gap-1.5"><label htmlFor={id} className="text-[0.8125rem] font-medium text-tinta-suave">{etiqueta}</label><div className="grid grid-cols-[minmax(0,1fr)_3.25rem] items-center gap-2"><input id={id} value={value} aria-invalid={error !== undefined} aria-describedby={descripcion === undefined ? undefined : idDescripcion} onChange={(evento) => onChange(evento.target.value)} className={`w-full rounded-xl border bg-superficie px-4 py-3.5 text-[1rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${error === undefined ? 'border-borde' : 'border-falta'}`} {...atributos} /><button type="button" aria-label={`Escanear ${etiqueta}`} disabled={onEscanear === undefined} onClick={onEscanear} className="flex size-[3.25rem] items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"><ScanLine aria-hidden="true" className="size-5" strokeWidth={2} /></button></div>{descripcion !== undefined && <p id={idDescripcion} className={`text-[0.75rem] ${error === undefined ? 'text-tinta-tenue' : 'font-medium text-falta'}`}>{descripcion}</p>}</div>
+  return <div className="flex flex-col gap-1.5"><label htmlFor={id} className="text-[0.8125rem] font-medium text-tinta-suave">{etiqueta}</label><div className="grid grid-cols-[minmax(0,1fr)_3.25rem_3.25rem] items-center gap-2"><input id={id} value={value} aria-invalid={error !== undefined} aria-describedby={descripcion === undefined ? undefined : idDescripcion} onChange={(evento) => onChange(evento.target.value)} className={`w-full rounded-xl border bg-superficie px-4 py-3.5 text-[1rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${error === undefined ? 'border-borde' : 'border-falta'}`} {...atributos} /><button type="button" aria-label={`Escanear ${etiqueta}`} disabled={onEscanear === undefined} onClick={onEscanear} className="flex size-[3.25rem] items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"><ScanLine aria-hidden="true" className="size-5" strokeWidth={2} /></button><input ref={refFotoCodigo} type="file" accept="image/*" className="hidden" onChange={(evento) => { const archivo = evento.target.files?.[0]; if (archivo !== undefined) onSubirFoto?.(archivo); evento.target.value = '' }} /><button type="button" aria-label={`Leer ${etiqueta} desde una foto`} disabled={onSubirFoto === undefined || leyendoFoto} onClick={() => refFotoCodigo.current?.click()} className="flex size-[3.25rem] items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"><ImageUp aria-hidden="true" className="size-5" strokeWidth={2} /></button></div>{leyendoFoto && <p className="text-[0.75rem] text-accion">Leyendo código de la foto…</p>}{descripcion !== undefined && <p id={idDescripcion} className={`text-[0.75rem] ${error === undefined ? 'text-tinta-tenue' : 'font-medium text-falta'}`}>{descripcion}</p>}</div>
 }
 
 function GrupoChecks<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string, 'exito' | 'falta' | 'accion' | 'alerta'])[]; onChange: (valor: T) => void }) {

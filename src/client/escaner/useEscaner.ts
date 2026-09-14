@@ -29,8 +29,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader'
-import urlWasm from 'zxing-wasm/reader/zxing_reader.wasm?url'
+import { leerCodigoDeCamara } from './lecturaCodigo'
 
 /** Cadencia de decodificacion. Ocho por segundo es de sobra para leer al vuelo. */
 const MS_ENTRE_INTENTOS = 125
@@ -43,12 +42,6 @@ const FRACCION_FRANJA = 0.45
 
 /** Ancho al que se reduce el cuadro antes de decodificar. */
 const ANCHO_ANALISIS = 640
-
-const FORMATOS = ['EAN-13', 'EAN-8', 'UPC-A', 'UPC-E', 'Code128', 'Code39', 'ITF'] as const
-
-// El modulo se apunta al archivo que sirve Vite. Sin esto, zxing lo busca en
-// una CDN: dependeria de una red externa y no funcionaria sin internet.
-prepareZXingModule({ overrides: { locateFile: () => urlWasm } })
 
 export type EstadoEscaner =
   | 'inactivo'
@@ -243,18 +236,8 @@ export function useEscaner(alLeer: (codigo: string) => void): Escaner {
 
       const imagen = contexto.getImageData(0, 0, anchoDestino, altoDestino)
 
-      const resultados = await readBarcodes(imagen, {
-        formats: [...FORMATOS],
-        tryHarder: false,
-        tryRotate: false,
-        tryInvert: false,
-        maxNumberOfSymbols: 1,
-      })
-
-      const primero = resultados.find((r) => r.isValid && r.text.length > 0)
-      if (primero === undefined) return
-
-      const codigo = primero.text.trim()
+      const codigo = await leerCodigoDeCamara(imagen)
+      if (codigo === null) return
       const ahora = Date.now()
       const último = refUltimo.current
 
