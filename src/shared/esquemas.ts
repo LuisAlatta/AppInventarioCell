@@ -81,6 +81,14 @@ export const esquemaCategoria = z.object({
 })
 
 // ---------------------------------------------------------------------------
+// Marcas
+// ---------------------------------------------------------------------------
+
+export const esquemaMarca = z.object({
+  nombre: textoCorto.min(1, 'Ponle un nombre a la marca'),
+})
+
+// ---------------------------------------------------------------------------
 // Productos
 // ---------------------------------------------------------------------------
 
@@ -268,6 +276,7 @@ export type DatosAcceso = z.infer<typeof esquemaAcceso>
 export type DatosUbicacion = z.infer<typeof esquemaUbicacion>
 export type DatosUbicacionParcial = z.infer<typeof esquemaUbicacionParcial>
 export type DatosCategoria = z.infer<typeof esquemaCategoria>
+export type DatosMarca = z.infer<typeof esquemaMarca>
 export type DatosProducto = z.infer<typeof esquemaProducto>
 export type DatosProductoParcial = z.infer<typeof esquemaProductoParcial>
 export type DatosEquipo = z.infer<typeof esquemaEquipo>

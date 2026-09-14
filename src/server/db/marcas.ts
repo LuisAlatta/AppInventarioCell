@@ -18,3 +18,23 @@ export function sentenciaGuardarMarca(db: D1Database, marca: string | null | und
     .prepare('INSERT INTO brands (id, name) VALUES (?, ?) ON CONFLICT(name) DO NOTHING')
     .bind(nuevoId('mar'), marca.trim())
 }
+
+export async function guardarMarca(db: D1Database, nombre: string): Promise<Marca> {
+  const limpio = nombre.trim()
+  const existente = await db
+    .prepare('SELECT id, name FROM brands WHERE LOWER(name) = LOWER(?) LIMIT 1')
+    .bind(limpio)
+    .first<{ id: string; name: string }>()
+
+  if (existente !== null) {
+    return { id: existente.id, nombre: existente.name }
+  }
+
+  const id = nuevoId('mar')
+  await db
+    .prepare('INSERT INTO brands (id, name) VALUES (?, ?) ON CONFLICT(name) DO NOTHING')
+    .bind(id, limpio)
+    .run()
+
+  return { id, nombre: limpio }
+}

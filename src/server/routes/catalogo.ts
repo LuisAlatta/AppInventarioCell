@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import {
   esquemaBusqueda,
   esquemaCategoria,
+  esquemaMarca,
   esquemaProducto,
   esquemaProductoParcial,
   esquemaReporteVentas,
@@ -37,7 +38,7 @@ import {
 } from '../db/productos'
 import { movimientosDeProducto, movimientosRecientes } from '../db/movimientos'
 import { reporteVentas } from '../db/reportes_ventas'
-import { listarMarcas } from '../db/marcas'
+import { guardarMarca, listarMarcas } from '../db/marcas'
 import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { buscarProductos } from '../services/busqueda'
 import type { Variables } from '../tipos_hono'
@@ -99,6 +100,10 @@ rutasCatalogo.post('/categorias', validador('json', esquemaCategoria), async (c)
 )
 
 rutasCatalogo.get('/marcas', async (c) => c.json({ marcas: await listarMarcas(c.env.DB) }))
+
+rutasCatalogo.post('/marcas', validador('json', esquemaMarca), async (c) =>
+  c.json({ marca: await guardarMarca(c.env.DB, c.req.valid('json').nombre) }, 201),
+)
 
 // ---------------------------------------------------------------------------
 // Productos

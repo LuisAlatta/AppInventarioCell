@@ -1508,3 +1508,50 @@ describe('ubicaciones', () => {
     expect(respuesta.status).toBe(200)
   })
 })
+
+describe('marcas', () => {
+  let cookie: string
+
+  beforeEach(async () => {
+    cookie = await entrar()
+  })
+
+  test('crea y lista marcas correctamente', async () => {
+    const respuestaCrear = await conSesion(cookie, '/api/marcas', {
+      metodo: 'POST',
+      cuerpo: { nombre: 'Motorola' },
+    })
+    expect(respuestaCrear.status).toBe(201)
+    const { marca } = await json<{ marca: { id: string; nombre: string } }>(respuestaCrear)
+    expect(marca.nombre).toBe('Motorola')
+    expect(marca.id).toMatch(/^mar_/)
+
+    const respuestaListar = await conSesion(cookie, '/api/marcas')
+    expect(respuestaListar.status).toBe(200)
+    const { marcas } = await json<{ marcas: { id: string; nombre: string }[] }>(respuestaListar)
+    expect(marcas.some((m) => m.nombre === 'Motorola')).toBe(true)
+  })
+
+  test('no duplica una marca existente con diferente capitalizacion', async () => {
+    await conSesion(cookie, '/api/marcas', {
+      metodo: 'POST',
+      cuerpo: { nombre: 'Xiaomi' },
+    })
+
+    const respuestaDuplicada = await conSesion(cookie, '/api/marcas', {
+      metodo: 'POST',
+      cuerpo: { nombre: 'xiaomi' },
+    })
+    expect(respuestaDuplicada.status).toBe(201)
+    const { marca } = await json<{ marca: { id: string; nombre: string } }>(respuestaDuplicada)
+    expect(marca.nombre.toLowerCase()).toBe('xiaomi')
+  })
+
+  test('rechaza marcas vacias', async () => {
+    const respuesta = await conSesion(cookie, '/api/marcas', {
+      metodo: 'POST',
+      cuerpo: { nombre: '   ' },
+    })
+    expect(respuesta.status).toBe(400)
+  })
+})

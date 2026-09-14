@@ -216,6 +216,9 @@ export const api = {
 
   marcas: (): Promise<{ marcas: Marca[] }> => pedir('/marcas'),
 
+  crearMarca: (nombre: string): Promise<{ marca: Marca }> =>
+    pedir('/marcas', { metodo: 'POST', cuerpo: { nombre } }),
+
   // -------------------------------------------------------------------------
   // Productos
   // -------------------------------------------------------------------------

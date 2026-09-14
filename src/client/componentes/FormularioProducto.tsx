@@ -11,12 +11,13 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2 } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
+import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
@@ -85,7 +86,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
 
   const refArchivo = useRef<HTMLInputElement | null>(null)
   const refBusquedaModelo = useRef<HTMLDivElement | null>(null)
-  const marcas = useQuery({ queryKey: ['marcas'], queryFn: api.marcas })
+  const queryClient = useQueryClient()
   const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
   const modelosExistentes = useQuery({
     queryKey: ['modelos-existentes', consultaModelo],
@@ -265,6 +266,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         }
       }
 
+      void queryClient.invalidateQueries({ queryKey: ['marcas'] })
       onCreado(conFoto)
       if (hayImei && activa === null) {
         avisos.información(`${productoExistente === null ? 'Producto creado' : producto.nombre}. Elige una ubicación para registrar sus IMEI.`)
@@ -322,7 +324,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
             className="min-h-toque w-full rounded-xl border border-borde bg-superficie py-3 pl-10 pr-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15"
           />
         </div>
-        {mostrarModelos && modelosExistentes.isSuccess && <ul role="listbox" className="max-h-56 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-sm">{modelosExistentes.data.productos.slice(0, 8).map((producto) => <li key={producto.id}><button type="button" role="option" aria-selected={producto.id === productoExistente?.id} onClick={() => { setProductoExistente(producto); setCodigo(producto.codigo); setConsultaModelo(producto.nombre); setMostrarModelos(false) }} className="flex min-h-12 w-full flex-col justify-center border-b border-borde px-3 text-left last:border-b-0 active:bg-accion-tenue"><span className="text-[0.875rem] font-semibold">{producto.nombre}</span><span className="text-[0.75rem] text-tinta-tenue">{[producto.marca, producto.modelo].filter(Boolean).join(' · ') || producto.codigo}</span></button></li>)}</ul>}
+        {mostrarModelos && modelosExistentes.isSuccess && <ul role="listbox" className="max-h-56 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-sm">{modelosExistentes.data.productos.slice(0, 8).map((producto) => <li key={producto.id}><button type="button" role="option" aria-selected={producto.id === productoExistente?.id} onClick={() => { setProductoExistente(producto); setCodigo(producto.codigo); setConsultaModelo(producto.nombre); if (producto.marca) setMarca(producto.marca); setMostrarModelos(false) }} className="flex min-h-12 w-full flex-col justify-center border-b border-borde px-3 text-left last:border-b-0 active:bg-accion-tenue"><span className="text-[0.875rem] font-semibold">{producto.nombre}</span><span className="text-[0.75rem] text-tinta-tenue">{[producto.marca, producto.modelo].filter(Boolean).join(' · ') || producto.codigo}</span></button></li>)}</ul>}
         {mostrarModelos && modelosExistentes.isSuccess && modelosExistentes.data.productos.length === 0 && <p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.8125rem] text-tinta-tenue">No hay modelos con esa búsqueda.</p>}
         <span className="text-[0.75rem] text-tinta-tenue">Las sugerencias se actualizan mientras escribes.</span>
       </div>
@@ -468,16 +470,11 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         autoComplete="off"
       />
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[0.8125rem] font-semibold text-tinta-suave">Marca</span>
-        <div className="relative">
-          <select value={marca} onChange={(e) => setMarca(e.target.value)} className="min-h-toque w-full appearance-none rounded-xl border border-borde bg-superficie py-3 pl-3 pr-12 text-[1rem] text-tinta transition-colors focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15">
-            <option value="">Sin marca</option>
-            {(marcas.data?.marcas ?? []).map((opcion) => <option key={opcion.id} value={opcion.nombre}>{opcion.nombre}</option>)}
-          </select>
-          <span aria-hidden="true" className="pointer-events-none absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-lg border-l border-borde bg-papel-hundido text-accion"><ChevronDown className="size-5" strokeWidth={2.25} /></span>
-        </div>
-      </label>
+      <CampoMarcaPredictivo
+        value={marca}
+        onChange={setMarca}
+        error={campos.marca}
+      />
 
       <label className="flex flex-col gap-1.5">
         <span className="text-[0.8125rem] font-semibold text-tinta-suave">Categoría</span>
