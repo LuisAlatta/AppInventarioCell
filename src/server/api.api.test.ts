@@ -144,6 +144,7 @@ describe('proteccion de rutas', () => {
     ['/api/movimientos'],
     ['/api/conteos'],
     ['/api/reportes/valor'],
+    ['/api/reportes/ventas'],
     ['/api/conteos/reportes/mermas'],
   ])('%s exige sesion', async (ruta) => {
     const respuesta = await llamar(ruta)
@@ -1048,6 +1049,67 @@ describe('actividad reciente e historial', () => {
 
     const historial = await json<{ movimientos: { id: string }[] }>(await conSesion(cookie, '/api/movimientos?limite=200'))
     expect(historial.movimientos).toHaveLength(4)
+  })
+})
+
+describe('reporte de ventas y ganancias', () => {
+  test('calcula ganancias con precios definitivos, excluye reversiones e historicos incompletos', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 4 },
+    })
+
+    const ventas: { id: string }[] = []
+    for (const [costoUnitario, precioVentaUnitario] of [[100, 250], [120, 300], [90, 200]] as const) {
+      const respuesta = await conSesion(cookie, '/api/movimientos/venta', {
+        metodo: 'POST',
+        cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, costoUnitario, precioVentaUnitario },
+      })
+      expect(respuesta.status).toBe(201)
+      ventas.push((await json<RespuestaMovimiento>(respuesta)).movimiento)
+    }
+
+    await conSesion(cookie, `/api/movimientos/${ventas[2]?.id}/deshacer`, { metodo: 'POST' })
+
+    const respuestaReporte = await conSesion(cookie, '/api/reportes/ventas?agrupacion=dia&dias=30')
+    expect(respuestaReporte.status).toBe(200)
+    const reporte = await json<{
+      resumen: { unidades: number; ventas: number; costo: number; ganancia: number; operaciones: number }
+      productos: { productoId: string; unidades: number; ventas: number; costo: number; ganancia: number }[]
+      ubicaciones: { unidades: number; ventas: number; costo: number; ganancia: number }[]
+      periodos: { inicio: string; unidades: number; ventas: number; costo: number; ganancia: number }[]
+    }>(respuestaReporte)
+
+    expect(reporte.resumen).toMatchObject({ unidades: 2, ventas: 550, costo: 220, ganancia: 330, operaciones: 2 })
+    expect(reporte.productos[0]).toMatchObject({ productoId, unidades: 2, ventas: 550, costo: 220, ganancia: 330 })
+    expect(reporte.ubicaciones[0]).toMatchObject({ unidades: 2, ventas: 550, costo: 220, ganancia: 330 })
+    expect(reporte.periodos[0]).toMatchObject({ unidades: 2, ventas: 550, costo: 220, ganancia: 330 })
+
+    const semanal = await json<typeof reporte>(
+      await conSesion(cookie, '/api/reportes/ventas?agrupacion=semana&dias=30'),
+    )
+    expect(semanal.resumen).toEqual(reporte.resumen)
+    expect(semanal.periodos).toHaveLength(1)
+    for (const periodo of semanal.periodos) {
+      expect(new Date(`${periodo.inicio}T00:00:00Z`).getUTCDay()).toBe(1)
+    }
+
+    const incompleta = await json<RespuestaMovimiento>(
+      await conSesion(cookie, '/api/movimientos/venta', {
+        metodo: 'POST',
+        cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, costoUnitario: 80, precioVentaUnitario: 180 },
+      }),
+    )
+    await env.DB.prepare('UPDATE movements SET unit_sale_price = NULL WHERE id = ?')
+      .bind(incompleta.movimiento.id)
+      .run()
+
+    const sinHistorico = await json<typeof reporte>(
+      await conSesion(cookie, '/api/reportes/ventas?agrupacion=dia&dias=30'),
+    )
+    expect(sinHistorico).toEqual(reporte)
   })
 })
 

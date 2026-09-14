@@ -9,9 +9,11 @@
 
 import type {
   Categoria,
+  AgrupacionVentas,
   Movimiento,
   ProductoConStock,
   ReporteMerma,
+  ReporteVentas,
   ResultadoBusqueda,
   SesionConteo,
   RenglonConteo,
@@ -354,6 +356,11 @@ export const api = {
   valorInventario: (): Promise<{
     ubicaciones: { ubicacionId: string; ubicacionNombre: string; piezas: number; valor: number }[]
   }> => pedir('/reportes/valor'),
+
+  reporteVentas: (agrupacion: AgrupacionVentas = 'dia', dias = 30): Promise<ReporteVentas> => {
+    const parametros = new URLSearchParams({ agrupacion, dias: String(dias) })
+    return pedir(`/reportes/ventas?${parametros}`)
+  },
 
   // -------------------------------------------------------------------------
   // Imagenes

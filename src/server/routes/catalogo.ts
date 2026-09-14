@@ -9,6 +9,7 @@ import {
   esquemaCategoria,
   esquemaProducto,
   esquemaProductoParcial,
+  esquemaReporteVentas,
   esquemaUbicacion,
   esquemaUbicacionParcial,
 } from '@compartido/esquemas'
@@ -35,6 +36,7 @@ import {
   resumenStock,
 } from '../db/productos'
 import { movimientosDeProducto, movimientosRecientes } from '../db/movimientos'
+import { reporteVentas } from '../db/reportes_ventas'
 import { listarMarcas } from '../db/marcas'
 import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { buscarProductos } from '../services/busqueda'
@@ -187,3 +189,8 @@ rutasCatalogo.get('/reportes/sin-movimiento', async (c) => {
 rutasCatalogo.get('/reportes/valor', async (c) =>
   c.json({ ubicaciones: await valorInventario(c.env.DB) }),
 )
+
+rutasCatalogo.get('/reportes/ventas', zValidator('query', esquemaReporteVentas), async (c) => {
+  const { agrupacion, dias } = c.req.valid('query')
+  return c.json(await reporteVentas(c.env.DB, agrupacion, dias))
+})

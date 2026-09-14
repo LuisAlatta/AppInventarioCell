@@ -180,6 +180,17 @@ export interface ReporteMerma {
   renglones: RenglonConteo[]
 }
 
+export type AgrupacionVentas = 'dia' | 'semana'
+
+export interface ReporteVentas {
+  agrupacion: AgrupacionVentas
+  dias: number
+  resumen: { unidades: number; ventas: number; costo: number; ganancia: number; operaciones: number }
+  periodos: { inicio: string; etiqueta: string; unidades: number; ventas: number; costo: number; ganancia: number }[]
+  productos: { productoId: string; productoNombre: string; unidades: number; ventas: number; costo: number; ganancia: number }[]
+  ubicaciones: { ubicacionId: string; ubicacionNombre: string; unidades: number; ventas: number; costo: number; ganancia: number }[]
+}
+
 /** Un resultado de busqueda, con la razon por la que aparecio. */
 export interface ResultadoBusqueda extends ProductoConStock {
   /**

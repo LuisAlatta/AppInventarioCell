@@ -255,6 +255,11 @@ export const esquemaBusqueda = z.object({
   limite: z.coerce.number().int().min(1).max(50).default(20),
 })
 
+export const esquemaReporteVentas = z.object({
+  agrupacion: z.enum(['dia', 'semana']).default('dia'),
+  dias: z.coerce.number().int().min(1).max(365).default(30),
+})
+
 // ---------------------------------------------------------------------------
 // Tipos inferidos
 // ---------------------------------------------------------------------------
@@ -276,3 +281,4 @@ export type DatosAbrirConteo = z.infer<typeof esquemaAbrirConteo>
 export type DatosRenglonConteo = z.infer<typeof esquemaRenglonConteo>
 export type DatosCerrarConteo = z.infer<typeof esquemaCerrarConteo>
 export type DatosBusqueda = z.infer<typeof esquemaBusqueda>
+export type DatosReporteVentas = z.infer<typeof esquemaReporteVentas>
