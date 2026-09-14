@@ -87,6 +87,7 @@ export interface Movimiento {
   tipo: TipoMovimiento
   productoId: string
   productoNombre: string
+  productoModelo: string | null
   claveImagenProducto: string | null
   equipoId: string | null
   cantidad: number
@@ -95,6 +96,10 @@ export interface Movimiento {
   ubicacionDestinoId: string | null
   ubicacionDestinoNombre: string | null
   costoUnitario: number
+  /** Precio de venta vigente cuando se registró el movimiento. */
+  precioVentaUnitario: number
+  /** Distingue importes conservados de referencias para registros antiguos. */
+  precioVentaHistorico: boolean
   nota: string | null
   loteId: string | null
   revertidoEn: string | null

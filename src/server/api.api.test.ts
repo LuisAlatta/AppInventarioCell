@@ -897,6 +897,48 @@ describe('altas idempotentes desde móviles', () => {
 })
 
 describe('actividad reciente e historial', () => {
+  test('conserva el precio de venta de una operación aunque luego cambie el catálogo', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    const venta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    expect(venta.status).toBe(201)
+
+    await conSesion(cookie, `/api/productos/${productoId}`, {
+      metodo: 'PATCH', cuerpo: { precioVenta: 300 },
+    })
+
+    const historial = await json<{ movimientos: { tipo: string; costoUnitario: number; precioVentaUnitario: number; precioVentaHistorico: boolean }[] }>(
+      await conSesion(cookie, '/api/movimientos?limite=200'),
+    )
+    const movimiento = historial.movimientos.find((item) => item.tipo === 'sale')
+    expect(movimiento).toMatchObject({ costoUnitario: 100, precioVentaUnitario: 250, precioVentaHistorico: true })
+  })
+
+  test('expone el modelo del producto en el historial para poder buscarlo', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    await conSesion(cookie, `/api/productos/${productoId}`, {
+      metodo: 'PATCH', cuerpo: { modelo: 'WH-1000XM5' },
+    })
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+
+    const historial = await json<{ movimientos: { productoNombre: string; productoModelo: string | null }[] }>(
+      await conSesion(cookie, '/api/movimientos?limite=200'),
+    )
+    expect(historial.movimientos[0]).toMatchObject({
+      productoNombre: 'Audifonos Bluetooth',
+      productoModelo: 'WH-1000XM5',
+    })
+  })
+
   test('inicio expone solo los tres últimos movimientos y el historial conserva todos', async () => {
     const cookie = await entrar()
     const { almacenId, productoId } = await escenario(cookie)

@@ -7,10 +7,13 @@ import { noEncontrado } from '../lib/errores'
 import { aMovimiento, type FilaMovimiento } from './mapeo'
 
 const COLUMNAS = `
-  m.id, m.type, m.product_id, p.name AS product_name, p.image_key AS product_image_key, m.device_id, m.qty,
+  m.id, m.type, m.product_id, p.name AS product_name, p.model AS product_model,
+  p.image_key AS product_image_key, m.device_id, m.qty,
   m.from_location_id, o.name AS from_location_name,
   m.to_location_id,   d.name AS to_location_name,
-  m.unit_cost, m.note, m.batch_id, m.reverted_at, m.created_at
+  m.unit_cost, COALESCE(m.unit_sale_price, p.sale_price) AS unit_sale_price,
+  m.unit_sale_price IS NOT NULL AS is_sale_price_historical,
+  m.note, m.batch_id, m.reverted_at, m.created_at
 `
 
 const DESDE = `

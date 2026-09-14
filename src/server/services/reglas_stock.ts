@@ -23,6 +23,7 @@ export interface MovimientoNuevo {
   ubicacionOrigenId: string | null
   ubicacionDestinoId: string | null
   costoUnitario: number
+  precioVentaUnitario?: number
   nota: string | null
   loteId?: string | null
   sesionConteoId?: string | null

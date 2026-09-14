@@ -55,8 +55,8 @@ function sentenciaMovimiento(
     .prepare(
       `INSERT INTO movements
          (id, type, product_id, device_id, qty, from_location_id, to_location_id,
-          unit_cost, note, count_session_id, batch_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          unit_cost, unit_sale_price, note, count_session_id, batch_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -67,6 +67,7 @@ function sentenciaMovimiento(
       m.ubicacionOrigenId,
       m.ubicacionDestinoId,
       m.costoUnitario,
+      m.precioVentaUnitario ?? null,
       m.nota,
       m.sesionConteoId ?? null,
       m.loteId ?? null,
@@ -292,6 +293,7 @@ export async function aplicarTraspaso(
           ubicacionOrigenId: datos.origenId,
           ubicacionDestinoId: datos.destinoId,
           costoUnitario: producto.precioCosto,
+          precioVentaUnitario: producto.precioVenta,
           nota: datos.nota ?? null,
           loteId,
         }
@@ -317,6 +319,7 @@ export async function aplicarTraspaso(
       ubicacionOrigenId: datos.origenId,
       ubicacionDestinoId: datos.destinoId,
       costoUnitario: producto.precioCosto,
+      precioVentaUnitario: producto.precioVenta,
       nota: datos.nota ?? null,
       loteId,
     }
@@ -363,6 +366,7 @@ export async function revertirMovimiento(
     ubicacionOrigenId: original.ubicacionOrigenId,
     ubicacionDestinoId: original.ubicacionDestinoId,
     costoUnitario: original.costoUnitario,
+    precioVentaUnitario: original.precioVentaUnitario,
     nota: original.nota,
   }
 
@@ -429,6 +433,7 @@ export async function revertirLote(
       ubicacionOrigenId: renglon.ubicacionOrigenId,
       ubicacionDestinoId: renglon.ubicacionDestinoId,
       costoUnitario: renglon.costoUnitario,
+      precioVentaUnitario: renglon.precioVentaUnitario,
       nota: renglon.nota,
       loteId: renglon.loteId,
     }

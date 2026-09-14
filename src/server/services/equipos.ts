@@ -94,10 +94,10 @@ export async function registrarEquipos(
       db
         .prepare(
           `INSERT INTO movements
-             (id, type, product_id, device_id, qty, from_location_id, to_location_id, unit_cost, created_by)
-           VALUES (?, 'purchase_in', ?, ?, 1, NULL, ?, ?, ?)`,
+             (id, type, product_id, device_id, qty, from_location_id, to_location_id, unit_cost, unit_sale_price, created_by)
+           VALUES (?, 'purchase_in', ?, ?, 1, NULL, ?, ?, ?, ?)`,
         )
-        .bind(nuevoId('mov'), datos.productoId, equipoId, datos.ubicacionId, producto.precioCosto, usuarioId),
+        .bind(nuevoId('mov'), datos.productoId, equipoId, datos.ubicacionId, producto.precioCosto, producto.precioVenta, usuarioId),
     )
     sentencias.push(...sentenciasDeStock(db, datos.productoId, datos.ubicacionId, 1))
   }

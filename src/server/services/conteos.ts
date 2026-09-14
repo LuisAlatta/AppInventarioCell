@@ -251,8 +251,9 @@ export async function cerrarConteo(
           .prepare(
             `INSERT INTO movements
                (id, type, product_id, qty, from_location_id, to_location_id,
-                unit_cost, note, count_session_id, created_by)
-             VALUES (?, 'count', ?, ?, ?, ?, ?, ?, ?, ?)`,
+                unit_cost, unit_sale_price, note, count_session_id, created_by)
+             VALUES (?, 'count', ?, ?, ?, ?, ?,
+                     (SELECT sale_price FROM products WHERE id = ?), ?, ?, ?)`,
           )
           .bind(
             nuevoId('mov'),
@@ -261,6 +262,7 @@ export async function cerrarConteo(
             suma ? null : sesion.ubicacionId,
             suma ? sesion.ubicacionId : null,
             renglon.costoUnitario,
+            renglon.productoId,
             `Conteo físico en ${sesion.ubicacionNombre}`,
             sesionId,
             usuarioId,

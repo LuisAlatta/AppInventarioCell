@@ -69,6 +69,7 @@ export interface FilaMovimiento {
   type: string
   product_id: string
   product_name: string
+  product_model: string | null
   product_image_key: string | null
   device_id: string | null
   qty: number
@@ -77,6 +78,8 @@ export interface FilaMovimiento {
   to_location_id: string | null
   to_location_name: string | null
   unit_cost: number
+  unit_sale_price: number
+  is_sale_price_historical: number
   note: string | null
   batch_id: string | null
   reverted_at: string | null
@@ -149,6 +152,7 @@ export function aMovimiento(f: FilaMovimiento): Movimiento {
     tipo: f.type as TipoMovimiento,
     productoId: f.product_id,
     productoNombre: f.product_name,
+    productoModelo: f.product_model,
     claveImagenProducto: f.product_image_key,
     equipoId: f.device_id,
     cantidad: f.qty,
@@ -157,6 +161,8 @@ export function aMovimiento(f: FilaMovimiento): Movimiento {
     ubicacionDestinoId: f.to_location_id,
     ubicacionDestinoNombre: f.to_location_name,
     costoUnitario: f.unit_cost,
+    precioVentaUnitario: f.unit_sale_price,
+    precioVentaHistorico: booleano(f.is_sale_price_historical),
     nota: f.note,
     loteId: f.batch_id,
     revertidoEn: f.reverted_at,

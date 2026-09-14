@@ -43,7 +43,7 @@ function usuarioDe(c: { get: (k: 'usuarioId') => string | undefined }): string {
 
 rutasMovimientos.get('/', async (c) => {
   const limite = Number(c.req.query('limite') ?? '30')
-  const seguro = Number.isFinite(limite) && limite > 0 && limite <= 200 ? Math.trunc(limite) : 30
+  const seguro = Number.isFinite(limite) && limite > 0 && limite <= 1000 ? Math.trunc(limite) : 30
   return c.json({ movimientos: await movimientosRecientes(c.env.DB, seguro) })
 })
 
@@ -65,6 +65,7 @@ rutasMovimientos.post('/entrada', zValidator('json', esquemaEntrada), async (c) 
       ubicacionOrigenId: null,
       ubicacionDestinoId: datos.ubicacionId,
       costoUnitario: datos.costoUnitario ?? producto.precioCosto,
+      precioVentaUnitario: producto.precioVenta,
       nota: datos.nota ?? null,
     },
     usuarioDe(c),
@@ -81,7 +82,7 @@ rutasMovimientos.post('/venta', zValidator('json', esquemaVenta), async (c) => {
     const movimientos = await aplicarSalidaDeEquipos(c.env.DB, {
       tipo: 'sale', productoId: datos.productoId, cantidad: datos.cantidad,
       ubicacionOrigenId: datos.ubicacionId, ubicacionDestinoId: null,
-      costoUnitario: producto.precioCosto, nota: datos.nota ?? null,
+      costoUnitario: producto.precioCosto, precioVentaUnitario: producto.precioVenta, nota: datos.nota ?? null,
     }, datos.equipoIds, usuarioDe(c))
     return c.json({ movimientos }, 201)
   }
@@ -99,6 +100,7 @@ rutasMovimientos.post('/venta', zValidator('json', esquemaVenta), async (c) => {
       ubicacionOrigenId: datos.ubicacionId,
       ubicacionDestinoId: null,
       costoUnitario: producto.precioCosto,
+      precioVentaUnitario: producto.precioVenta,
       nota: datos.nota ?? null,
     },
     usuarioDe(c),
@@ -120,6 +122,7 @@ rutasMovimientos.post('/devolucion', zValidator('json', esquemaDevolucion), asyn
       ubicacionOrigenId: null,
       ubicacionDestinoId: datos.ubicacionId,
       costoUnitario: producto.precioCosto,
+      precioVentaUnitario: producto.precioVenta,
       nota: datos.nota ?? null,
     },
     usuarioDe(c),
@@ -136,7 +139,7 @@ rutasMovimientos.post('/merma', zValidator('json', esquemaMerma), async (c) => {
     const movimientos = await aplicarSalidaDeEquipos(c.env.DB, {
       tipo: 'loss', productoId: datos.productoId, cantidad: datos.cantidad,
       ubicacionOrigenId: datos.ubicacionId, ubicacionDestinoId: null,
-      costoUnitario: producto.precioCosto, nota: datos.nota,
+      costoUnitario: producto.precioCosto, precioVentaUnitario: producto.precioVenta, nota: datos.nota,
     }, datos.equipoIds, usuarioDe(c))
     return c.json({ movimientos }, 201)
   }
@@ -154,6 +157,7 @@ rutasMovimientos.post('/merma', zValidator('json', esquemaMerma), async (c) => {
       ubicacionOrigenId: datos.ubicacionId,
       ubicacionDestinoId: null,
       costoUnitario: producto.precioCosto,
+      precioVentaUnitario: producto.precioVenta,
       nota: datos.nota,
     },
     usuarioDe(c),
@@ -173,7 +177,7 @@ rutasMovimientos.post('/ajuste', zValidator('json', esquemaAjuste), async (c) =>
 
   const movimiento = await aplicarMovimiento(
     c.env.DB,
-    movimientoDeAjuste(datos.productoId, datos.ubicacionId, datos.cantidad, datos.nota),
+    { ...movimientoDeAjuste(datos.productoId, datos.ubicacionId, datos.cantidad, datos.nota), precioVentaUnitario: producto.precioVenta },
     usuarioDe(c),
   )
 
