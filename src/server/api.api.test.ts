@@ -8,7 +8,7 @@
 
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, test } from 'vitest'
-import type { Equipo, Movimiento } from '@compartido/tipos'
+import type { Equipo, Movimiento, ReporteVentas } from '@compartido/tipos'
 import app from './index'
 
 const PIN = '246810'
@@ -1141,6 +1141,43 @@ describe('actividad reciente e historial', () => {
 })
 
 describe('reporte de ventas y ganancias', () => {
+  test.each([
+    ['dia', 1],
+    ['semana', 7],
+  ] as const)('agrupa por %s una venta del domingo a las 20:30 de Lima', async (agrupacion, diasHastaInicio) => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    await conSesion(cookie, '/api/movimientos/entrada', {
+      metodo: 'POST', cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1 },
+    })
+    const respuestaVenta = await conSesion(cookie, '/api/movimientos/venta', {
+      metodo: 'POST',
+      cuerpo: { productoId, ubicacionId: almacenId, cantidad: 1, costoUnitario: 100, precioVentaUnitario: 250 },
+    })
+    expect(respuestaVenta.status).toBe(201)
+    const { movimiento } = await json<RespuestaMovimiento>(respuestaVenta)
+
+    // Lunes UTC de la semana anterior, dentro del filtro de 30 días en cualquier fecha.
+    // Las 01:30 UTC corresponden al domingo anterior a las 20:30 en Lima.
+    const lunesUtc = new Date()
+    lunesUtc.setUTCDate(lunesUtc.getUTCDate() - ((lunesUtc.getUTCDay() + 6) % 7) - 7)
+    lunesUtc.setUTCHours(1, 30, 0, 0)
+    const inicioEsperado = new Date(lunesUtc)
+    inicioEsperado.setUTCDate(inicioEsperado.getUTCDate() - diasHastaInicio)
+    await env.DB.prepare('UPDATE movements SET created_at = ? WHERE id = ?')
+      .bind(lunesUtc.toISOString().slice(0, 19).replace('T', ' '), movimiento.id).run()
+
+    const respuesta = await conSesion(cookie, `/api/reportes/ventas?agrupacion=${agrupacion}&dias=30`)
+    expect(respuesta.status).toBe(200)
+    const reporte = await json<ReporteVentas>(respuesta)
+    expect(reporte.resumen).toEqual({ unidades: 1, ventas: 250, costo: 100, ganancia: 150, operaciones: 1 })
+    expect(reporte.periodos).toEqual([{
+      inicio: inicioEsperado.toISOString().slice(0, 10),
+      etiqueta: inicioEsperado.toISOString().slice(0, 10),
+      unidades: 1, ventas: 250, costo: 100, ganancia: 150,
+    }])
+  })
+
   test('calcula ganancias con precios definitivos, excluye reversiones e historicos incompletos', async () => {
     const cookie = await entrar()
     const { almacenId, productoId } = await escenario(cookie)

@@ -39,9 +39,10 @@ export async function reporteVentas(
   dias: number,
 ): Promise<ReporteVentas> {
   const desde = `-${dias} days`
+  // America/Lima mantiene UTC-5; el día y la semana son los del negocio.
   const periodo = agrupacion === 'dia'
-    ? 'date(m.created_at)'
-    : "date(m.created_at, '-6 days', 'weekday 1')"
+    ? "date(m.created_at, '-5 hours')"
+    : "date(m.created_at, '-5 hours', '-6 days', 'weekday 1')"
 
   const [resumenFila, periodosResultado, productosResultado, ubicacionesResultado] = await Promise.all([
     db.prepare(

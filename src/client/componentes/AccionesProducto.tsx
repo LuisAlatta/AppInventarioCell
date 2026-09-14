@@ -22,6 +22,7 @@ import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { dinero, numero } from '../lib/formato'
 import { avisarError } from '../lib/retroalimentacion'
+import { invalidarConsultasMovimiento } from '../lib/consultas_movimiento'
 import { SugerenciaReposicion } from './SugerenciaReposicion'
 
 type Modo = 'rápido' | 'entrada' | 'venta' | 'merma' | 'ajuste'
@@ -68,10 +69,7 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
   )
 
   const refrescar = (): void => {
-    void cliente.invalidateQueries({ queryKey: ['inicio'] })
-    void cliente.invalidateQueries({ queryKey: ['movimientos'] })
-    void cliente.invalidateQueries({ queryKey: ['producto', producto.id] })
-    void cliente.invalidateQueries({ queryKey: ['buscar'] })
+    invalidarConsultasMovimiento(cliente, producto.id)
     onCambio?.()
   }
 
