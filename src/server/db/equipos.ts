@@ -42,7 +42,9 @@ export async function equiposPorIds(db: D1Database, ids: readonly string[]): Pro
 /** Busca una unidad física por cualquiera de sus IMEI, incluso si ya fue vendida. */
 export async function buscarEquipoPorImei(db: D1Database, imei: string): Promise<Equipo | null> {
   const fila = await db
-    .prepare(`SELECT ${COLUMNAS} ${DESDE} WHERE di.imei = ? ${AGRUPACION}`)
+    .prepare(`SELECT ${COLUMNAS} ${DESDE}
+      WHERE EXISTS (SELECT 1 FROM device_imeis buscado WHERE buscado.device_id = d.id AND buscado.imei = ?)
+      ${AGRUPACION}`)
     .bind(imei)
     .first<FilaEquipo>()
 

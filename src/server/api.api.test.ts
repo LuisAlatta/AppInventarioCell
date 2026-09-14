@@ -937,6 +937,37 @@ describe('equipos por IMEI', () => {
     })
   })
 
+  test('encuentra un equipo dual-SIM completo por cualquiera de sus IMEI', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: Equipo[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{
+          imei1: '356000000000030',
+          imei2: '356000000000031',
+          listaBlanca: 'registered',
+          condicion: 'new',
+        }],
+      },
+    }))
+    const equipo = alta.equipos[0]
+    expect(equipo).toBeDefined()
+    if (equipo === undefined || equipo.imei1 === null || equipo.imei2 === null) throw new Error('Falta el equipo dual-SIM creado')
+
+    for (const imei of [equipo.imei1, equipo.imei2]) {
+      const encontrado = await conSesion(cookie, `/api/equipos/imei/${imei}`)
+      expect(encontrado.status).toBe(200)
+      expect((await json<{ equipo: Equipo | null }>(encontrado)).equipo).toMatchObject({
+        id: equipo.id,
+        imei1: equipo.imei1,
+        imei2: equipo.imei2,
+      })
+    }
+  })
+
   test('rechaza vender un modelo con IMEI sin elegir la unidad física', async () => {
     const cookie = await entrar()
     const { almacenId, productoId } = await escenario(cookie)
