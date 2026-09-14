@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2 } from 'lucide-react'
+import { Camera, ChevronDown, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2, X } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -77,14 +77,15 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>([equipoVacio()])
   const [precioVenta, setPrecioVenta] = useState('')
   const [precioCosto, setPrecioCosto] = useState('')
-  const [foto, setFoto] = useState<{ archivo: Blob; vista: string } | null>(null)
+  const [fotos, setFotos] = useState<Array<{ id: string; archivo: Blob; vista: string }>>([])
   const [campos, setCampos] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
   const [leyendoFoto, setLeyendoFoto] = useState<CampoEscaneable | null>(null)
   const [idOperacionProducto] = useState(nuevaOperacion)
   const [idOperacionEquipos] = useState(nuevaOperacion)
 
-  const refArchivo = useRef<HTMLInputElement | null>(null)
+  const refArchivoGaleria = useRef<HTMLInputElement | null>(null)
+  const refArchivoCamara = useRef<HTMLInputElement | null>(null)
   const refBusquedaModelo = useRef<HTMLDivElement | null>(null)
   const queryClient = useQueryClient()
   const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
@@ -161,20 +162,45 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   // durante una sesion de altas.
   useEffect(() => {
     return () => {
-      if (foto !== null) liberarVista(foto.vista)
+      for (const f of fotos) liberarVista(f.vista)
     }
-  }, [foto])
+  }, [fotos])
 
-  const elegirFoto = async (archivo: File): Promise<void> => {
-    try {
-      const lista = await prepararFoto(archivo)
-      setFoto((anterior) => {
-        if (anterior !== null) liberarVista(anterior.vista)
-        return lista
-      })
-    } catch {
-      avisos.error('No se pudo procesar esa foto')
+  const elegirFotos = async (archivos: FileList | null): Promise<void> => {
+    if (archivos === null || archivos.length === 0) return
+    const cupo = 5 - fotos.length
+    if (cupo <= 0) {
+      avisos.información('El límite es de 5 fotos por producto')
+      return
     }
+
+    const seleccionados = Array.from(archivos).slice(0, cupo)
+    const procesadas: Array<{ id: string; archivo: Blob; vista: string }> = []
+
+    for (const archivo of seleccionados) {
+      try {
+        const preparada = await prepararFoto(archivo)
+        procesadas.push({
+          id: Math.random().toString(36).slice(2, 9),
+          archivo: preparada.archivo,
+          vista: preparada.vista,
+        })
+      } catch {
+        avisos.error(`No se pudo procesar ${archivo.name}`)
+      }
+    }
+
+    if (procesadas.length > 0) {
+      setFotos((anteriores) => [...anteriores, ...procesadas])
+    }
+  }
+
+  const quitarFoto = (id: string) => {
+    setFotos((anteriores) => {
+      const victima = anteriores.find((f) => f.id === id)
+      if (victima) liberarVista(victima.vista)
+      return anteriores.filter((f) => f.id !== id)
+    })
   }
 
   const aNumero = (texto: string): number => {
@@ -257,12 +283,27 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       // Si falla, el producto ya quedó guardado: se avisa pero no se pierde
       // el alta, que es lo que costo trabajo.
       let conFoto = producto
-      if (foto !== null && productoExistente === null) {
+      if (fotos.length > 0) {
         try {
-          const { claveImagen } = await api.subirImagen('producto', producto.id, foto.archivo)
-          conFoto = { ...producto, claveImagen }
+          if (productoExistente === null || !producto.claveImagen) {
+            const primera = fotos[0]
+            if (primera) {
+              const { claveImagen } = await api.subirImagen('producto', producto.id, primera.archivo)
+              conFoto = { ...producto, claveImagen }
+            }
+            for (let i = 1; i < fotos.length; i++) {
+              const f = fotos[i]
+              if (f) await api.agregarImagenProducto(producto.id, f.archivo)
+            }
+          } else {
+            for (const f of fotos) {
+              await api.agregarImagenProducto(producto.id, f.archivo)
+            }
+          }
+          void queryClient.invalidateQueries({ queryKey: ['imagenes', producto.id] })
+          void queryClient.invalidateQueries({ queryKey: ['producto', producto.id] })
         } catch {
-          avisos.error('El producto se guardó, pero la foto no se pudo subir')
+          avisos.error('El producto se guardó, pero alguna foto no se pudo subir')
         }
       }
 
@@ -414,55 +455,100 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         <button type="button" disabled={equipos.length >= 50} onClick={() => setEquipos((anteriores) => [...anteriores, equipoVacio()])} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-accion/45 bg-superficie px-3 text-[0.875rem] font-semibold text-accion active:bg-accion/10 disabled:opacity-40"><Plus aria-hidden="true" className="size-4" strokeWidth={2.3} />Agregar otro equipo</button>
       </section>
 
-      {productoExistente === null && <>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => refArchivo.current?.click()}
-          className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-borde-fuerte bg-superficie text-tinta-tenue transition active:bg-papel-hundido"
-        >
-          {foto === null ? (
-            <svg viewBox="0 0 24 24" className="size-7" aria-hidden="true" fill="none">
-              <path
-                d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.2l1-1.6h6.6l1 1.6h1.2A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-8Z"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              />
-              <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.7" />
-            </svg>
-          ) : (
-            <img src={foto.vista} alt="" className="size-full object-cover" />
-          )}
-        </button>
-
-        <div className="flex flex-col gap-1">
-          <p className="text-[0.9375rem] font-medium">
-            {foto === null ? 'Agregar foto' : 'Cambiar foto'}
-          </p>
-          <p className="text-[0.8125rem] text-tinta-tenue">
-            Opcional. Ayuda a reconocerlo en la lista.
-          </p>
+      <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3.5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[0.875rem] font-semibold text-tinta">Fotos del producto / equipo</p>
+            <p className="text-[0.75rem] text-tinta-suave">
+              Sube fotos directo de tu galería o usa la cámara
+            </p>
+          </div>
+          <span className="cifras rounded-lg bg-papel-hundido px-2 py-1 text-[0.75rem] font-semibold text-tinta-suave">
+            {fotos.length}/5
+          </span>
         </div>
 
+        {fotos.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 pt-1 sm:grid-cols-5">
+            {fotos.map((f, index) => (
+              <div
+                key={f.id}
+                className="relative aspect-square overflow-hidden rounded-xl border border-borde bg-papel-hundido"
+              >
+                <img
+                  src={f.vista}
+                  alt={`Foto ${index + 1}`}
+                  className="size-full object-cover"
+                />
+                {index === 0 && (
+                  <span className="absolute bottom-1 left-1 rounded bg-tinta/80 px-1.5 py-0.5 text-[0.625rem] font-bold text-white uppercase tracking-wider">
+                    Principal
+                  </span>
+                )}
+                <button
+                  type="button"
+                  aria-label={`Quitar foto ${index + 1}`}
+                  onClick={() => quitarFoto(f.id)}
+                  className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-tinta/80 text-white transition active:scale-90"
+                >
+                  <X className="size-3.5" strokeWidth={2.5} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {fotos.length < 5 && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => refArchivoGaleria.current?.click()}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-borde bg-papel-hundido px-3 text-[0.875rem] font-semibold text-tinta transition active:bg-borde"
+            >
+              <ImageUp className="size-4.5 text-accion" strokeWidth={2.25} />
+              <span>Subir foto</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => refArchivoCamara.current?.click()}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-accion/30 bg-accion-tenue px-3 text-[0.875rem] font-semibold text-accion transition active:bg-accion/20"
+            >
+              <Camera className="size-4.5" strokeWidth={2.25} />
+              <span>Tomar foto</span>
+            </button>
+          </div>
+        )}
+
         <input
-          ref={refArchivo}
+          ref={refArchivoGaleria}
           type="file"
           accept="image/*"
-          // `capture` abre la camara directamente en el telefono en lugar del
-          // carrete, que es lo que se quiere al dar de alta lo que se tiene en
-          // la mano.
-          capture="environment"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const archivo = e.target.files?.[0]
-            if (archivo !== undefined) void elegirFoto(archivo)
+            void elegirFotos(e.target.files)
             e.target.value = ''
           }}
         />
-      </div>
 
-      <CampoTexto
-        etiqueta="Modelo"
+        <input
+          ref={refArchivoCamara}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            void elegirFotos(e.target.files)
+            e.target.value = ''
+          }}
+        />
+      </section>
+
+      {productoExistente === null && (
+        <>
+          <CampoTexto
+            etiqueta="Modelo"
         value={nombre}
         error={campos.nombre}
         onChange={(e) => setNombre(e.target.value)}
@@ -506,7 +592,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           ayuda="Se usa para valuar mermas"
         />
       </div>
-      </>}
+      </>)}
 
       <div className="grid grid-cols-[1fr_2fr] gap-2.5 pt-1">
         <Boton tono="contorno" onClick={onCancelar} disabled={enviando}>
