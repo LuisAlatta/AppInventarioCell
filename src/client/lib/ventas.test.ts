@@ -5,10 +5,17 @@ import { estadoEquipoVenta, gananciaDeVenta, importeDesdeCampo } from './ventas'
 describe('importeDesdeCampo', () => {
   it('normaliza una cifra válida a dos decimales', () => expect(importeDesdeCampo(' 310.256 ')).toBe(310.26))
 
+  it('normaliza cifras válidas con coma decimal', () => expect(importeDesdeCampo('310,256')).toBe(310.26))
+
   it('rechaza vacíos, negativos y cifras mayores al límite', () => {
     expect(importeDesdeCampo('')).toBeNull()
     expect(importeDesdeCampo('-1')).toBeNull()
     expect(importeDesdeCampo('10000000')).toBeNull()
+  })
+
+  it('rechaza textos no finitos', () => {
+    expect(importeDesdeCampo('NaN')).toBeNull()
+    expect(importeDesdeCampo('Infinity')).toBeNull()
   })
 })
 
