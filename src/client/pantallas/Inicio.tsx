@@ -53,7 +53,7 @@ export function Inicio() {
       }
     >
       <div className="flex flex-col gap-6">
-        <section className="grid grid-cols-3 gap-2.5 [&>button]:px-3">
+        <section className="grid grid-cols-3 gap-2.5 [&>button]:px-2">
           <div className="col-span-3">
             <BotonAccion
               tono="accion"

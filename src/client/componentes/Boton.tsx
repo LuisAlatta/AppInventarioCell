@@ -88,18 +88,19 @@ export function BotonAccion({ icono, titulo, detalle, onClick, tono = 'contorno'
         // `w-full` es necesario: un boton se encoge al ancho de su contenido.
         // Las celdas de la grilla se estiran solas, pero el que ocupa dos
         // columnas va dentro de un contenedor y ahi el boton no hereda el ancho.
+        'flex w-full flex-col items-center justify-center rounded-tarjeta transition-[transform,background-color] duration-100 active:scale-[0.98] text-center',
         esAccion
-          ? 'flex w-full min-h-[8.5rem] flex-col items-center justify-center gap-3 rounded-tarjeta p-5 text-center'
-          : 'flex w-full min-h-[7.25rem] flex-col items-start justify-between gap-3 rounded-tarjeta p-4 text-left',
-        'transition-[transform,background-color] duration-100 active:scale-[0.98]',
-        esAccion
-          ? 'bg-accion text-white active:bg-accion-viva'
-          : 'bg-superficie text-tinta border border-borde active:bg-papel-hundido',
+          ? 'min-h-[8.5rem] gap-3 p-5 bg-accion text-white active:bg-accion-viva'
+          : 'min-h-[8.25rem] gap-3 p-3.5 bg-superficie text-tinta border border-borde active:bg-papel-hundido shadow-sm',
       ].join(' ')}
     >
-      <span className={esAccion ? 'text-white/90 [&>svg]:size-9' : 'text-accion'}>{icono}</span>
-      <span className={`flex flex-col gap-0.5 ${esAccion ? 'items-center' : ''}`}>
-        <span className={`${esAccion ? 'text-[1.1875rem]' : 'text-[1.0625rem]'} font-semibold leading-tight`}>{titulo}</span>
+      <span className={esAccion ? 'text-white/90 [&>svg]:size-9' : 'text-accion [&>svg]:size-9 flex items-center justify-center'}>
+        {icono}
+      </span>
+      <span className="flex flex-col items-center gap-0.5 w-full">
+        <span className={`${esAccion ? 'text-[1.1875rem]' : 'text-[1.125rem]'} font-semibold leading-tight text-center truncate max-w-full`}>
+          {titulo}
+        </span>
         {detalle !== undefined && (
           <span className={['text-[0.8125rem]', esAccion ? 'text-white/75' : 'text-tinta-tenue'].join(' ')}>
             {detalle}
