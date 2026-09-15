@@ -113,7 +113,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       if (indice !== -1) {
         manejarCambioImei(indice, id, campo, lectura.valor)
       } else {
-        setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, [campo]: lectura.valor.replace(/\D/g, '') } : equipo))
+        setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, [campo]: lectura.valor.trim().slice(0, 25) } : equipo))
       }
     }
   }, [lectura])
@@ -142,7 +142,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
 
   useEffect(() => {
     const codigoLimpio = codigo.trim()
-    if (codigoLimpio.length < 4) {
+    if (codigoLimpio.length === 0) {
       setProductoExistente(null)
       return undefined
     }
@@ -179,7 +179,7 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           if (valor === '') continue
           if (erroresDuplicados[clave] !== undefined) continue
 
-          if (/^\d{14,17}$/.test(valor)) {
+          if (valor.length > 0 && valor.length <= 25) {
             const yaExiste = await verificarImeiEnBd(valor)
             if (cancelado) return
             if (yaExiste) {
@@ -221,15 +221,15 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     tipo: 'imei1' | 'imei2',
     valorRaw: string,
   ): void => {
-    const soloNumeros = valorRaw.replace(/\D/g, '').slice(0, 17)
-    actualizarEquipo(equipoId, { [tipo]: soloNumeros })
+    const valorLimpio = valorRaw.slice(0, 25)
+    actualizarEquipo(equipoId, { [tipo]: valorLimpio })
 
     const clave = `equipos.${indice}.${tipo}`
     setCampos((prev) => {
       const copia = { ...prev }
-      const res = validarFormatoImei(soloNumeros)
+      const res = validarFormatoImei(valorLimpio)
       if (!res.valido) {
-        copia[clave] = res.error ?? res.ayuda ?? 'El IMEI debe tener entre 14 y 17 dígitos'
+        copia[clave] = res.error ?? 'El IMEI no puede tener más de 25 caracteres'
         if (indice === 0 && tipo === 'imei1') copia.imei1 = copia[clave]
       } else {
         delete copia[clave]
@@ -247,14 +247,14 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         avisos.error('No se encontró un código de barras legible en esa foto')
         return
       }
-      if (campo === 'codigo') setCodigo(valor)
+      if (campo === 'codigo') setCodigo(valor.slice(0, 50))
       else {
         const [tipo, id] = campo.split(':') as ['imei1' | 'imei2', string]
         const indice = equipos.findIndex((e) => e.id === id)
         if (indice !== -1) {
           manejarCambioImei(indice, id, tipo, valor)
         } else {
-          actualizarEquipo(id, { [tipo]: valor.replace(/\D/g, '') })
+          actualizarEquipo(id, { [tipo]: valor.trim().slice(0, 25) })
         }
       }
     } catch {
@@ -358,8 +358,14 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   }
 
   const guardar = async (): Promise<void> => {
-    if (codigo.trim().length < 4) {
-      setCampos({ codigo: 'Ingresa o escanea un código válido' })
+    if (codigo.trim().length === 0) {
+      setCampos({ codigo: 'Ingresa o escanea un código' })
+      avisos.error('Ingresa o escanea un código para el producto')
+      return
+    }
+    if (codigo.trim().length > 50) {
+      setCampos({ codigo: 'El código no puede tener más de 50 caracteres' })
+      avisos.error('El código no puede tener más de 50 caracteres')
       return
     }
 
@@ -377,13 +383,13 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     const erroresDuplicados = validarDuplicadosLocales(equipos)
     const erroresImei: Record<string, string> = { ...erroresDuplicados }
     for (const [i, eq] of equipos.entries()) {
-      if (eq.imei1.trim() !== '' && !/^\d{14,17}$/.test(eq.imei1.trim())) {
-        erroresImei[`equipos.${i}.imei1`] = 'El IMEI debe tener entre 14 y 17 dígitos'
-        erroresImei.imei1 ??= 'El IMEI debe tener entre 14 y 17 dígitos'
+      if (eq.imei1.trim().length > 25) {
+        erroresImei[`equipos.${i}.imei1`] = 'Máximo 25 caracteres'
+        erroresImei.imei1 ??= 'Máximo 25 caracteres'
       }
-      if (eq.imei2.trim() !== '' && !/^\d{14,17}$/.test(eq.imei2.trim())) {
-        erroresImei[`equipos.${i}.imei2`] = 'El IMEI debe tener entre 14 y 17 dígitos'
-        erroresImei.imei2 ??= 'El IMEI debe tener entre 14 y 17 dígitos'
+      if (eq.imei2.trim().length > 25) {
+        erroresImei[`equipos.${i}.imei2`] = 'Máximo 25 caracteres'
+        erroresImei.imei2 ??= 'Máximo 25 caracteres'
       }
     }
 
@@ -469,7 +475,10 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
     } catch (causa) {
       if (causa instanceof ErrorDeApi) {
         setCampos(causa.campos ?? {})
-        avisos.error(causa.message)
+        const primerDetalle = causa.campos && Object.keys(causa.campos).length > 0
+          ? Object.values(causa.campos)[0]
+          : undefined
+        avisos.error(primerDetalle || causa.message)
       } else {
         avisos.error('No se pudo guardar el producto')
       }
@@ -557,17 +566,16 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
                 error={campos[`equipos.${indice}.imei1`] ?? (indice === 0 ? campos.imei1 : undefined)}
                 ayuda={
                   !campos[`equipos.${indice}.imei1`] &&
-                  equipo.imei1.length >= 14 &&
-                  equipo.imei1.length <= 17
-                    ? `IMEI válido (${equipo.imei1.length} dígitos)`
+                  equipo.imei1.trim().length > 0
+                    ? `${equipo.imei1.trim().length}/25 caracteres`
                     : undefined
                 }
                 onChange={(valor) => manejarCambioImei(indice, equipo.id, 'imei1', valor)}
                 onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)}
                 onSubirFoto={(archivo) => iniciarLecturaFoto(`imei1:${equipo.id}`, `IMEI 1 (Equipo ${indice + 1})`, archivo)}
                 leyendoFoto={leyendoFoto === `imei1:${equipo.id}`}
-                inputMode="numeric"
-                placeholder="15 dígitos"
+                inputMode="text"
+                placeholder="Hasta 25 caracteres"
               />
               <CampoConEscaner
                 etiqueta="IMEI 2"
@@ -575,17 +583,16 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
                 error={campos[`equipos.${indice}.imei2`] ?? (indice === 0 ? campos.imei2 : undefined)}
                 ayuda={
                   !campos[`equipos.${indice}.imei2`] &&
-                  equipo.imei2.length >= 14 &&
-                  equipo.imei2.length <= 17
-                    ? `IMEI válido (${equipo.imei2.length} dígitos)`
+                  equipo.imei2.trim().length > 0
+                    ? `${equipo.imei2.trim().length}/25 caracteres`
                     : undefined
                 }
                 onChange={(valor) => manejarCambioImei(indice, equipo.id, 'imei2', valor)}
                 onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)}
                 onSubirFoto={(archivo) => iniciarLecturaFoto(`imei2:${equipo.id}`, `IMEI 2 (Equipo ${indice + 1})`, archivo)}
                 leyendoFoto={leyendoFoto === `imei2:${equipo.id}`}
-                inputMode="numeric"
-                placeholder="Opcional"
+                inputMode="text"
+                placeholder="Opcional (hasta 25 caracteres)"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">

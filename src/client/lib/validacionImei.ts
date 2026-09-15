@@ -15,31 +15,20 @@ export interface ResultadoValidacionFormato {
 }
 
 /**
- * Valida el formato numérico y la longitud del IMEI mientras se digita.
+ * Valida la longitud del IMEI mientras se digita (hasta 25 caracteres sin restricción de formato).
  */
 export function validarFormatoImei(imei: string): ResultadoValidacionFormato {
   const limpio = imei.trim()
   if (limpio === '') return { valido: true }
 
-  if (!/^\d+$/.test(limpio)) {
-    return { valido: false, error: 'El IMEI solo debe contener números' }
-  }
-
-  if (limpio.length < 14) {
+  if (limpio.length > 25) {
     return {
       valido: false,
-      ayuda: `${limpio.length}/15 dígitos (mínimo 14)`,
+      error: `Máximo 25 caracteres (llevas ${limpio.length})`,
     }
   }
 
-  if (limpio.length > 17) {
-    return {
-      valido: false,
-      error: `Máximo 17 dígitos (llevas ${limpio.length})`,
-    }
-  }
-
-  return { valido: true }
+  return { valido: true, ayuda: `${limpio.length}/25 caracteres` }
 }
 
 /**
@@ -92,7 +81,7 @@ const cacheExistencia = new Map<string, boolean>()
  */
 export async function verificarImeiEnBd(imei: string): Promise<boolean> {
   const limpio = imei.trim()
-  if (limpio.length < 14 || limpio.length > 17 || !/^\d+$/.test(limpio)) {
+  if (limpio === '' || limpio.length > 25) {
     return false
   }
 

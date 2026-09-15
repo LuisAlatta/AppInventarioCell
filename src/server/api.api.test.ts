@@ -1021,7 +1021,7 @@ describe('altas idempotentes desde móviles', () => {
     const cookie = await entrar()
     const respuesta = await conSesion(cookie, '/api/productos', {
       metodo: 'POST',
-      cuerpo: { codigo: '123', nombre: 'Teléfono de prueba' },
+      cuerpo: { codigo: '', nombre: 'Teléfono de prueba' },
     })
 
     expect(respuesta.status).toBe(400)
@@ -1029,7 +1029,7 @@ describe('altas idempotentes desde móviles', () => {
       error: {
         codigo: 'datos_invalidos',
         mensaje: 'Revisa los datos',
-        campos: { codigo: 'El código es demasiado corto' },
+        campos: { codigo: 'El código no puede estar vacío' },
       },
     })
   })
@@ -1042,7 +1042,7 @@ describe('altas idempotentes desde móviles', () => {
       cuerpo: {
         productoId,
         ubicacionId: almacenId,
-        equipos: [{ imei1: '123' }],
+        equipos: [{ imei1: '12345678901234567890123456' }],
       },
     })
 
@@ -1050,8 +1050,8 @@ describe('altas idempotentes desde móviles', () => {
     const errorBody = await json<CuerpoDeError>(respuesta)
     expect(errorBody.error.codigo).toBe('datos_invalidos')
     expect(errorBody.error.mensaje).toBe('Revisa los datos')
-    expect(errorBody.error.campos?.['equipos.0.imei1']).toBe('El IMEI debe tener entre 14 y 17 dígitos')
-    expect(errorBody.error.campos?.imei1).toBe('El IMEI debe tener entre 14 y 17 dígitos')
+    expect(errorBody.error.campos?.['equipos.0.imei1']).toBe('El IMEI no puede tener más de 25 caracteres')
+    expect(errorBody.error.campos?.imei1).toBe('El IMEI no puede tener más de 25 caracteres')
   })
 
   test('repite la misma alta de producto sin crear duplicados', async () => {

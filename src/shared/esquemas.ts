@@ -8,13 +8,12 @@
 
 import { z } from 'zod'
 
-/** Código de barras de fabrica: EAN-8, EAN-13, UPC-A y variantes. */
+/** Código de barras de fábrica o identificador: sin restricción de caracteres, hasta 50 de longitud. */
 export const esquemaCodigo = z
   .string()
   .trim()
-  .min(4, 'El código es demasiado corto')
-  .max(32, 'El código es demasiado largo')
-  .regex(/^[0-9A-Za-z-]+$/, 'El código solo puede tener números, letras y guiones')
+  .min(1, 'El código no puede estar vacío')
+  .max(50, 'El código es demasiado largo')
 
 const textoCorto = z.string().trim().max(120)
 const nota = z.string().trim().max(500)
@@ -118,9 +117,15 @@ export const esquemaProductoParcial = esquemaProducto.omit({ codigo: true, idOpe
 const imei = z
   .string()
   .trim()
-  .regex(/^\d{14,17}$/, 'El IMEI debe tener entre 14 y 17 dígitos')
+  .min(1, 'El IMEI no puede estar vacío')
+  .max(25, 'El IMEI no puede tener más de 25 caracteres')
 
-const imeiOpcional = imei.nullish().transform((valor) => valor ?? null)
+const imeiOpcional = z
+  .string()
+  .trim()
+  .max(25, 'El IMEI no puede tener más de 25 caracteres')
+  .nullish()
+  .transform((valor) => (valor && valor !== '' ? valor : null))
 
 export const esquemaEquipo = z
   .object({

@@ -469,12 +469,12 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
         return
       }
 
-      if (/^\d{14,17}$/.test(v1)) {
+      if (v1.length > 0 && v1.length <= 25) {
         const existe = await verificarImeiEnBd(v1)
         if (!cancelado && existe) setErrorImei1('Este IMEI ya está registrado en el inventario')
       }
 
-      if (/^\d{14,17}$/.test(v2)) {
+      if (v2.length > 0 && v2.length <= 25) {
         const existe = await verificarImeiEnBd(v2)
         if (!cancelado && existe) setErrorImei2('Este IMEI ya está registrado en el inventario')
       }
@@ -487,18 +487,16 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
   }, [imei1, imei2])
 
   const cambiarImei1 = (valorRaw: string) => {
-    const val = valorRaw.replace(/\D/g, '').slice(0, 17)
+    const val = valorRaw.slice(0, 25)
     setImei1(val)
-    if (val.length === 0) setErrorImei1(undefined)
-    else if (val.length < 14) setErrorImei1(`El IMEI debe tener al menos 14 dígitos (llevas ${val.length})`)
+    if (val.length > 25) setErrorImei1('El IMEI no puede tener más de 25 caracteres')
     else setErrorImei1(undefined)
   }
 
   const cambiarImei2 = (valorRaw: string) => {
-    const val = valorRaw.replace(/\D/g, '').slice(0, 17)
+    const val = valorRaw.slice(0, 25)
     setImei2(val)
-    if (val.length === 0) setErrorImei2(undefined)
-    else if (val.length < 14) setErrorImei2(`El IMEI debe tener al menos 14 dígitos (llevas ${val.length})`)
+    if (val.length > 25) setErrorImei2('El IMEI no puede tener más de 25 caracteres')
     else if (imei1 !== '' && val === imei1) setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
     else setErrorImei2(undefined)
   }
@@ -509,24 +507,24 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
       avisos.error(errorImei1 ?? errorImei2 ?? 'Revisa los IMEI ingresados')
       return
     }
-    if (imei1 !== '' && !/^\d{14,17}$/.test(imei1)) {
-      setErrorImei1('El IMEI debe tener entre 14 y 17 dígitos')
-      avisos.error('El IMEI debe tener entre 14 y 17 dígitos')
+    if (imei1.trim().length > 25) {
+      setErrorImei1('El IMEI no puede tener más de 25 caracteres')
+      avisos.error('El IMEI no puede tener más de 25 caracteres')
       return
     }
-    if (imei2 !== '' && !/^\d{14,17}$/.test(imei2)) {
-      setErrorImei2('El IMEI debe tener entre 14 y 17 dígitos')
-      avisos.error('El IMEI debe tener entre 14 y 17 dígitos')
+    if (imei2.trim().length > 25) {
+      setErrorImei2('El IMEI no puede tener más de 25 caracteres')
+      avisos.error('El IMEI no puede tener más de 25 caracteres')
       return
     }
-    if (imei1 !== '' && imei2 !== '' && imei1 === imei2) {
+    if (imei1.trim() !== '' && imei2.trim() !== '' && imei1.trim() === imei2.trim()) {
       setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
       avisos.error('IMEI 1 e IMEI 2 deben ser distintos')
       return
     }
     setEnviando(true)
     try {
-      await api.registrarEquipos({ productoId, ubicacionId: activa.id, equipos: [{ imei1: imei1 || null, imei2: imei2 || null, listaBlanca, condicion, notas: notas.trim() || null }] })
+      await api.registrarEquipos({ productoId, ubicacionId: activa.id, equipos: [{ imei1: imei1.trim() || null, imei2: imei2.trim() || null, listaBlanca, condicion, notas: notas.trim() || null }] })
       avisos.exito(`${productoNombre} registrado en ${activa.nombre}`)
       onListo()
     } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo registrar el equipo') } finally { setEnviando(false) }
@@ -547,8 +545,8 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
               className={`min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 py-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
                 errorImei1 === undefined ? 'border-borde' : 'border-falta'
               }`}
-              inputMode="numeric"
-              placeholder="15 dígitos"
+              inputMode="text"
+              placeholder="Hasta 25 caracteres"
               autoFocus
             />
             <input
@@ -597,8 +595,8 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
           </div>
           {leyendoFotoImei === 'imei1' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 1…</p>}
           {errorImei1 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei1}</p>}
-          {!errorImei1 && imei1.length >= 14 && imei1.length <= 17 && (
-            <p className="text-[0.75rem] text-tinta-tenue">IMEI válido ({imei1.length} dígitos)</p>
+          {!errorImei1 && imei1.trim().length > 0 && (
+            <p className="text-[0.75rem] text-tinta-tenue">{imei1.trim().length}/25 caracteres</p>
           )}
         </div>
 
@@ -612,8 +610,8 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
               className={`min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 py-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
                 errorImei2 === undefined ? 'border-borde' : 'border-falta'
               }`}
-              inputMode="numeric"
-              placeholder="Opcional"
+              inputMode="text"
+              placeholder="Opcional (hasta 25 caracteres)"
             />
             <input
               ref={refCamaraImei2}

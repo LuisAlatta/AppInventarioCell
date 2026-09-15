@@ -7,29 +7,17 @@ describe('validarFormatoImei', () => {
     expect(validarFormatoImei('   ')).toEqual({ valido: true })
   })
 
-  test('rechaza caracteres no numericos', () => {
-    const res = validarFormatoImei('12345abc')
-    expect(res.valido).toBe(false)
-    expect(res.error).toBe('El IMEI solo debe contener números')
-  })
-
-  test('indica progreso si tiene menos de 14 digitos', () => {
-    const res = validarFormatoImei('123456789012')
-    expect(res.valido).toBe(false)
-    expect(res.ayuda).toContain('12/15 dígitos')
-  })
-
-  test('acepta entre 14 y 17 digitos', () => {
-    expect(validarFormatoImei('12345678901234').valido).toBe(true)
+  test('acepta caracteres alfanuméricos y símbolos hasta 25 caracteres', () => {
+    expect(validarFormatoImei('12345abc').valido).toBe(true)
+    expect(validarFormatoImei('IMEI-356000-001').valido).toBe(true)
     expect(validarFormatoImei('123456789012345').valido).toBe(true)
-    expect(validarFormatoImei('1234567890123456').valido).toBe(true)
-    expect(validarFormatoImei('12345678901234567').valido).toBe(true)
+    expect(validarFormatoImei('A'.repeat(25)).valido).toBe(true)
   })
 
-  test('rechaza mas de 17 digitos', () => {
-    const res = validarFormatoImei('123456789012345678')
+  test('rechaza mas de 25 caracteres', () => {
+    const res = validarFormatoImei('A'.repeat(26))
     expect(res.valido).toBe(false)
-    expect(res.error).toContain('Máximo 17 dígitos')
+    expect(res.error).toContain('Máximo 25 caracteres')
   })
 })
 
