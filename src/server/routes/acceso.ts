@@ -58,7 +58,17 @@ rutasAcceso.get('/estado', async (c) => {
 
   let autenticado = false
   if (cookie !== undefined && cookie !== '') {
-    autenticado = (await leerToken(cookie, secretoDeSesion(c.env))) !== null
+    const sesion = await leerToken(cookie, secretoDeSesion(c.env))
+    if (sesion !== null) {
+      const usuario = await c.env.DB
+        .prepare('SELECT 1 FROM users WHERE id = ?')
+        .bind(sesion.usuarioId)
+        .first()
+      autenticado = usuario !== null
+      if (!autenticado) {
+        c.header('Set-Cookie', cookieDeCierre(esSeguro(c.req.url)))
+      }
+    }
   }
 
   return c.json({ configurado: total > 0, autenticado })

@@ -93,12 +93,26 @@ function Puerta() {
    * error incomprensible en bucle.
    */
   useEffect(() => {
-    const desuscribir = cliente.getQueryCache().subscribe((evento) => {
+    const desuscribirConsultas = cliente.getQueryCache().subscribe((evento) => {
       const causa = evento.query.state.error
-      if (causa instanceof ErrorDeApi && causa.esSesionCaida) setEntro(false)
+      if (causa instanceof ErrorDeApi && causa.esSesionCaida) {
+        setEntro(false)
+        void cliente.invalidateQueries({ queryKey: ['acceso'] })
+      }
     })
 
-    return desuscribir
+    const desuscribirMutaciones = cliente.getMutationCache().subscribe((evento) => {
+      const causa = evento.mutation?.state.error
+      if (causa instanceof ErrorDeApi && causa.esSesionCaida) {
+        setEntro(false)
+        void cliente.invalidateQueries({ queryKey: ['acceso'] })
+      }
+    })
+
+    return () => {
+      desuscribirConsultas()
+      desuscribirMutaciones()
+    }
   }, [cliente])
 
   if (estado.isPending) return <PantallaCargando />

@@ -133,6 +133,9 @@ export function comoErrorApp(e: unknown): ErrorApp {
     if (texto.includes('idx_un_conteo_abierto_por_ubicacion')) {
       return new ErrorApp('conflicto', 'Ya hay un conteo abierto en esa ubicación', { causa: e })
     }
+    if (texto.includes('FOREIGN KEY constraint failed')) {
+      return new ErrorApp('no_autenticado', 'Tu sesión ya no es válida. Vuelve a entrar con tu PIN.', { causa: e })
+    }
 
     return new ErrorApp('error_interno', 'Algo falló al guardar. Intenta de nuevo.', { causa: e })
   }
