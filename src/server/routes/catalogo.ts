@@ -16,9 +16,11 @@ import {
 import { ErrorApp, noEncontrado } from '../lib/errores'
 import { validador } from '../lib/validador'
 import {
+  actualizarCategoria,
   actualizarUbicacion,
   crearCategoria,
   crearUbicacion,
+  eliminarCategoria,
   exigirUbicacion,
   listarCategorias,
   listarUbicaciones,
@@ -98,6 +100,15 @@ rutasCatalogo.get('/categorias', async (c) =>
 rutasCatalogo.post('/categorias', validador('json', esquemaCategoria), async (c) =>
   c.json({ categoria: await crearCategoria(c.env.DB, c.req.valid('json')) }, 201),
 )
+
+rutasCatalogo.put('/categorias/:id', validador('json', esquemaCategoria), async (c) =>
+  c.json({ categoria: await actualizarCategoria(c.env.DB, c.req.param('id'), c.req.valid('json')) }),
+)
+
+rutasCatalogo.delete('/categorias/:id', async (c) => {
+  await eliminarCategoria(c.env.DB, c.req.param('id'))
+  return c.json({ exito: true })
+})
 
 rutasCatalogo.get('/marcas', async (c) => c.json({ marcas: await listarMarcas(c.env.DB) }))
 

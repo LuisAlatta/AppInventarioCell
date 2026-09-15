@@ -147,3 +147,43 @@ export async function crearCategoria(db: D1Database, datos: DatosCategoria): Pro
 
   return { id, nombre: datos.nombre, icono: datos.icono ?? null }
 }
+
+export async function actualizarCategoria(
+  db: D1Database,
+  id: string,
+  datos: DatosCategoria,
+): Promise<Categoria> {
+  const resultado = await db
+    .prepare('UPDATE categories SET name = ?, icon = ? WHERE id = ?')
+    .bind(datos.nombre, datos.icono ?? null, id)
+    .run()
+
+  if (resultado.meta.changes === 0) {
+    throw noEncontrado('la categoría')
+  }
+
+  return { id, nombre: datos.nombre, icono: datos.icono ?? null }
+}
+
+export async function eliminarCategoria(db: D1Database, id: string): Promise<void> {
+  // Limpiar categoría en productos y su índice FTS
+  await db
+    .prepare(
+      "UPDATE products_fts SET category = '' WHERE product_id IN (SELECT id FROM products WHERE category_id = ?)",
+    )
+    .bind(id)
+    .run()
+  await db
+    .prepare('UPDATE products SET category_id = NULL WHERE category_id = ?')
+    .bind(id)
+    .run()
+  const resultado = await db
+    .prepare('DELETE FROM categories WHERE id = ?')
+    .bind(id)
+    .run()
+
+  if (resultado.meta.changes === 0) {
+    throw noEncontrado('la categoría')
+  }
+}
+

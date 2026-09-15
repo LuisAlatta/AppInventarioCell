@@ -9,10 +9,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Trash2 } from 'lucide-react'
+import type { Categoria } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from '../componentes/Boton'
 import { CampoTexto } from '../componentes/Campo'
-import { Etiqueta } from '../componentes/Estados'
+import { Confirmacion } from '../componentes/Confirmacion'
+import { Esqueleto, Etiqueta } from '../componentes/Estados'
 import { HojaInferior } from '../componentes/HojaInferior'
 import { Marco } from '../componentes/Marco'
 import { useAvisos } from '../contexto/Avisos'
@@ -53,7 +56,7 @@ export function Ajustes() {
               titulo="Categorías"
               detalle={
                 categorias.isSuccess
-                  ? `${categorias.data.categorias.length} categorias`
+                  ? `Crear, editar o eliminar (${categorias.data.categorias.length})`
                   : 'Cargando…'
               }
               onClick={() => setNuevaCategoria(true)}
@@ -215,6 +218,11 @@ function Categorias({ onListo }: { onListo: () => void }) {
 
   const [nombre, setNombre] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [nombreEdicion, setNombreEdicion] = useState('')
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
+  const [categoriaAEliminar, setCategoriaAEliminar] = useState<Categoria | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
 
@@ -234,42 +242,175 @@ function Categorias({ onListo }: { onListo: () => void }) {
     }
   }
 
+  const iniciarEdicion = (categoria: Categoria) => {
+    setEditandoId(categoria.id)
+    setNombreEdicion(categoria.nombre)
+  }
+
+  const cancelarEdicion = () => {
+    setEditandoId(null)
+    setNombreEdicion('')
+  }
+
+  const guardarEdicion = async (id: string): Promise<void> => {
+    const nuevoNombre = nombreEdicion.trim()
+    if (nuevoNombre.length === 0) return
+
+    setGuardandoEdicion(true)
+    try {
+      await api.actualizarCategoria(id, nuevoNombre)
+      avisos.exito('Categoría actualizada')
+      setEditandoId(null)
+      void cliente.invalidateQueries({ queryKey: ['categorias'] })
+      void cliente.invalidateQueries({ queryKey: ['buscar'] })
+    } catch (causa) {
+      avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo actualizar')
+    } finally {
+      setGuardandoEdicion(false)
+    }
+  }
+
+  const confirmarEliminar = async (): Promise<void> => {
+    if (categoriaAEliminar === null) return
+
+    setEliminando(true)
+    try {
+      await api.eliminarCategoria(categoriaAEliminar.id)
+      avisos.exito('Categoría eliminada')
+      setCategoriaAEliminar(null)
+      void cliente.invalidateQueries({ queryKey: ['categorias'] })
+      void cliente.invalidateQueries({ queryKey: ['buscar'] })
+    } catch (causa) {
+      avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo eliminar')
+    } finally {
+      setEliminando(false)
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-4 pb-3">
-      {categorias.isSuccess && categorias.data.categorias.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {categorias.data.categorias.map((categoria) => (
-            <li
-              key={categoria.id}
-              className="rounded-xl border border-borde bg-superficie px-3 py-2 text-[0.9375rem]"
-            >
-              {categoria.nombre}
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="flex flex-col gap-5 pb-3">
+      {/* Formulario para agregar */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          void crear()
+        }}
+        className="flex flex-col gap-2"
+      >
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <CampoTexto
+              etiqueta="Nueva categoría"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Ej: Smartphones, Accesorios..."
+              autoComplete="off"
+            />
+          </div>
+          <Boton
+            type="submit"
+            cargando={enviando}
+            disabled={nombre.trim().length === 0}
+            className="h-11 shrink-0 px-4"
+          >
+            Agregar
+          </Boton>
+        </div>
+      </form>
 
-      <CampoTexto
-        etiqueta="Nueva categoría"
-        value={nombre}
-        onChange={(e) => setNombre(e.target.value)}
-        placeholder="Audífonos"
-        autoComplete="off"
-        autoFocus
-      />
+      {/* Lista de categorías */}
+      <div className="flex flex-col gap-2">
+        <Etiqueta>Categorías existentes</Etiqueta>
 
-      <div className="grid grid-cols-[1fr_2fr] gap-2.5">
-        <Boton tono="contorno" onClick={onListo} disabled={enviando}>
+        {categorias.isPending && <Esqueleto filas={3} />}
+
+        {categorias.isSuccess && categorias.data.categorias.length === 0 && (
+          <p className="rounded-xl border border-dashed border-borde p-4 text-center text-[0.875rem] text-tinta-tenue">
+            No hay categorías registradas. Agrega una arriba.
+          </p>
+        )}
+
+        {categorias.isSuccess && categorias.data.categorias.length > 0 && (
+          <ul className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
+            {categorias.data.categorias.map((categoria) => (
+              <li key={categoria.id} className="p-3">
+                {editandoId === categoria.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={nombreEdicion}
+                      onChange={(e) => setNombreEdicion(e.target.value)}
+                      className="min-w-0 flex-1 rounded-xl border border-accion bg-papel px-3 py-2 text-[0.9375rem] font-medium outline-none"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void guardarEdicion(categoria.id)
+                        if (e.key === 'Escape') cancelarEdicion()
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={guardandoEdicion || nombreEdicion.trim().length === 0}
+                      onClick={() => void guardarEdicion(categoria.id)}
+                      className="rounded-lg bg-accion px-3 py-2 text-[0.8125rem] font-semibold text-white transition active:bg-accion-viva disabled:opacity-50"
+                    >
+                      {guardandoEdicion ? '...' : 'Guardar'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={guardandoEdicion}
+                      onClick={cancelarEdicion}
+                      className="rounded-lg border border-borde px-2.5 py-2 text-[0.8125rem] font-medium text-tinta-tenue transition active:bg-papel-hundido"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate text-[0.9375rem] font-medium text-tinta">
+                      {categoria.nombre}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label={`Editar categoría ${categoria.nombre}`}
+                        onClick={() => iniciarEdicion(categoria)}
+                        className="flex size-9 items-center justify-center rounded-lg text-tinta-suave transition active:bg-papel-hundido hover:text-accion"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Eliminar categoría ${categoria.nombre}`}
+                        onClick={() => setCategoriaAEliminar(categoria)}
+                        className="flex size-9 items-center justify-center rounded-lg text-tinta-suave transition active:bg-papel-hundido hover:text-falta"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="pt-2">
+        <Boton tono="contorno" ancho onClick={onListo}>
           Listo
         </Boton>
-        <Boton
-          cargando={enviando}
-          disabled={nombre.trim().length === 0}
-          onClick={() => void crear()}
-        >
-          Agregar
-        </Boton>
       </div>
+
+      <Confirmacion
+        abierta={categoriaAEliminar !== null}
+        titulo={`¿Eliminar "${categoriaAEliminar?.nombre}"?`}
+        detalle="Los artículos asignados a esta categoría conservarán todos sus datos y quedarán sin categoría."
+        confirmar="Eliminar"
+        peligro
+        confirmando={eliminando}
+        onCancelar={() => setCategoriaAEliminar(null)}
+        onConfirmar={() => void confirmarEliminar()}
+      />
     </div>
   )
 }

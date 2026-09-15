@@ -211,8 +211,18 @@ export const api = {
 
   categorias: (): Promise<{ categorias: Categoria[] }> => pedir('/categorias'),
 
-  crearCategoria: (nombre: string, icono?: string): Promise<{ categoria: Categoria }> =>
+  crearCategoria: (nombre: string, icono?: string | null): Promise<{ categoria: Categoria }> =>
     pedir('/categorias', { metodo: 'POST', cuerpo: { nombre, icono } }),
+
+  actualizarCategoria: (
+    id: string,
+    nombre: string,
+    icono?: string | null,
+  ): Promise<{ categoria: Categoria }> =>
+    pedir(`/categorias/${id}`, { metodo: 'PUT', cuerpo: { nombre, icono } }),
+
+  eliminarCategoria: (id: string): Promise<{ exito: boolean }> =>
+    pedir(`/categorias/${id}`, { metodo: 'DELETE' }),
 
   marcas: (): Promise<{ marcas: Marca[] }> => pedir('/marcas'),
 

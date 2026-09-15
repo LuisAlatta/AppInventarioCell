@@ -60,9 +60,20 @@ function ContenidoVentas({ ubicacion }: { ubicacion: Ubicacion }) {
   // ofrecer una salida genérica que eluda el estado o el local del IMEI.
   const productos = equipo === null ? resultados.data?.productos ?? [] : []
 
+  const elegirArticulo = (sel: SeleccionVenta) => {
+    setSeleccion(sel)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <ResumenVentas />
+      <section aria-labelledby="registrar-venta" className="flex flex-col gap-3">
+        <h2 id="registrar-venta" className="text-[1rem] font-semibold">Registrar venta</h2>
+        {seleccion === null
+          ? <p className="rounded-xl border border-dashed border-borde-fuerte p-4 text-[0.875rem] text-tinta-tenue">Elige un artículo para revisar los importes y registrar su salida.</p>
+          : <FormularioVenta key={`${seleccion.producto.id}-${seleccion.equipo?.id ?? 'producto'}`} seleccion={seleccion} ubicacion={ubicacion} enviando={enviando} onEnviando={setEnviando} onCancelar={() => setSeleccion(null)} onListo={() => { setSeleccion(null); setTexto(''); setConsulta('') }} />}
+      </section>
+
       <section aria-labelledby="buscar-articulo" className="flex flex-col gap-3">
         <div>
           <h2 id="buscar-articulo" className="text-[1rem] font-semibold">Buscar artículo</h2>
@@ -88,7 +99,7 @@ function ContenidoVentas({ ubicacion }: { ubicacion: Ubicacion }) {
           <ErrorEnPantalla mensaje="Este IMEI ya fue vendido y no se puede registrar otra vez." />
         )}
         {equipo !== null && estadoImei === 'disponible' && (
-          <TarjetaImei equipo={equipo} ubicacion={ubicacion} bloqueado={buscando || enviando} onElegir={setSeleccion} />
+          <TarjetaImei equipo={equipo} ubicacion={ubicacion} bloqueado={buscando || enviando} onElegir={elegirArticulo} />
         )}
         {resultados.isError && <ErrorEnPantalla mensaje="No se pudo buscar. Revisa la conexión." onReintentar={() => void resultados.refetch()} />}
         {resultados.isPending && <Esqueleto filas={2} />}
@@ -105,18 +116,14 @@ function ContenidoVentas({ ubicacion }: { ubicacion: Ubicacion }) {
                   {producto.modelo && <p className="break-words text-[0.8125rem] text-tinta-suave">{producto.modelo}</p>}
                   <p className="text-[0.8125rem] text-tinta-tenue">{numero(producto.stock.find((fila) => fila.ubicacionId === ubicacion.id)?.cantidad ?? 0)} en {ubicacion.nombre}</p>
                 </div>
-                <Boton tono="suave" className="shrink-0 px-3 text-[0.875rem]" disabled={enviando || buscando || (esImei && !imei.isSuccess)} onClick={() => setSeleccion({ producto, equipo: null })}>Vender</Boton>
+                <Boton tono="suave" className="shrink-0 px-3 text-[0.875rem]" disabled={enviando || buscando || (esImei && !imei.isSuccess)} onClick={() => elegirArticulo({ producto, equipo: null })}>Vender</Boton>
               </li>
             ))}
           </ul>
         )}
       </section>
-      <section aria-labelledby="registrar-venta" className="flex flex-col gap-3">
-        <h2 id="registrar-venta" className="text-[1rem] font-semibold">Registrar venta</h2>
-        {seleccion === null
-          ? <p className="rounded-xl border border-dashed border-borde-fuerte p-4 text-[0.875rem] text-tinta-tenue">Elige un artículo para revisar los importes y registrar su salida.</p>
-          : <FormularioVenta key={`${seleccion.producto.id}-${seleccion.equipo?.id ?? 'producto'}`} seleccion={seleccion} ubicacion={ubicacion} enviando={enviando} onEnviando={setEnviando} onCancelar={() => setSeleccion(null)} onListo={() => { setSeleccion(null); setTexto(''); setConsulta('') }} />}
-      </section>
+
+      <ResumenVentas />
     </div>
   )
 }

@@ -1555,3 +1555,49 @@ describe('marcas', () => {
     expect(respuesta.status).toBe(400)
   })
 })
+
+describe('categorias', () => {
+  let cookie: string
+
+  beforeEach(async () => {
+    cookie = await entrar()
+  })
+
+  test('crea, edita y elimina categorias correctamente', async () => {
+    // Crear
+    const resCrear = await conSesion(cookie, '/api/categorias', {
+      metodo: 'POST',
+      cuerpo: { nombre: 'Accesorios Especiales' },
+    })
+    expect(resCrear.status).toBe(201)
+    const { categoria } = await json<{ categoria: { id: string; nombre: string } }>(resCrear)
+    expect(categoria.nombre).toBe('Accesorios Especiales')
+    expect(categoria.id).toMatch(/^cat_/)
+
+    // Listar
+    const resListar = await conSesion(cookie, '/api/categorias')
+    expect(resListar.status).toBe(200)
+    const { categorias } = await json<{ categorias: { id: string; nombre: string }[] }>(resListar)
+    expect(categorias.some((c) => c.id === categoria.id)).toBe(true)
+
+    // Editar
+    const resEditar = await conSesion(cookie, `/api/categorias/${categoria.id}`, {
+      metodo: 'PUT',
+      cuerpo: { nombre: 'Accesorios y Periféricos' },
+    })
+    expect(resEditar.status).toBe(200)
+    const editada = await json<{ categoria: { id: string; nombre: string } }>(resEditar)
+    expect(editada.categoria.nombre).toBe('Accesorios y Periféricos')
+
+    // Eliminar
+    const resEliminar = await conSesion(cookie, `/api/categorias/${categoria.id}`, {
+      metodo: 'DELETE',
+    })
+    expect(resEliminar.status).toBe(200)
+
+    // Comprobar que ya no aparece
+    const resListarFinal = await conSesion(cookie, '/api/categorias')
+    const final = await json<{ categorias: { id: string; nombre: string }[] }>(resListarFinal)
+    expect(final.categorias.some((c) => c.id === categoria.id)).toBe(false)
+  })
+})
