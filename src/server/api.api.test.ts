@@ -8,7 +8,7 @@
 
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, test } from 'vitest'
-import type { Equipo, Movimiento, ReporteVentas } from '@compartido/tipos'
+import type { Equipo, Movimiento, ProductoConStock, ReporteVentas } from '@compartido/tipos'
 import app from './index'
 
 const PIN = '246810'
@@ -1601,3 +1601,102 @@ describe('categorias', () => {
     expect(final.categorias.some((c) => c.id === categoria.id)).toBe(false)
   })
 })
+
+describe('edición y eliminación de equipos individuales y productos', () => {
+  test('edita un equipo individual y sus IMEIs', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: Equipo[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000071', listaBlanca: 'not_registered', condicion: 'new' }],
+      },
+    }))
+    const equipo = alta.equipos[0]
+    expect(equipo).toBeDefined()
+    if (!equipo) throw new Error('Falta equipo')
+
+    // Editar equipo
+    const resEdit = await conSesion(cookie, `/api/equipos/${equipo.id}`, {
+      metodo: 'PATCH',
+      cuerpo: {
+        imei1: '356000000000072',
+        listaBlanca: 'registered',
+        condicion: 'used',
+        notas: 'Revisado en taller',
+      },
+    })
+    expect(resEdit.status).toBe(200)
+    const { equipo: editado } = await json<{ equipo: Equipo }>(resEdit)
+    expect(editado.imei1).toBe('356000000000072')
+    expect(editado.listaBlanca).toBe('registered')
+    expect(editado.condicion).toBe('used')
+    expect(editado.notas).toBe('Revisado en taller')
+
+    // Se busca por el nuevo IMEI
+    const resBuscarNuevo = await conSesion(cookie, '/api/equipos/imei/356000000000072')
+    expect(resBuscarNuevo.status).toBe(200)
+    expect((await json<{ equipo: Equipo | null }>(resBuscarNuevo)).equipo?.id).toBe(equipo.id)
+
+    // El IMEI anterior ya no existe
+    const resBuscarViejo = await conSesion(cookie, '/api/equipos/imei/356000000000071')
+    expect((await json<{ equipo: Equipo | null }>(resBuscarViejo)).equipo).toBeNull()
+  })
+
+  test('elimina un equipo individual y descuenta el stock', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: Equipo[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000075', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    }))
+    const equipo = alta.equipos[0]
+    if (!equipo) throw new Error('Falta equipo')
+
+    // Comprobar stock antes
+    const resProdAntes = await json<{ producto: ProductoConStock }>(await conSesion(cookie, `/api/productos/${productoId}`))
+    const stockAntes = resProdAntes.producto.stockTotal
+
+    // Eliminar equipo
+    const resDel = await conSesion(cookie, `/api/equipos/${equipo.id}`, { metodo: 'DELETE' })
+    expect(resDel.status).toBe(204)
+
+    // Comprobar que ya no aparece en listarEquiposDeProducto
+    const resListar = await json<{ equipos: Equipo[] }>(await conSesion(cookie, `/api/equipos/producto/${productoId}`))
+    expect(resListar.equipos.some((e) => e.id === equipo.id)).toBe(false)
+
+    // Comprobar que el stock disminuyó en 1
+    const resProdDespues = await json<{ producto: ProductoConStock }>(await conSesion(cookie, `/api/productos/${productoId}`))
+    expect(resProdDespues.producto.stockTotal).toBe(stockAntes - 1)
+  })
+
+  test('elimina definitivamente un producto con historial y equipos sin bloquear', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+
+    // Crear un equipo con movimiento
+    await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000079', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    })
+
+    // Eliminar producto
+    const resDelProd = await conSesion(cookie, `/api/productos/${productoId}`, { metodo: 'DELETE' })
+    expect(resDelProd.status).toBe(204)
+
+    // Ya no se encuentra por GET /api/productos/:id
+    const resGet = await conSesion(cookie, `/api/productos/${productoId}`)
+    expect(resGet.status).toBe(404)
+  })
+})
+

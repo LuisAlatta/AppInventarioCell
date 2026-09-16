@@ -1,6 +1,9 @@
 /** Consultas de equipos individuales y sus IMEI. */
 
+import type { DatosActualizarEquipo } from '@compartido/esquemas'
 import type { Equipo } from '@compartido/tipos'
+import { ErrorApp, noEncontrado } from '../lib/errores'
+import { sentenciasDeStock } from './stock'
 import { aEquipo, type FilaEquipo } from './mapeo'
 
 const COLUMNAS = `
@@ -89,4 +92,105 @@ export async function listarEquiposDeProducto(
     .all<FilaEquipo>()
 
   return results.map(aEquipo)
+}
+
+export async function exigirEquipo(db: D1Database, id: string): Promise<Equipo> {
+  const [equipo] = await equiposPorIds(db, [id])
+  if (equipo === undefined) throw noEncontrado('el equipo')
+  return equipo
+}
+
+export async function actualizarEquipo(
+  db: D1Database,
+  id: string,
+  datos: DatosActualizarEquipo,
+): Promise<Equipo> {
+  const actual = await exigirEquipo(db, id)
+
+  const nuevoImei1 = datos.imei1 !== undefined ? (datos.imei1 || null) : actual.imei1
+  const nuevoImei2 = datos.imei2 !== undefined ? (datos.imei2 || null) : actual.imei2
+
+  if (nuevoImei1 !== null && nuevoImei2 !== null && nuevoImei1 === nuevoImei2) {
+    throw new ErrorApp('datos_invalidos', 'IMEI 1 e IMEI 2 deben ser distintos', {
+      campos: { imei2: 'IMEI 1 e IMEI 2 deben ser distintos' },
+    })
+  }
+
+  const imeisAComprobar = [nuevoImei1, nuevoImei2].filter((x): x is string => x !== null)
+  if (imeisAComprobar.length > 0) {
+    const marcas = imeisAComprobar.map(() => '?').join(', ')
+    const existente = await db
+      .prepare(`SELECT imei, device_id FROM device_imeis WHERE imei IN (${marcas}) AND device_id <> ? LIMIT 1`)
+      .bind(...imeisAComprobar, id)
+      .first<{ imei: string; device_id: string }>()
+
+    if (existente !== null) {
+      throw new ErrorApp('conflicto', `El IMEI ${existente.imei} ya está registrado en otro equipo`, {
+        campos: { imei1: 'Este IMEI ya está registrado en otro equipo' },
+      })
+    }
+  }
+
+  const sentencias: D1PreparedStatement[] = []
+
+  const asignaciones: string[] = []
+  const valores: unknown[] = []
+  if (datos.listaBlanca !== undefined) {
+    asignaciones.push('whitelist_status = ?')
+    valores.push(datos.listaBlanca)
+  }
+  if (datos.condicion !== undefined) {
+    asignaciones.push('condition = ?')
+    valores.push(datos.condicion)
+  }
+  if (datos.notas !== undefined) {
+    asignaciones.push('notes = ?')
+    valores.push(datos.notas ?? null)
+  }
+
+  if (asignaciones.length > 0) {
+    asignaciones.push("updated_at = datetime('now')")
+    valores.push(id)
+    sentencias.push(
+      db.prepare(`UPDATE devices SET ${asignaciones.join(', ')} WHERE id = ?`).bind(...valores),
+    )
+  }
+
+  if (datos.imei1 !== undefined || datos.imei2 !== undefined) {
+    sentencias.push(db.prepare('DELETE FROM device_imeis WHERE device_id = ?').bind(id))
+    if (nuevoImei1 !== null) {
+      sentencias.push(
+        db.prepare('INSERT INTO device_imeis (device_id, position, imei) VALUES (?, 1, ?)').bind(id, nuevoImei1),
+      )
+    }
+    if (nuevoImei2 !== null) {
+      sentencias.push(
+        db.prepare('INSERT INTO device_imeis (device_id, position, imei) VALUES (?, 2, ?)').bind(id, nuevoImei2),
+      )
+    }
+  }
+
+  if (sentencias.length > 0) {
+    await db.batch(sentencias)
+  }
+
+  return exigirEquipo(db, id)
+}
+
+export async function eliminarEquipo(db: D1Database, id: string): Promise<void> {
+  const equipo = await exigirEquipo(db, id)
+
+  const sentencias: D1PreparedStatement[] = []
+
+  if (equipo.activo) {
+    sentencias.push(...sentenciasDeStock(db, equipo.productoId, equipo.ubicacionId, -1))
+  }
+
+  sentencias.push(
+    db.prepare('DELETE FROM movements WHERE device_id = ?').bind(id),
+    db.prepare('DELETE FROM device_imeis WHERE device_id = ?').bind(id),
+    db.prepare('DELETE FROM devices WHERE id = ?').bind(id),
+  )
+
+  await db.batch(sentencias)
 }

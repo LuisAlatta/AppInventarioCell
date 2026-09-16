@@ -290,6 +290,20 @@ export const api = {
   }): Promise<{ equipos: import('@compartido/tipos').Equipo[] }> =>
     pedir('/equipos', { metodo: 'POST', cuerpo: datos }),
 
+  actualizarEquipo: (
+    id: string,
+    datos: {
+      imei1?: string | null
+      imei2?: string | null
+      listaBlanca?: 'registered' | 'not_registered'
+      condicion?: 'new' | 'used'
+      notas?: string | null
+    },
+  ): Promise<{ equipo: import('@compartido/tipos').Equipo }> =>
+    pedir(`/equipos/${id}`, { metodo: 'PATCH', cuerpo: datos }),
+
+  eliminarEquipo: (id: string): Promise<void> => pedir(`/equipos/${id}`, { metodo: 'DELETE' }),
+
   // -------------------------------------------------------------------------
   // Panel de inicio
   // -------------------------------------------------------------------------

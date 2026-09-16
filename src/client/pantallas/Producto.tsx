@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, ImageUp, X } from 'lucide-react'
+import { Camera, ImageUp, Pencil, Trash2, X } from 'lucide-react'
 import { ErrorDeApi, api, urlDeImagen } from '../api/cliente'
 import { AccionesProducto } from '../componentes/AccionesProducto'
 import { SugerenciaReposicion } from '../componentes/SugerenciaReposicion'
@@ -28,7 +28,7 @@ import { NOMBRE_MOVIMIENTO, cuandoFue, dinero, fechaLarga, numero } from '../lib
 import { prepararFoto } from '../lib/imagen'
 import { leerCodigoDeFoto } from '../escaner/lecturaCodigo'
 import { verificarImeiEnBd } from '../lib/validacionImei'
-import type { ProductoConStock } from '@compartido/tipos'
+import type { Equipo, ProductoConStock } from '@compartido/tipos'
 
 export function Producto() {
   const { id = '' } = useParams()
@@ -43,6 +43,8 @@ export function Producto() {
   const [acciones, setAcciones] = useState(abrirVenta)
   const [modoAcciones, setModoAcciones] = useState<'rápido' | 'venta'>(abrirVenta ? 'venta' : 'rápido')
   const [altaEquipo, setAltaEquipo] = useState(false)
+  const [equipoParaEditar, setEquipoParaEditar] = useState<Equipo | null>(null)
+  const [equipoParaEliminar, setEquipoParaEliminar] = useState<Equipo | null>(null)
   const [administrar, setAdministrar] = useState(false)
   const [accionProducto, setAccionProducto] = useState<'desactivar' | 'eliminar' | null>(null)
   const [imagenPorQuitar, setImagenPorQuitar] = useState<{ id: string; clave: string } | null>(null)
@@ -145,7 +147,28 @@ export function Producto() {
             </span>
             <span className="text-[0.6875rem] text-tinta-tenue">en total</span>
           </div>
-          <button type="button" aria-label={`Administrar ${ficha.nombre}`} onClick={() => setAdministrar(true)} className="-mt-1 flex size-10 shrink-0 items-center justify-center rounded-xl text-accion active:bg-accion-tenue"><svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></button>
+          <div className="-mt-1 flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              aria-label={`Eliminar ${ficha.nombre}`}
+              title="Eliminar producto"
+              onClick={() => setAccionProducto('eliminar')}
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-falta-tenue text-falta transition active:scale-95 active:bg-falta/20"
+            >
+              <Trash2 className="size-5" strokeWidth={2} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              aria-label={`Administrar ${ficha.nombre}`}
+              title="Administrar producto"
+              onClick={() => setAdministrar(true)}
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl text-accion active:bg-accion-tenue"
+            >
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
+                <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
         </section>
 
         {bajoMinimo && (
@@ -255,8 +278,72 @@ export function Producto() {
             </button>
           </div>
           {equipos.isPending && <Esqueleto filas={2} />}
-          {equipos.isSuccess && equipos.data.equipos.length === 0 && <p className="rounded-xl bg-papel-hundido px-4 py-3 text-[0.875rem] text-tinta-tenue">Este modelo aún no tiene IMEI registrados.</p>}
-          {equipos.isSuccess && equipos.data.equipos.length > 0 && <ul className="flex flex-col gap-2">{equipos.data.equipos.map((equipo) => <li key={equipo.id} className={`rounded-2xl border p-3 ${equipo.activo ? 'border-borde bg-superficie' : 'border-borde bg-papel-hundido opacity-70'}`}><div className="flex items-start gap-3"><Miniatura nombre={ficha.nombre} claveImagen={ficha.claveImagen} tamano="pequena" /><div className="min-w-0 flex-1"><p className="text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'}</p>{equipo.imei2 !== null && <p className="cifras mt-0.5 text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</p>}<p className="mt-1 text-[0.75rem] text-tinta-tenue" title={fechaLarga(equipo.creadoEn)}>Agregado {fechaLarga(equipo.creadoEn)}</p></div><div className="flex shrink-0 flex-col items-end gap-1">{!equipo.activo && <span className="rounded-full bg-papel-hundido px-2 py-1 text-[0.6875rem] font-semibold text-tinta-suave">Vendido o retirado</span>}<span className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${equipo.listaBlanca === 'registered' ? 'bg-exito-tenue text-exito' : 'bg-falta-tenue text-falta'}`}>{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}</span><span className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${equipo.condicion === 'new' ? 'bg-accion-tenue text-accion' : 'bg-alerta-tenue text-alerta'}`}>{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span></div></div></li>)}</ul>}
+          {equipos.isSuccess && equipos.data.equipos.length > 0 && (
+            <ul className="flex flex-col gap-2">
+              {equipos.data.equipos.map((equipo) => (
+                <li
+                  key={equipo.id}
+                  className={`rounded-2xl border p-3 ${
+                    equipo.activo ? 'border-borde bg-superficie' : 'border-borde bg-papel-hundido opacity-70'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Miniatura nombre={ficha.nombre} claveImagen={ficha.claveImagen} tamano="pequena" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'}</p>
+                      {equipo.imei2 !== null && (
+                        <p className="cifras mt-0.5 text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</p>
+                      )}
+                      <p className="mt-1 text-[0.75rem] text-tinta-tenue" title={fechaLarga(equipo.creadoEn)}>
+                        Agregado {fechaLarga(equipo.creadoEn)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {!equipo.activo && (
+                        <span className="rounded-full bg-papel-hundido px-2 py-1 text-[0.6875rem] font-semibold text-tinta-suave">
+                          Vendido o retirado
+                        </span>
+                      )}
+                      <span
+                        className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${
+                          equipo.listaBlanca === 'registered' ? 'bg-exito-tenue text-exito' : 'bg-falta-tenue text-falta'
+                        }`}
+                      >
+                        {equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${
+                          equipo.condicion === 'new' ? 'bg-accion-tenue text-accion' : 'bg-alerta-tenue text-alerta'
+                        }`}
+                      >
+                        {equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-borde/60 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEquipoParaEditar(equipo)}
+                      className="flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[0.75rem] font-semibold text-accion transition active:bg-accion-tenue"
+                      title="Editar IMEI y datos de esta unidad"
+                    >
+                      <Pencil className="size-3.5" strokeWidth={2.2} aria-hidden="true" />
+                      <span>Editar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEquipoParaEliminar(equipo)}
+                      className="flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[0.75rem] font-semibold text-falta transition active:bg-falta-tenue"
+                      title="Eliminar esta unidad del inventario"
+                    >
+                      <Trash2 className="size-3.5" strokeWidth={2.2} aria-hidden="true" />
+                      <span>Eliminar</span>
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {(ficha.precioVenta > 0 || ficha.precioCosto > 0) && (
@@ -370,13 +457,89 @@ export function Producto() {
         <FormularioAltaEquipo productoId={ficha.id} productoNombre={ficha.nombre} onListo={() => { setAltaEquipo(false); void cliente.invalidateQueries({ queryKey: ['equipos', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
       </HojaInferior>
 
+      <HojaInferior abierta={equipoParaEditar !== null} onCerrar={() => setEquipoParaEditar(null)} titulo={`Editar equipo · ${ficha.nombre}`}>
+        {equipoParaEditar !== null && (
+          <FormularioEdicionEquipo
+            equipo={equipoParaEditar}
+            onListo={() => {
+              setEquipoParaEditar(null)
+              void cliente.invalidateQueries({ queryKey: ['equipos', id] })
+              void cliente.invalidateQueries({ queryKey: ['producto', id] })
+              void cliente.invalidateQueries({ queryKey: ['buscar'] })
+            }}
+          />
+        )}
+      </HojaInferior>
+
       <HojaInferior abierta={administrar} onCerrar={() => setAdministrar(false)} titulo={`Administrar · ${ficha.nombre}`}>
         <FormularioEdicionProducto producto={ficha} onCerrar={() => setAdministrar(false)} onDesactivar={() => setAccionProducto('desactivar')} onEliminar={() => setAccionProducto('eliminar')} onGuardado={() => { setAdministrar(false); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['buscar'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
       </HojaInferior>
 
       <Confirmacion abierta={imagenPorQuitar !== null} titulo={`¿Quitar foto de ${ficha.nombre}?`} detalle={`La imagen se eliminará de ${ficha.nombre}. Esta acción no se puede deshacer.`} confirmar="Quitar foto" peligro onCancelar={() => setImagenPorQuitar(null)} onConfirmar={() => { if (imagenPorQuitar === null) return; void (async () => { try { await api.quitarImagenProducto(ficha.id, imagenPorQuitar.id); void cliente.invalidateQueries({ queryKey: ['imagenes', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); avisos.exito('Foto eliminada') } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo quitar la foto') } finally { setImagenPorQuitar(null) } })() }} />
 
-      <Confirmacion abierta={accionProducto !== null} titulo={accionProducto === 'eliminar' ? `¿Eliminar ${ficha.nombre}?` : `¿Desactivar ${ficha.nombre}?`} detalle={accionProducto === 'eliminar' ? `${ficha.nombre} solo se eliminará si no tiene historial. Si ya se registraron movimientos o IMEI, podrás desactivarlo para conservar la información.` : `${ficha.nombre} dejará de aparecer en las búsquedas y se conservará su historial.`} confirmar={accionProducto === 'eliminar' ? 'Eliminar producto' : 'Desactivar'} peligro onCancelar={() => setAccionProducto(null)} onConfirmar={() => { if (accionProducto === null) return; void (async () => { try { if (accionProducto === 'eliminar') { await api.eliminarProducto(ficha.id); avisos.exito(`${ficha.nombre} eliminado`); navegar('/buscar') } else { await api.actualizarProducto(ficha.id, { activo: false }); avisos.exito(`${ficha.nombre} desactivado`); setAdministrar(false); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['buscar'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) } } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo guardar el cambio') } finally { setAccionProducto(null) } })() }} />
+      <Confirmacion
+        abierta={equipoParaEliminar !== null}
+        titulo={`¿Eliminar unidad física (${equipoParaEliminar?.imei1 ?? equipoParaEliminar?.imei2 ?? 'Sin IMEI'})?`}
+        detalle="Esta unidad física se eliminará del inventario y se descontará del stock. Esta acción no se puede deshacer."
+        confirmar="Eliminar equipo"
+        peligro
+        onCancelar={() => setEquipoParaEliminar(null)}
+        onConfirmar={() => {
+          if (equipoParaEliminar === null) return
+          void (async () => {
+            try {
+              await api.eliminarEquipo(equipoParaEliminar.id)
+              avisos.exito('Equipo eliminado del inventario')
+              void cliente.invalidateQueries({ queryKey: ['equipos', id] })
+              void cliente.invalidateQueries({ queryKey: ['producto', id] })
+              void cliente.invalidateQueries({ queryKey: ['buscar'] })
+              void cliente.invalidateQueries({ queryKey: ['inicio'] })
+            } catch (causa) {
+              avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo eliminar el equipo')
+            } finally {
+              setEquipoParaEliminar(null)
+            }
+          })()
+        }}
+      />
+
+      <Confirmacion
+        abierta={accionProducto !== null}
+        titulo={accionProducto === 'eliminar' ? `¿Eliminar ${ficha.nombre}?` : `¿Desactivar ${ficha.nombre}?`}
+        detalle={
+          accionProducto === 'eliminar'
+            ? `Se eliminará definitivamente ${ficha.nombre} y todos sus registros asociados (equipos, historial y stock). Ya no aparecerá en el inventario ni en las búsquedas.`
+            : `${ficha.nombre} dejará de aparecer en las búsquedas y se conservará su historial.`
+        }
+        confirmar={accionProducto === 'eliminar' ? 'Eliminar definitivamente' : 'Desactivar'}
+        peligro
+        onCancelar={() => setAccionProducto(null)}
+        onConfirmar={() => {
+          if (accionProducto === null) return
+          void (async () => {
+            try {
+              if (accionProducto === 'eliminar') {
+                await api.eliminarProducto(ficha.id)
+                avisos.exito(`${ficha.nombre} eliminado definitivamente`)
+                void cliente.invalidateQueries({ queryKey: ['buscar'] })
+                void cliente.invalidateQueries({ queryKey: ['inicio'] })
+                navegar('/buscar')
+              } else {
+                await api.actualizarProducto(ficha.id, { activo: false })
+                avisos.exito(`${ficha.nombre} desactivado`)
+                setAdministrar(false)
+                void cliente.invalidateQueries({ queryKey: ['producto', id] })
+                void cliente.invalidateQueries({ queryKey: ['buscar'] })
+                void cliente.invalidateQueries({ queryKey: ['inicio'] })
+              }
+            } catch (causa) {
+              avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo guardar el cambio')
+            } finally {
+              setAccionProducto(null)
+            }
+          })()
+        }}
+      />
 
       {ficha.notas !== null && ficha.notas !== '' && (
         <p className="mt-4 rounded-xl bg-papel-hundido px-4 py-3 text-[0.9375rem] text-tinta-suave">
@@ -684,6 +847,294 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
       />
       <Boton ancho cargando={enviando} onClick={() => void guardar()}>
         Guardar equipo
+      </Boton>
+
+      <ModalRecorteImagen
+        abierto={recorteImei !== null}
+        archivo={recorteImei?.archivo ?? null}
+        titulo={recorteImei?.tipo === 'imei1' ? 'Recortar IMEI 1' : 'Recortar IMEI 2'}
+        subtitulo="Enfoca los dígitos del código o usa la foto completa"
+        onConfirmar={(resultado) => {
+          const tipo = recorteImei?.tipo
+          setRecorteImei(null)
+          if (tipo) void procesarFotoImei(tipo, resultado)
+        }}
+        onCancelar={() => setRecorteImei(null)}
+      />
+    </div>
+  )
+}
+
+function FormularioEdicionEquipo({
+  equipo,
+  onListo,
+}: {
+  equipo: Equipo
+  onListo: () => void
+}) {
+  const avisos = useAvisos()
+  const [imei1, setImei1] = useState(equipo.imei1 ?? '')
+  const [imei2, setImei2] = useState(equipo.imei2 ?? '')
+  const [errorImei1, setErrorImei1] = useState<string | undefined>()
+  const [errorImei2, setErrorImei2] = useState<string | undefined>()
+  const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>(equipo.listaBlanca)
+  const [condicion, setCondicion] = useState<'new' | 'used'>(equipo.condicion)
+  const [notas, setNotas] = useState(equipo.notas ?? '')
+  const [enviando, setEnviando] = useState(false)
+  const [recorteImei, setRecorteImei] = useState<{
+    tipo: 'imei1' | 'imei2'
+    archivo: File | Blob
+  } | null>(null)
+  const [leyendoFotoImei, setLeyendoFotoImei] = useState<'imei1' | 'imei2' | null>(null)
+  const refCamaraImei1 = useRef<HTMLInputElement>(null)
+  const refGaleriaImei1 = useRef<HTMLInputElement>(null)
+  const refCamaraImei2 = useRef<HTMLInputElement>(null)
+  const refGaleriaImei2 = useRef<HTMLInputElement>(null)
+
+  const procesarFotoImei = async (tipo: 'imei1' | 'imei2', blob: Blob) => {
+    setLeyendoFotoImei(tipo)
+    try {
+      const valor = await leerCodigoDeFoto(blob)
+      if (!valor) {
+        avisos.error('No se encontró un código legible en esa foto')
+        return
+      }
+      if (tipo === 'imei1') cambiarImei1(valor)
+      else cambiarImei2(valor)
+    } catch {
+      avisos.error('No se pudo procesar la foto')
+    } finally {
+      setLeyendoFotoImei(null)
+    }
+  }
+
+  useEffect(() => {
+    let cancelado = false
+    const temporizador = window.setTimeout(async () => {
+      const v1 = imei1.trim()
+      const v2 = imei2.trim()
+
+      if (v1 !== '' && v2 !== '' && v1 === v2) {
+        setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
+        return
+      }
+
+      if (v1.length > 0 && v1.length <= 25 && v1 !== equipo.imei1) {
+        const existe = await verificarImeiEnBd(v1)
+        if (!cancelado && existe) setErrorImei1('Este IMEI ya está registrado en el inventario')
+      }
+
+      if (v2.length > 0 && v2.length <= 25 && v2 !== equipo.imei2) {
+        const existe = await verificarImeiEnBd(v2)
+        if (!cancelado && existe) setErrorImei2('Este IMEI ya está registrado en el inventario')
+      }
+    }, 300)
+
+    return () => {
+      cancelado = true
+      window.clearTimeout(temporizador)
+    }
+  }, [imei1, imei2, equipo.imei1, equipo.imei2])
+
+  const cambiarImei1 = (valorRaw: string) => {
+    const val = valorRaw.slice(0, 25)
+    setImei1(val)
+    if (val.length > 25) setErrorImei1('El IMEI no puede tener más de 25 caracteres')
+    else setErrorImei1(undefined)
+  }
+
+  const cambiarImei2 = (valorRaw: string) => {
+    const val = valorRaw.slice(0, 25)
+    setImei2(val)
+    if (val.length > 25) setErrorImei2('El IMEI no puede tener más de 25 caracteres')
+    else if (imei1 !== '' && val === imei1) setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
+    else setErrorImei2(undefined)
+  }
+
+  const guardar = async (): Promise<void> => {
+    if (errorImei1 || errorImei2) {
+      avisos.error(errorImei1 ?? errorImei2 ?? 'Revisa los IMEI ingresados')
+      return
+    }
+    if (imei1.trim().length > 25) {
+      setErrorImei1('El IMEI no puede tener más de 25 caracteres')
+      avisos.error('El IMEI no puede tener más de 25 caracteres')
+      return
+    }
+    if (imei2.trim().length > 25) {
+      setErrorImei2('El IMEI no puede tener más de 25 caracteres')
+      avisos.error('El IMEI no puede tener más de 25 caracteres')
+      return
+    }
+    if (imei1.trim() !== '' && imei2.trim() !== '' && imei1.trim() === imei2.trim()) {
+      setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
+      avisos.error('IMEI 1 e IMEI 2 deben ser distintos')
+      return
+    }
+    setEnviando(true)
+    try {
+      await api.actualizarEquipo(equipo.id, {
+        imei1: imei1.trim() || null,
+        imei2: imei2.trim() || null,
+        listaBlanca,
+        condicion,
+        notas: notas.trim() || null,
+      })
+      avisos.exito('Equipo actualizado')
+      onListo()
+    } catch (causa) {
+      avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo actualizar el equipo')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 pb-3">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[0.8125rem] font-medium text-tinta-suave">IMEI 1</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              value={imei1}
+              aria-invalid={errorImei1 !== undefined}
+              onChange={(e) => cambiarImei1(e.target.value)}
+              className={`min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 py-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
+                errorImei1 === undefined ? 'border-borde' : 'border-falta'
+              }`}
+              inputMode="text"
+              placeholder="Hasta 25 caracteres"
+              autoFocus
+            />
+            <input
+              ref={refCamaraImei1}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const a = e.target.files?.[0]
+                if (a) setRecorteImei({ tipo: 'imei1', archivo: a })
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Tomar foto de IMEI 1"
+              title="Tomar foto con cámara"
+              disabled={leyendoFotoImei !== null}
+              onClick={() => refCamaraImei1.current?.click()}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
+            >
+              <Camera className="size-5" strokeWidth={2} />
+            </button>
+            <input
+              ref={refGaleriaImei1}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const a = e.target.files?.[0]
+                if (a) setRecorteImei({ tipo: 'imei1', archivo: a })
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Subir foto de IMEI 1"
+              title="Subir foto de galería"
+              disabled={leyendoFotoImei !== null}
+              onClick={() => refGaleriaImei1.current?.click()}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
+            >
+              <ImageUp className="size-5" strokeWidth={2} />
+            </button>
+          </div>
+          {leyendoFotoImei === 'imei1' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 1…</p>}
+          {errorImei1 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei1}</p>}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[0.8125rem] font-medium text-tinta-suave">IMEI 2</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              value={imei2}
+              aria-invalid={errorImei2 !== undefined}
+              onChange={(e) => cambiarImei2(e.target.value)}
+              className={`min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 py-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
+                errorImei2 === undefined ? 'border-borde' : 'border-falta'
+              }`}
+              inputMode="text"
+              placeholder="Opcional (hasta 25 caracteres)"
+            />
+            <input
+              ref={refCamaraImei2}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const a = e.target.files?.[0]
+                if (a) setRecorteImei({ tipo: 'imei2', archivo: a })
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Tomar foto de IMEI 2"
+              title="Tomar foto con cámara"
+              disabled={leyendoFotoImei !== null}
+              onClick={() => refCamaraImei2.current?.click()}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
+            >
+              <Camera className="size-5" strokeWidth={2} />
+            </button>
+            <input
+              ref={refGaleriaImei2}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const a = e.target.files?.[0]
+                if (a) setRecorteImei({ tipo: 'imei2', archivo: a })
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Subir foto de IMEI 2"
+              title="Subir foto de galería"
+              disabled={leyendoFotoImei !== null}
+              onClick={() => refGaleriaImei2.current?.click()}
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
+            >
+              <ImageUp className="size-5" strokeWidth={2} />
+            </button>
+          </div>
+          {leyendoFotoImei === 'imei2' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 2…</p>}
+          {errorImei2 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei2}</p>}
+        </div>
+      </div>
+      <SelectorEquipo
+        etiqueta="Lista blanca"
+        valor={listaBlanca}
+        opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]}
+        onChange={setListaBlanca}
+      />
+      <SelectorEquipo
+        etiqueta="Condición"
+        valor={condicion}
+        opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]}
+        onChange={setCondicion}
+      />
+      <CampoTexto
+        etiqueta="Nota u observación"
+        value={notas}
+        onChange={(e) => setNotas(e.target.value)}
+        placeholder="Opcional"
+      />
+      <Boton ancho cargando={enviando} onClick={() => void guardar()}>
+        Guardar cambios de equipo
       </Boton>
 
       <ModalRecorteImagen

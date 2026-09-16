@@ -114,12 +114,6 @@ export const esquemaProductoParcial = esquemaProducto.omit({ codigo: true, idOpe
 // Equipos de telefonia
 // ---------------------------------------------------------------------------
 
-const imei = z
-  .string()
-  .trim()
-  .min(1, 'El IMEI no puede estar vacío')
-  .max(25, 'El IMEI no puede tener más de 25 caracteres')
-
 const imeiOpcional = z
   .string()
   .trim()
@@ -146,6 +140,19 @@ export const esquemaAltaEquipos = z.object({
   idOperacion: idOperacion.optional(),
   equipos: z.array(esquemaEquipo).min(1, 'Agrega al menos un equipo').max(50, 'Demasiados equipos'),
 })
+
+export const esquemaActualizarEquipo = z
+  .object({
+    imei1: imeiOpcional.optional(),
+    imei2: imeiOpcional.optional(),
+    listaBlanca: z.enum(['registered', 'not_registered']).optional(),
+    condicion: z.enum(['new', 'used']).optional(),
+    notas: nota.nullish(),
+  })
+  .refine((equipo) => equipo.imei1 === undefined || equipo.imei2 === undefined || equipo.imei1 === null || equipo.imei2 === null || equipo.imei1 !== equipo.imei2, {
+    message: 'IMEI 1 e IMEI 2 deben ser distintos',
+    path: ['imei2'],
+  })
 
 // ---------------------------------------------------------------------------
 // Movimientos
@@ -285,6 +292,7 @@ export type DatosMarca = z.infer<typeof esquemaMarca>
 export type DatosProducto = z.infer<typeof esquemaProducto>
 export type DatosProductoParcial = z.infer<typeof esquemaProductoParcial>
 export type DatosEquipo = z.infer<typeof esquemaEquipo>
+export type DatosActualizarEquipo = z.infer<typeof esquemaActualizarEquipo>
 export type DatosAltaEquipos = z.infer<typeof esquemaAltaEquipos>
 export type DatosEntrada = z.infer<typeof esquemaEntrada>
 export type DatosVenta = z.infer<typeof esquemaVenta>

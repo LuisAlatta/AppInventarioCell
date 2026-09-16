@@ -1,10 +1,10 @@
 /** Rutas de equipos celulares individuales. */
 
 import { Hono } from 'hono'
-import { esquemaAltaEquipos } from '@compartido/esquemas'
+import { esquemaActualizarEquipo, esquemaAltaEquipos } from '@compartido/esquemas'
 import { ErrorApp } from '../lib/errores'
 import { validador } from '../lib/validador'
-import { buscarEquipoPorImei, equiposPorIds, listarEquiposDeProducto } from '../db/equipos'
+import { actualizarEquipo, buscarEquipoPorImei, eliminarEquipo, equiposPorIds, listarEquiposDeProducto } from '../db/equipos'
 import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { exigirProducto } from '../db/productos'
 import { registrarEquipos } from '../services/equipos'
@@ -28,6 +28,19 @@ rutasEquipos.post('/', validador('json', esquemaAltaEquipos), async (c) => {
   }
   const equipos = await registrarEquipos(c.env.DB, datos, usuarioId, huella)
   return c.json({ equipos }, 201)
+})
+
+rutasEquipos.patch('/:id', validador('json', esquemaActualizarEquipo), async (c) => {
+  const id = c.req.param('id')
+  const datos = c.req.valid('json')
+  const equipo = await actualizarEquipo(c.env.DB, id, datos)
+  return c.json({ equipo })
+})
+
+rutasEquipos.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+  await eliminarEquipo(c.env.DB, id)
+  return c.body(null, 204)
 })
 
 rutasEquipos.get('/imei/:imei', async (c) =>

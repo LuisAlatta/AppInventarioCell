@@ -5,7 +5,7 @@
 import type { Producto, ProductoConStock, StockPorUbicacion } from '@compartido/tipos'
 import type { DatosProducto, DatosProductoParcial } from '@compartido/esquemas'
 import { nuevoId } from '../lib/id'
-import { ErrorApp, noEncontrado } from '../lib/errores'
+import { noEncontrado } from '../lib/errores'
 import { aProducto, aStock, type FilaProducto, type FilaStock } from './mapeo'
 import { cantidadStock } from './filtro_stock'
 import type { ResumenStock } from '@compartido/tipos'
@@ -184,17 +184,21 @@ export async function actualizarProducto(
   return exigirProducto(db, id)
 }
 
-/** Borra solo un catálogo sin historial ni unidades físicas asociadas. */
+/** Elimina definitivamente un producto y todos sus registros asociados. */
 export async function eliminarProducto(db: D1Database, id: string): Promise<void> {
-  const producto = await exigirProducto(db, id)
-  const [movimientos, equipos] = await Promise.all([
-    db.prepare('SELECT COUNT(*) AS total FROM movements WHERE product_id = ?').bind(id).first<{ total: number }>(),
-    db.prepare('SELECT COUNT(*) AS total FROM devices WHERE product_id = ?').bind(id).first<{ total: number }>(),
+  await exigirProducto(db, id)
+
+  await db.batch([
+    db.prepare('DELETE FROM movements WHERE product_id = ? OR device_id IN (SELECT id FROM devices WHERE product_id = ?)').bind(id, id),
+    db.prepare('DELETE FROM device_imeis WHERE device_id IN (SELECT id FROM devices WHERE product_id = ?)').bind(id),
+    db.prepare('DELETE FROM devices WHERE product_id = ?').bind(id),
+    db.prepare('DELETE FROM stock WHERE product_id = ?').bind(id),
+    db.prepare('DELETE FROM count_items WHERE product_id = ?').bind(id),
+    db.prepare('DELETE FROM product_images WHERE product_id = ?').bind(id),
+    db.prepare('DELETE FROM products_fts WHERE product_id = ?').bind(id),
+    db.prepare('DELETE FROM products_trg WHERE product_id = ?').bind(id),
+    db.prepare('DELETE FROM products WHERE id = ?').bind(id),
   ])
-  if ((movimientos?.total ?? 0) > 0 || (equipos?.total ?? 0) > 0) {
-    throw new ErrorApp('regla_de_negocio', `${producto.nombre} tiene historial. Puedes desactivarlo para conservar sus registros.`)
-  }
-  await db.prepare('DELETE FROM products WHERE id = ?').bind(id).run()
 }
 
 export async function fijarImagenProducto(

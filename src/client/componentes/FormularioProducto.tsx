@@ -533,7 +533,24 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         <span className="text-[0.75rem] text-tinta-tenue">Las sugerencias se actualizan mientras escribes.</span>
       </div>
 
-      {productoExistente !== null && <section className="flex items-center gap-3 rounded-2xl border border-exito/30 bg-exito-tenue p-3.5"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-exito text-white"><PackageCheck aria-hidden="true" className="size-5" strokeWidth={2} /></span><div className="min-w-0"><p className="text-[0.875rem] font-semibold">Modelo encontrado: {productoExistente.nombre}</p><p className="truncate text-[0.75rem] text-tinta-suave">{[productoExistente.marca, productoExistente.modelo].filter(Boolean).join(' · ') || 'Agregarás equipos a este modelo existente.'}</p></div></section>}
+      {productoExistente !== null && (
+        <section className="flex flex-col gap-2 rounded-2xl border border-exito/30 bg-exito-tenue p-3.5">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-exito text-white">
+              <PackageCheck aria-hidden="true" className="size-5" strokeWidth={2} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[0.875rem] font-semibold">Modelo encontrado: {productoExistente.nombre}</p>
+              <p className="text-[0.75rem] text-tinta-suave">
+                {[productoExistente.marca, productoExistente.modelo].filter(Boolean).join(' · ') || 'Modelo registrado'}
+              </p>
+            </div>
+          </div>
+          <p className="rounded-lg bg-superficie/80 px-2.5 py-1.5 text-[0.75rem] text-tinta-suave">
+            Nota: Los IMEI ingresados abajo se registrarán como <strong>nuevas unidades</strong> en este modelo. Si deseas <strong>editar o corregir</strong> un equipo existente, hazlo desde la ficha del producto.
+          </p>
+        </section>
+      )}
 
       <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
         <div className="flex items-start justify-between gap-3">
