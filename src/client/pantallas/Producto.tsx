@@ -147,16 +147,7 @@ export function Producto() {
             </span>
             <span className="text-[0.6875rem] text-tinta-tenue">en total</span>
           </div>
-          <div className="-mt-1 flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              aria-label={`Eliminar ${ficha.nombre}`}
-              title="Eliminar producto"
-              onClick={() => setAccionProducto('eliminar')}
-              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-falta/30 bg-falta-tenue text-falta transition active:scale-95 active:bg-falta/20"
-            >
-              <Trash2 className="size-5" strokeWidth={2} aria-hidden="true" />
-            </button>
+          <div className="-mt-1 flex shrink-0 flex-col items-center gap-1.5">
             <button
               type="button"
               aria-label={`Administrar ${ficha.nombre}`}
@@ -167,6 +158,15 @@ export function Producto() {
               <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
                 <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
+            </button>
+            <button
+              type="button"
+              aria-label={`Eliminar ${ficha.nombre}`}
+              title="Eliminar producto"
+              onClick={() => setAccionProducto('eliminar')}
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-falta/30 bg-falta-tenue text-falta transition active:scale-95 active:bg-falta/20"
+            >
+              <Trash2 className="size-5" strokeWidth={2} aria-hidden="true" />
             </button>
           </div>
         </section>
