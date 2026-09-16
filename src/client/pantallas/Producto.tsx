@@ -153,7 +153,7 @@ export function Producto() {
               aria-label={`Eliminar ${ficha.nombre}`}
               title="Eliminar producto"
               onClick={() => setAccionProducto('eliminar')}
-              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-falta-tenue text-falta transition active:scale-95 active:bg-falta/20"
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-falta/30 bg-falta-tenue text-falta transition active:scale-95 active:bg-falta/20"
             >
               <Trash2 className="size-5" strokeWidth={2} aria-hidden="true" />
             </button>
@@ -162,7 +162,7 @@ export function Producto() {
               aria-label={`Administrar ${ficha.nombre}`}
               title="Administrar producto"
               onClick={() => setAdministrar(true)}
-              className="flex size-10 shrink-0 items-center justify-center rounded-xl text-accion active:bg-accion-tenue"
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-borde bg-superficie text-accion active:bg-accion-tenue"
             >
               <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
                 <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -324,7 +324,7 @@ export function Producto() {
                     <button
                       type="button"
                       onClick={() => setEquipoParaEditar(equipo)}
-                      className="flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[0.75rem] font-semibold text-accion transition active:bg-accion-tenue"
+                      className="flex min-h-9 items-center gap-1.5 rounded-xl border border-accion/30 bg-accion-tenue px-3 text-[0.8125rem] font-semibold text-accion transition active:scale-95"
                       title="Editar IMEI y datos de esta unidad"
                     >
                       <Pencil className="size-3.5" strokeWidth={2.2} aria-hidden="true" />
@@ -333,7 +333,7 @@ export function Producto() {
                     <button
                       type="button"
                       onClick={() => setEquipoParaEliminar(equipo)}
-                      className="flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[0.75rem] font-semibold text-falta transition active:bg-falta-tenue"
+                      className="flex min-h-9 items-center gap-1.5 rounded-xl border border-falta/30 bg-falta-tenue px-3 text-[0.8125rem] font-semibold text-falta transition active:scale-95"
                       title="Eliminar esta unidad del inventario"
                     >
                       <Trash2 className="size-3.5" strokeWidth={2.2} aria-hidden="true" />
@@ -952,6 +952,11 @@ function FormularioEdicionEquipo({
   }
 
   const guardar = async (): Promise<void> => {
+    if (!imei1.trim() && !imei2.trim()) {
+      setErrorImei1('Ingresa al menos un IMEI')
+      avisos.error('Ingresa al menos un IMEI para este equipo')
+      return
+    }
     if (errorImei1 || errorImei2) {
       avisos.error(errorImei1 ?? errorImei2 ?? 'Revisa los IMEI ingresados')
       return
