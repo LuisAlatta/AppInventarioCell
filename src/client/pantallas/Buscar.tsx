@@ -217,7 +217,15 @@ export function Buscar() {
 
 function cambiarFiltro(setParametros: ReturnType<typeof useSearchParams>[1], clave: string, valor: string | null) { setParametros(previos => { const nuevos = new URLSearchParams(previos); if (valor === null) nuevos.delete(clave); else nuevos.set(clave, valor); return nuevos }, { replace: true }) }
 
-function abrirProducto(id: string, ubicacionId: string | undefined, esHistorico: boolean, pendiente: boolean, texto: string, consulta: string, recientes: string[], navegar: ReturnType<typeof useNavigate>, setRecientes: (v: string[]) => void) { if (pendiente || texto !== consulta) return; const nuevas = recordarBusqueda(recientes, consulta); guardarBusquedas(nuevas); setRecientes(nuevas); const parametros = new URLSearchParams(); if (!esHistorico) parametros.set('accion', 'venta'); if (ubicacionId !== undefined) parametros.set('ubicacion', ubicacionId); navegar(`/producto/${id}${parametros.size > 0 ? `?${parametros}` : ''}`) }
+function abrirProducto(id: string, ubicacionId: string | undefined, _esHistorico: boolean, pendiente: boolean, texto: string, consulta: string, recientes: string[], navegar: ReturnType<typeof useNavigate>, setRecientes: (v: string[]) => void) {
+  if (pendiente || texto !== consulta) return
+  const nuevas = recordarBusqueda(recientes, consulta)
+  guardarBusquedas(nuevas)
+  setRecientes(nuevas)
+  const parametros = new URLSearchParams()
+  if (ubicacionId !== undefined) parametros.set('ubicacion', ubicacionId)
+  navegar(`/producto/${id}${parametros.size > 0 ? `?${parametros}` : ''}`)
+}
 
 const FILTROS_EQUIPO: readonly FiltroEquipoRapido[] = ['registered', 'not_registered', 'new', 'used']
 const NOMBRE_FILTRO: Record<FiltroEquipoRapido, string> = { registered: 'Registrados', not_registered: 'No registrados', new: 'Nuevos', used: 'Segunda mano' }
