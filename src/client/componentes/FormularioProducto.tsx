@@ -144,11 +144,10 @@ export function FormularioProducto({
         try {
           const resTac = await api.consultarTac(tac)
           if (vigente && resTac.encontrado && resTac.marca && resTac.modelo) {
-            setMarca((actual) => (actual.trim() === '' ? resTac.marca! : actual))
-            setNombre((actual) => (actual.trim() === '' ? resTac.modelo! : actual))
-
             if (ultimoTacDetectado.current !== tac) {
               ultimoTacDetectado.current = tac
+              setMarca(resTac.marca)
+              setNombre(resTac.modelo)
               avisarDeteccion()
               avisos.exito(`Equipo detectado: ${resTac.marca} ${resTac.modelo}`)
             }
@@ -596,40 +595,7 @@ export function FormularioProducto({
         inputMode="text"
       />
 
-      {/* Opciones de Lista blanca en una sola fila */}
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[0.8125rem] font-medium text-tinta-suave">
-          Lista blanca
-        </span>
-        <div className="grid grid-cols-2 gap-2 w-full">
-          <button
-            type="button"
-            onClick={() => actualizarEquipo(equipoActual.id, { listaBlanca: 'registered' })}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
-              equipoActual.listaBlanca === 'registered'
-                ? 'border-exito bg-exito-tenue text-exito shadow-xs'
-                : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
-            }`}
-          >
-            <CheckCircle2 className="size-4 shrink-0" strokeWidth={2.2} />
-            <span>Registrado</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => actualizarEquipo(equipoActual.id, { listaBlanca: 'not_registered' })}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
-              equipoActual.listaBlanca === 'not_registered'
-                ? 'border-falta bg-falta-tenue text-falta shadow-xs'
-                : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
-            }`}
-          >
-            <XCircle className="size-4 shrink-0" strokeWidth={2.2} />
-            <span>No registrado</span>
-          </button>
-        </div>
-      </div>
-
-      {productoExistente === null && (
+      {productoExistente === null ? (
         <>
           <CampoTexto
             etiqueta="Modelo"
@@ -646,25 +612,80 @@ export function FormularioProducto({
             error={campos.marca}
           />
 
+          {/* Opciones de Lista blanca debajo de Marca: ambos blancos en reposo, azul al seleccionarse */}
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => actualizarEquipo(equipoActual.id, { listaBlanca: 'registered' })}
+              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+                equipoActual.listaBlanca === 'registered'
+                  ? 'border-accion bg-accion text-white shadow-xs'
+                  : 'border-borde bg-white text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+              }`}
+            >
+              <CheckCircle2 className="size-4 shrink-0" strokeWidth={2.2} />
+              <span>Registrado</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => actualizarEquipo(equipoActual.id, { listaBlanca: 'not_registered' })}
+              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+                equipoActual.listaBlanca === 'not_registered'
+                  ? 'border-accion bg-accion text-white shadow-xs'
+                  : 'border-borde bg-white text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+              }`}
+            >
+              <XCircle className="size-4 shrink-0" strokeWidth={2.2} />
+              <span>No registrado</span>
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <CampoTexto
-              etiqueta="Precio de venta"
-              value={precioVenta}
-              onChange={(e) => setPrecioVenta(e.target.value)}
-              inputMode="decimal"
-              placeholder="0"
-              sufijo="S/"
-            />
             <CampoTexto
               etiqueta="Costo"
               value={precioCosto}
               onChange={(e) => setPrecioCosto(e.target.value)}
               inputMode="decimal"
               placeholder="0"
-              sufijo="S/"
+              prefijo="S/."
+            />
+            <CampoTexto
+              etiqueta="Precio de venta"
+              value={precioVenta}
+              onChange={(e) => setPrecioVenta(e.target.value)}
+              inputMode="decimal"
+              placeholder="0"
+              prefijo="S/."
             />
           </div>
         </>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 w-full">
+          <button
+            type="button"
+            onClick={() => actualizarEquipo(equipoActual.id, { listaBlanca: 'registered' })}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+              equipoActual.listaBlanca === 'registered'
+                ? 'border-accion bg-accion text-white shadow-xs'
+                : 'border-borde bg-white text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+            }`}
+          >
+            <CheckCircle2 className="size-4 shrink-0" strokeWidth={2.2} />
+            <span>Registrado</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => actualizarEquipo(equipoActual.id, { listaBlanca: 'not_registered' })}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+              equipoActual.listaBlanca === 'not_registered'
+                ? 'border-accion bg-accion text-white shadow-xs'
+                : 'border-borde bg-white text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+            }`}
+          >
+            <XCircle className="size-4 shrink-0" strokeWidth={2.2} />
+            <span>No registrado</span>
+          </button>
+        </div>
       )}
 
       {fotoPrincipal !== undefined && (

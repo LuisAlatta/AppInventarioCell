@@ -16,7 +16,9 @@ interface Comun {
   etiqueta: string
   error?: string | undefined
   ayuda?: string | undefined
-  /** Contenido a la derecha del input, como el simbolo de moneda. */
+  /** Contenido a la izquierda del input, como el simbolo de moneda. */
+  prefijo?: ReactNode
+  /** Contenido a la derecha del input, como unidades. */
   sufijo?: ReactNode
 }
 
@@ -30,7 +32,7 @@ const CLASES_BASE = [
 
 type CampoTextoProps = Comun & Omit<InputHTMLAttributes<HTMLInputElement>, 'className'>
 
-export function CampoTexto({ etiqueta, error, ayuda, sufijo, ...resto }: CampoTextoProps) {
+export function CampoTexto({ etiqueta, error, ayuda, prefijo, sufijo, ...resto }: CampoTextoProps) {
   const id = useId()
   const idError = `${id}-error`
   const idAyuda = `${id}-ayuda`
@@ -41,7 +43,12 @@ export function CampoTexto({ etiqueta, error, ayuda, sufijo, ...resto }: CampoTe
         {etiqueta}
       </label>
 
-      <div className="relative">
+      <div className="relative flex items-center">
+        {prefijo !== undefined && (
+          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[0.875rem] font-medium text-tinta-suave select-none">
+            {prefijo}
+          </span>
+        )}
         <input
           id={id}
           aria-invalid={error !== undefined}
@@ -53,12 +60,13 @@ export function CampoTexto({ etiqueta, error, ayuda, sufijo, ...resto }: CampoTe
           className={[
             CLASES_BASE,
             error === undefined ? 'border-borde' : 'border-falta',
+            prefijo === undefined ? '' : 'pl-10',
             sufijo === undefined ? '' : 'pr-12',
           ].join(' ')}
           {...resto}
         />
         {sufijo !== undefined && (
-          <span className="absolute inset-y-0 right-4 flex items-center text-tinta-tenue">
+          <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-tinta-tenue select-none">
             {sufijo}
           </span>
         )}
