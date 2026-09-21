@@ -11,13 +11,14 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, CheckCircle2, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2, XCircle } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Camera, CheckCircle2, ImageUp, PackageCheck, Plus, ScanLine, Sparkles, Trash2, XCircle } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
 import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
+import { HojaInferior } from './HojaInferior'
 import { ModalRecorteImagen } from './ModalRecorteImagen'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
@@ -80,11 +81,11 @@ export function FormularioProducto({
 }: FormularioProductoProps) {
   const avisos = useAvisos()
   const { activa, ubicaciones } = useUbicacion()
+  const queryClient = useQueryClient()
 
   const [codigo, setCodigo] = useState(codigoInicial)
   const [productoExistente, setProductoExistente] = useState<ProductoConStock | null>(null)
-  const [consultaModelo, setConsultaModelo] = useState('')
-  const [mostrarModelos, setMostrarModelos] = useState(false)
+  const [tacDetectado, setTacDetectado] = useState<{ marca: string; modelo: string } | null>(null)
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
   const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>([equipoVacio()])
@@ -110,13 +111,6 @@ export function FormularioProducto({
   } | null>(null)
 
   const refArchivoGaleria = useRef<HTMLInputElement | null>(null)
-  const refBusquedaModelo = useRef<HTMLDivElement | null>(null)
-  const queryClient = useQueryClient()
-  const modelosExistentes = useQuery({
-    queryKey: ['modelos-existentes', consultaModelo],
-    queryFn: () => api.buscar(consultaModelo),
-    enabled: mostrarModelos,
-  })
 
   useEffect(() => {
     if (lectura === null) return
@@ -136,7 +130,7 @@ export function FormularioProducto({
     if (!fotoParaRecortar) return
     const etiqueta =
       fotoParaRecortar.campo === 'codigo'
-        ? 'código de barras'
+        ? 'código del equipo'
         : fotoParaRecortar.campo.startsWith('imei1:')
           ? 'IMEI 1'
           : 'IMEI 2'
@@ -144,33 +138,71 @@ export function FormularioProducto({
   }, [fotoParaRecortar])
 
   useEffect(() => {
-    if (!mostrarModelos) return
-
-    const cerrarAlTocarFuera = (evento: PointerEvent): void => {
-      if (evento.target instanceof Node && !refBusquedaModelo.current?.contains(evento.target)) setMostrarModelos(false)
-    }
-
-    document.addEventListener('pointerdown', cerrarAlTocarFuera)
-    return () => document.removeEventListener('pointerdown', cerrarAlTocarFuera)
-  }, [mostrarModelos])
-
-  useEffect(() => {
     const codigoLimpio = codigo.trim()
     if (codigoLimpio.length === 0) {
       setProductoExistente(null)
+      setTacDetectado(null)
       return undefined
     }
 
     setProductoExistente((actual) => actual?.codigo === codigoLimpio ? actual : null)
     let vigente = true
-    const temporizador = window.setTimeout(() => {
-      void api.porCodigo(codigoLimpio)
-        .then(({ producto }) => { if (vigente) setProductoExistente(producto) })
-        .catch((causa: unknown) => {
-          if (vigente && causa instanceof ErrorDeApi && causa.estado === 404) setProductoExistente(null)
+    const temporizador = window.setTimeout(async () => {
+      // 1. Comprobar si ya existe como producto registrado
+      try {
+        const { producto } = await api.porCodigo(codigoLimpio)
+        if (vigente) {
+          setProductoExistente(producto)
+          if (producto.marca) setMarca(producto.marca)
+        }
+      } catch (causa: unknown) {
+        if (vigente && causa instanceof ErrorDeApi && causa.estado === 404) {
+          setProductoExistente(null)
+        }
+      }
+
+      // 2. Extraer TAC y consultar catálogo GSMA si tiene al menos 8 dígitos
+      const digitos = codigoLimpio.replace(/\D/g, '')
+      if (digitos.length >= 8) {
+        const tac = digitos.slice(0, 8)
+        try {
+          const resTac = await api.consultarTac(tac)
+          if (vigente && resTac.encontrado && resTac.marca && resTac.modelo) {
+            setTacDetectado({ marca: resTac.marca, modelo: resTac.modelo })
+            setMarca((actual) => (actual.trim() === '' ? resTac.marca! : actual))
+            setNombre((actual) => (actual.trim() === '' ? resTac.modelo! : actual))
+          } else if (vigente) {
+            setTacDetectado(null)
+          }
+        } catch {
+          if (vigente) setTacDetectado(null)
+        }
+      } else if (vigente) {
+        setTacDetectado(null)
+      }
+
+      // 3. Si el código ingresado tiene longitud de IMEI completo (14 a 16 dígitos),
+      // sincronizarlo automáticamente con el primer equipo (IMEI 1)
+      if (digitos.length >= 14 && digitos.length <= 16 && vigente) {
+        setEquipos((anteriores) => {
+          if (anteriores.length === 0) return anteriores
+          const primero = anteriores[0]
+          if (!primero) return anteriores
+          if (primero.imei1.trim() === '' || primero.imei1 === codigoLimpio.slice(0, 25)) {
+            return [
+              { ...primero, imei1: codigoLimpio.slice(0, 25) },
+              ...anteriores.slice(1),
+            ]
+          }
+          return anteriores
         })
+      }
     }, 250)
-    return () => { vigente = false; window.clearTimeout(temporizador) }
+
+    return () => {
+      vigente = false
+      window.clearTimeout(temporizador)
+    }
   }, [codigo])
 
   const actualizarEquipo = (id: string, cambio: Partial<DatosEquipoNuevo>): void => {
@@ -246,6 +278,10 @@ export function FormularioProducto({
   ): void => {
     const valorLimpio = valorRaw.slice(0, 25)
     actualizarEquipo(equipoId, { [tipo]: valorLimpio })
+
+    if (indice === 0 && tipo === 'imei1' && codigo.trim() === '' && valorLimpio.trim() !== '') {
+      setCodigo(valorLimpio)
+    }
 
     const clave = `equipos.${indice}.${tipo}`
     setCampos((prev) => {
@@ -547,48 +583,37 @@ export function FormularioProducto({
   return (
     <div className="flex flex-col gap-4 pb-3">
       <CampoConEscaner
-        etiqueta="Código de barras"
+        etiqueta="Código del equipo"
         value={codigo}
         error={campos.codigo}
-        onChange={setCodigo}
+        onChange={(val) => {
+          setCodigo(val)
+          if (campos.codigo) {
+            setCampos((prev) => {
+              const copia = { ...prev }
+              delete copia.codigo
+              return copia
+            })
+          }
+        }}
         onEscanear={onEscanear === undefined ? undefined : () => onEscanear('codigo')}
-        onSubirFoto={(archivo) => iniciarLecturaFoto('codigo', 'código de barras', archivo)}
+        onSubirFoto={(archivo) => iniciarLecturaFoto('codigo', 'código del equipo', archivo)}
         leyendoFoto={leyendoFoto === 'codigo'}
         inputMode="text"
         autoComplete="off"
-        placeholder="Escanea o escribe el código"
-        ayuda="El escaneo completa este campo automáticamente."
+        placeholder="Escanea o escribe el IMEI o código"
+        ayuda="Detecta automáticamente la marca y modelo por IMEI"
       />
 
-      <div ref={refBusquedaModelo} className="relative flex flex-col gap-1.5">
-        <label htmlFor="buscar-modelo" className="text-[0.8125rem] font-semibold text-tinta-suave">O busca un modelo existente</label>
-        <div className="relative">
-          <Search aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 my-auto size-5 text-tinta-tenue" strokeWidth={2} />
-          <input
-            id="buscar-modelo"
-            type="search"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded={mostrarModelos}
-            value={consultaModelo}
-            onFocus={() => setMostrarModelos(true)}
-            onChange={(evento) => {
-              setConsultaModelo(evento.target.value)
-              setMostrarModelos(true)
-              if (productoExistente !== null) {
-                setProductoExistente(null)
-                setCodigo('')
-              }
-            }}
-            placeholder="Escribe nombre, marca o modelo"
-            autoComplete="off"
-            className="min-h-toque w-full rounded-xl border border-borde bg-superficie py-3 pl-10 pr-3 text-[1rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15"
-          />
+      {tacDetectado !== null && productoExistente === null && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-accion/30 bg-accion-tenue px-3.5 py-2.5 text-[0.8125rem] text-accion shadow-xs">
+          <Sparkles className="size-4.5 shrink-0" strokeWidth={2} />
+          <div className="min-w-0 flex-1">
+            <span className="font-semibold text-tinta">Equipo detectado: </span>
+            <span className="font-bold text-accion">{tacDetectado.marca} {tacDetectado.modelo}</span>
+          </div>
         </div>
-        {mostrarModelos && modelosExistentes.isSuccess && <ul role="listbox" className="max-h-56 overflow-y-auto rounded-xl border border-borde bg-superficie shadow-sm">{modelosExistentes.data.productos.slice(0, 8).map((producto) => <li key={producto.id}><button type="button" role="option" aria-selected={producto.id === productoExistente?.id} onClick={() => { setProductoExistente(producto); setCodigo(producto.codigo); setConsultaModelo(producto.nombre); if (producto.marca) setMarca(producto.marca); setMostrarModelos(false) }} className="flex min-h-12 w-full flex-col justify-center border-b border-borde px-3 text-left last:border-b-0 active:bg-accion-tenue"><span className="text-[0.875rem] font-semibold">{producto.nombre}</span><span className="text-[0.75rem] text-tinta-tenue">{[producto.marca, producto.modelo].filter(Boolean).join(' · ') || producto.codigo}</span></button></li>)}</ul>}
-        {mostrarModelos && modelosExistentes.isSuccess && modelosExistentes.data.productos.length === 0 && <p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.8125rem] text-tinta-tenue">No hay modelos con esa búsqueda.</p>}
-        <span className="text-[0.75rem] text-tinta-tenue">Las sugerencias se actualizan mientras escribes.</span>
-      </div>
+      )}
 
       {productoExistente !== null && (
         <section className="flex flex-col gap-2 rounded-2xl border border-exito/30 bg-exito-tenue p-3.5">
@@ -838,6 +863,7 @@ function CampoConEscaner({
   placeholder?: string
 }) {
   const id = useId()
+  const [mostrarOpciones, setMostrarOpciones] = useState(false)
   const refFotoCamara = useRef<HTMLInputElement | null>(null)
   const refFotoGaleria = useRef<HTMLInputElement | null>(null)
   const descripcion = error === undefined ? ayuda : error
@@ -874,16 +900,6 @@ function CampoConEscaner({
             evento.target.value = ''
           }}
         />
-        <button
-          type="button"
-          aria-label={`Tomar foto para ${etiqueta}`}
-          title={`Tomar foto con cámara para ${etiqueta}`}
-          disabled={onSubirFoto === undefined || leyendoFoto}
-          onClick={() => refFotoCamara.current?.click()}
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:hidden"
-        >
-          <Camera aria-hidden="true" className="size-5" strokeWidth={2} />
-        </button>
 
         {/* 2. Subir foto desde la galería */}
         <input
@@ -897,29 +913,18 @@ function CampoConEscaner({
             evento.target.value = ''
           }}
         />
+
+        {/* Botón único de cámara que despliega las opciones */}
         <button
           type="button"
-          aria-label={`Subir foto de galería para ${etiqueta}`}
-          title={`Subir foto de galería para ${etiqueta}`}
-          disabled={onSubirFoto === undefined || leyendoFoto}
-          onClick={() => refFotoGaleria.current?.click()}
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave transition active:scale-95 active:bg-borde disabled:hidden"
+          aria-label={`Opciones de cámara para ${etiqueta}`}
+          title={`Capturar ${etiqueta}`}
+          disabled={leyendoFoto}
+          onClick={() => setMostrarOpciones(true)}
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:opacity-50"
         >
-          <ImageUp aria-hidden="true" className="size-5" strokeWidth={2} />
+          <Camera aria-hidden="true" className="size-5" strokeWidth={2.2} />
         </button>
-
-        {/* 3. Escáner en vivo con cámara */}
-        {onEscanear !== undefined && (
-          <button
-            type="button"
-            aria-label={`Escanear en vivo ${etiqueta}`}
-            title={`Escanear en vivo ${etiqueta}`}
-            onClick={onEscanear}
-            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion text-white transition active:scale-95 active:bg-accion/90"
-          >
-            <ScanLine aria-hidden="true" className="size-5" strokeWidth={2} />
-          </button>
-        )}
       </div>
 
       {leyendoFoto && (
@@ -933,6 +938,71 @@ function CampoConEscaner({
           {descripcion}
         </p>
       )}
+
+      <HojaInferior
+        abierta={mostrarOpciones}
+        onCerrar={() => setMostrarOpciones(false)}
+        titulo={`Capturar ${etiqueta}`}
+      >
+        <div className="flex flex-col gap-2.5 pb-2">
+          {onEscanear !== undefined && (
+            <button
+              type="button"
+              onClick={() => {
+                setMostrarOpciones(false)
+                onEscanear()
+              }}
+              className="flex items-center gap-3.5 rounded-2xl border border-borde bg-superficie p-3.5 text-left transition active:scale-[0.98] active:bg-accion-tenue"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accion text-white shadow-xs">
+                <ScanLine className="size-5" strokeWidth={2.2} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.9375rem] font-semibold text-tinta">Escanear en vivo con cámara</p>
+                <p className="text-[0.75rem] text-tinta-suave">Apunta la cámara para leer el código en tiempo real</p>
+              </div>
+            </button>
+          )}
+
+          {onSubirFoto !== undefined && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setMostrarOpciones(false)
+                  refFotoCamara.current?.click()
+                }}
+                className="flex items-center gap-3.5 rounded-2xl border border-borde bg-superficie p-3.5 text-left transition active:scale-[0.98] active:bg-accion-tenue"
+              >
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion shadow-xs">
+                  <Camera className="size-5" strokeWidth={2.2} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.9375rem] font-semibold text-tinta">Tomar foto y recortar</p>
+                  <p className="text-[0.75rem] text-tinta-suave">Abre la cámara para encuadrar y recortar el código</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMostrarOpciones(false)
+                  refFotoGaleria.current?.click()
+                }}
+                className="flex items-center gap-3.5 rounded-2xl border border-borde bg-superficie p-3.5 text-left transition active:scale-[0.98] active:bg-accion-tenue"
+              >
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave shadow-xs">
+                  <ImageUp className="size-5" strokeWidth={2.2} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.9375rem] font-semibold text-tinta">Subir foto de la galería</p>
+                  <p className="text-[0.75rem] text-tinta-suave">Selecciona una foto guardada y recorta el código</p>
+                </div>
+              </button>
+            </>
+          )}
+        </div>
+      </HojaInferior>
     </div>
   )
 }

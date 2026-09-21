@@ -245,6 +245,11 @@ export const api = {
   porCodigo: (codigo: string): Promise<{ producto: ProductoConStock }> =>
     pedir(`/productos/codigo/${encodeURIComponent(codigo)}`),
 
+  consultarTac: (
+    tac: string,
+  ): Promise<{ encontrado: boolean; tac: string; marca?: string; modelo?: string }> =>
+    pedir(`/tac/${encodeURIComponent(tac)}`),
+
   producto: (id: string): Promise<{ producto: ProductoConStock }> => pedir(`/productos/${id}`),
 
   crearProducto: (datos: {

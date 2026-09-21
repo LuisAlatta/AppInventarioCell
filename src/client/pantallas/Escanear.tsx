@@ -14,7 +14,7 @@ import { VistaCamara } from '../escaner/VistaCamara'
 import { useEscaner } from '../escaner/useEscaner'
 
 function nombreCampo(campo: CampoEscaneable): string {
-  if (campo === 'codigo') return 'código de barras'
+  if (campo === 'codigo') return 'código del equipo'
   return campo.startsWith('imei1:') ? 'IMEI 1' : 'IMEI 2'
 }
 

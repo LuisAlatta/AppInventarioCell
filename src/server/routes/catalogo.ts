@@ -43,6 +43,7 @@ import { reporteVentas } from '../db/reportes_ventas'
 import { guardarMarca, listarMarcas } from '../db/marcas'
 import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { buscarProductos } from '../services/busqueda'
+import { buscarTac, guardarTac } from '../db/tac'
 import type { Variables } from '../tipos_hono'
 
 export const rutasCatalogo = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -117,6 +118,24 @@ rutasCatalogo.post('/marcas', validador('json', esquemaMarca), async (c) =>
 )
 
 // ---------------------------------------------------------------------------
+// Catálogo TAC (GSMA)
+// ---------------------------------------------------------------------------
+
+rutasCatalogo.get('/tac/:tac', async (c) => {
+  const tac = c.req.param('tac')
+  const resultado = await buscarTac(c.env.DB, tac)
+  if (resultado === null) {
+    return c.json({ encontrado: false, tac })
+  }
+  return c.json({
+    encontrado: true,
+    tac: resultado.tac,
+    marca: resultado.brand,
+    modelo: resultado.model,
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Productos
 // ---------------------------------------------------------------------------
 
@@ -154,6 +173,9 @@ rutasCatalogo.post('/productos', validador('json', esquemaProducto), async (c) =
     if (anterior?.productoId !== undefined) return c.json({ producto: await unoConStock(c.env.DB, anterior.productoId) })
   }
   const producto = await crearProducto(c.env.DB, datos, usuarioId, huella)
+  if (datos.marca && datos.nombre) {
+    void guardarTac(c.env.DB, datos.codigo, datos.marca, datos.nombre)
+  }
   return c.json({ producto: await unoConStock(c.env.DB, producto.id) }, 201)
 })
 
