@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, CheckCircle2, ChevronDown, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2, X, XCircle } from 'lucide-react'
+import { Camera, CheckCircle2, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2, XCircle } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -87,17 +87,16 @@ export function FormularioProducto({
   const [mostrarModelos, setMostrarModelos] = useState(false)
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
-  const [categoriaId, setCategoriaId] = useState('')
   const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>([equipoVacio()])
   const [ubicacionDestinoIdLocal, setUbicacionDestinoIdLocal] = useState<string>(
     () => propUbicacionDestinoId ?? activa?.id ?? ubicaciones.find((u) => u.activa)?.id ?? '',
   )
   const ubicacionDestinoId = propUbicacionDestinoId ?? ubicacionDestinoIdLocal
   const setUbicacionDestinoId = onCambiarUbicacion ?? setUbicacionDestinoIdLocal
-  const [stockInicial, setStockInicial] = useState('')
   const [precioVenta, setPrecioVenta] = useState('')
   const [precioCosto, setPrecioCosto] = useState('')
   const [fotos, setFotos] = useState<Array<{ id: string; archivo: Blob; vista: string }>>([])
+  const fotoPrincipal = fotos[0]
   const [campos, setCampos] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
   const [leyendoFoto, setLeyendoFoto] = useState<CampoEscaneable | null>(null)
@@ -111,10 +110,8 @@ export function FormularioProducto({
   } | null>(null)
 
   const refArchivoGaleria = useRef<HTMLInputElement | null>(null)
-  const refArchivoCamara = useRef<HTMLInputElement | null>(null)
   const refBusquedaModelo = useRef<HTMLDivElement | null>(null)
   const queryClient = useQueryClient()
-  const categorias = useQuery({ queryKey: ['categorias'], queryFn: api.categorias })
   const modelosExistentes = useQuery({
     queryKey: ['modelos-existentes', consultaModelo],
     queryFn: () => api.buscar(consultaModelo),
@@ -440,13 +437,32 @@ export function FormularioProducto({
     setCampos({})
 
     try {
+      // Categoría automática: todos los productos pertenecen a "Celulares"
+      let catCelularesId: string | null = null
+      try {
+        const catRes = await api.categorias()
+        const encontrada = catRes.categorias.find(
+          (c) =>
+            c.nombre.toLowerCase().trim() === 'celulares' ||
+            c.nombre.toLowerCase().trim() === 'celular',
+        )
+        if (encontrada) {
+          catCelularesId = encontrada.id
+        } else {
+          const nueva = await api.crearCategoria('Celulares')
+          catCelularesId = nueva.categoria.id
+        }
+      } catch {
+        // Continuar si falla la obtención o creación de categoría
+      }
+
       const producto = productoExistente ?? await resolverProductoGuardado(
         async () => (await api.crearProducto({
           codigo: codigo.trim(),
           nombre: nombre.trim(),
           marca: marca.trim() === '' ? null : marca.trim(),
           modelo: null,
-          categoriaId: categoriaId === '' ? null : categoriaId,
+          categoriaId: catCelularesId,
           precioVenta: aNumero(precioVenta),
           precioCosto: aNumero(precioCosto),
           idOperacion: idOperacionProducto,
@@ -469,16 +485,14 @@ export function FormularioProducto({
         }
         await registrarEquiposConRecuperacion(() => api.registrarEquipos(datosEquipos))
       } else {
-        const piezasIniciales = Math.trunc(aNumero(stockInicial))
-        if (piezasIniciales > 0) {
-          await api.entrada({
-            productoId: producto.id,
-            ubicacionId: destino.id,
-            cantidad: piezasIniciales,
-            costoUnitario: aNumero(precioCosto) || undefined,
-            nota: 'Stock inicial al registrar producto',
-          })
-        }
+        // Cada registro es único: exactamente 1 unidad por registro
+        await api.entrada({
+          productoId: producto.id,
+          ubicacionId: destino.id,
+          cantidad: 1,
+          costoUnitario: aNumero(precioCosto) || undefined,
+          nota: 'Registro de producto (1 unidad)',
+        })
       }
 
       // La foto se sube después de crear el producto porque necesita su id.
@@ -695,162 +709,92 @@ export function FormularioProducto({
         <button type="button" disabled={equipos.length >= 50} onClick={() => setEquipos((anteriores) => [...anteriores, equipoVacio()])} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-accion/45 bg-superficie px-3 text-[0.875rem] font-semibold text-accion active:bg-accion/10 disabled:opacity-40"><Plus aria-hidden="true" className="size-4" strokeWidth={2.3} />Agregar otro equipo</button>
       </section>
 
-      <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3.5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[0.875rem] font-semibold text-tinta">Fotos del producto / equipo</p>
-            <p className="text-[0.75rem] text-tinta-suave">
-              Sube fotos directo de tu galería o usa la cámara
-            </p>
-          </div>
-          <span className="cifras rounded-lg bg-papel-hundido px-2 py-1 text-[0.75rem] font-semibold text-tinta-suave">
-            {fotos.length}/5
-          </span>
-        </div>
-
-        {fotos.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 pt-1 sm:grid-cols-5">
-            {fotos.map((f, index) => (
-              <div
-                key={f.id}
-                className="relative aspect-square overflow-hidden rounded-xl border border-borde bg-papel-hundido"
-              >
-                <img
-                  src={f.vista}
-                  alt={`Foto ${index + 1}`}
-                  className="size-full object-cover"
-                />
-                {index === 0 && (
-                  <span className="absolute bottom-1 left-1 rounded bg-tinta/80 px-1.5 py-0.5 text-[0.625rem] font-bold text-white uppercase tracking-wider">
-                    Principal
-                  </span>
-                )}
-                <button
-                  type="button"
-                  aria-label={`Quitar foto ${index + 1}`}
-                  onClick={() => quitarFoto(f.id)}
-                  className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-tinta/80 text-white transition active:scale-90"
-                >
-                  <X className="size-3.5" strokeWidth={2.5} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {fotos.length < 5 && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => refArchivoGaleria.current?.click()}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-borde bg-papel-hundido px-3 text-[0.875rem] font-semibold text-tinta transition active:bg-borde"
-            >
-              <ImageUp className="size-4.5 text-accion" strokeWidth={2.25} />
-              <span>Subir foto</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => refArchivoCamara.current?.click()}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-accion/30 bg-accion-tenue px-3 text-[0.875rem] font-semibold text-accion transition active:bg-accion/20"
-            >
-              <Camera className="size-4.5" strokeWidth={2.25} />
-              <span>Tomar foto</span>
-            </button>
-          </div>
-        )}
-
-        <input
-          ref={refArchivoGaleria}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            void elegirFotos(e.target.files)
-            e.target.value = ''
-          }}
-        />
-
-        <input
-          ref={refArchivoCamara}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            void elegirFotos(e.target.files)
-            e.target.value = ''
-          }}
-        />
-      </section>
-
       {productoExistente === null && (
         <>
           <CampoTexto
             etiqueta="Modelo"
-        value={nombre}
-        error={campos.nombre}
-        onChange={(e) => setNombre(e.target.value)}
-        placeholder="iPhone 15 Pro 128 GB"
-        autoComplete="off"
-      />
+            value={nombre}
+            error={campos.nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="iPhone 15 Pro 128 GB"
+            autoComplete="off"
+          />
 
-      <CampoMarcaPredictivo
-        value={marca}
-        onChange={setMarca}
-        error={campos.marca}
-      />
+          <CampoMarcaPredictivo
+            value={marca}
+            onChange={setMarca}
+            error={campos.marca}
+          />
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[0.8125rem] font-semibold text-tinta-suave">Categoría</span>
-        <div className="relative">
-          <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="min-h-toque w-full appearance-none rounded-xl border border-borde bg-superficie py-3 pl-3 pr-12 text-[1rem] text-tinta transition-colors focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15">
-            <option value="">Sin categoría</option>
-            {(categorias.data?.categorias ?? []).map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.nombre}</option>)}
-          </select>
-          <span aria-hidden="true" className="pointer-events-none absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-lg border-l border-borde bg-papel-hundido text-accion"><ChevronDown className="size-5" strokeWidth={2.25} /></span>
-        </div>
-      </label>
-
-      <div className="grid grid-cols-2 gap-3">
-        <CampoTexto
-          etiqueta="Precio de venta"
-          value={precioVenta}
-          onChange={(e) => setPrecioVenta(e.target.value)}
-          inputMode="decimal"
-          placeholder="0"
-          sufijo="S/"
-        />
-        <CampoTexto
-          etiqueta="Costo"
-          value={precioCosto}
-          onChange={(e) => setPrecioCosto(e.target.value)}
-          inputMode="decimal"
-          placeholder="0"
-          sufijo="S/"
-          ayuda="Se usa para valuar mermas"
-        />
-      </div>
-
-      {equiposConImei.length === 0 && (
-        <CampoTexto
-          etiqueta={`Stock inicial en ${ubicacionDestino?.nombre ?? 'la tienda'}`}
-          value={stockInicial}
-          onChange={(e) => setStockInicial(e.target.value)}
-          inputMode="numeric"
-          placeholder="0"
-          ayuda="Piezas iniciales que ingresarán directamente a esta ubicación"
-        />
+          <div className="grid grid-cols-2 gap-3">
+            <CampoTexto
+              etiqueta="Precio de venta"
+              value={precioVenta}
+              onChange={(e) => setPrecioVenta(e.target.value)}
+              inputMode="decimal"
+              placeholder="0"
+              sufijo="S/"
+            />
+            <CampoTexto
+              etiqueta="Costo"
+              value={precioCosto}
+              onChange={(e) => setPrecioCosto(e.target.value)}
+              inputMode="decimal"
+              placeholder="0"
+              sufijo="S/"
+              ayuda="Se usa para valuar mermas"
+            />
+          </div>
+        </>
       )}
-      </>)}
 
-      <div className="grid grid-cols-[1fr_2fr] gap-2.5 pt-1">
-        <Boton tono="contorno" onClick={onCancelar} disabled={enviando}>
+      {fotoPrincipal !== undefined && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-borde bg-superficie p-2.5 shadow-xs">
+          <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-borde bg-papel-hundido">
+            <img src={fotoPrincipal.vista} alt="Foto seleccionada" className="size-full object-cover" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.8125rem] font-semibold text-tinta">Foto adjunta</p>
+            <p className="text-[0.75rem] text-tinta-suave truncate">Se guardará con el producto</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => quitarFoto(fotoPrincipal.id)}
+            aria-label="Quitar foto"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-falta transition active:bg-falta-tenue"
+          >
+            <Trash2 className="size-4" strokeWidth={2} />
+          </button>
+        </div>
+      )}
+
+      <input
+        ref={refArchivoGaleria}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          void elegirFotos(e.target.files)
+          e.target.value = ''
+        }}
+      />
+
+      <div className="grid grid-cols-3 gap-2 pt-1">
+        <Boton tono="contorno" onClick={onCancelar} disabled={enviando} className="px-2 text-[0.875rem]">
           Cancelar
         </Boton>
-        <Boton cargando={enviando} onClick={() => void guardar()}>
-          {productoExistente === null ? 'Guardar producto' : `Agregar a ${productoExistente.nombre}`}
+        <Boton
+          tono="suave"
+          type="button"
+          disabled={enviando}
+          onClick={() => refArchivoGaleria.current?.click()}
+          className="px-2 text-[0.875rem]"
+        >
+          <ImageUp className="size-4.5 shrink-0 text-accion" strokeWidth={2} />
+          <span className="truncate">Subir foto</span>
+        </Boton>
+        <Boton cargando={enviando} onClick={() => void guardar()} className="px-2 text-[0.875rem]">
+          Guardar
         </Boton>
       </div>
 
