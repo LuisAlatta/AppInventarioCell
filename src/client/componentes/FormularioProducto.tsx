@@ -13,7 +13,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Camera, ImageUp, PackageCheck, ScanLine, Trash2 } from 'lucide-react'
-import type { ProductoConStock } from '@compartido/tipos'
+import type { Equipo, ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
@@ -21,13 +21,14 @@ import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
 import { HojaInferior } from './HojaInferior'
 import { ModalRecorteImagen } from './ModalRecorteImagen'
 import { ModalSelectorCodigos } from './ModalSelectorCodigos'
+import { ModalUbicacionImei } from './ModalUbicacionImei'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { avisarDeteccion } from '../lib/retroalimentacion'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { leerCodigoDeFoto, leerTodosLosCodigosDeFoto, type CodigoDetectado } from '../escaner/lecturaCodigo'
-import { validarDuplicadosLocales, validarFormatoImei, verificarImeiEnBd } from '../lib/validacionImei'
+import { consultarEquipoPorImei, validarDuplicadosLocales, validarFormatoImei } from '../lib/validacionImei'
 
 export type CampoEscaneable = 'codigo' | `imei1:${string}` | `imei2:${string}`
 
@@ -115,6 +116,13 @@ export function FormularioProducto({
     etiqueta: string
     archivo: Blob | File
     codigos: CodigoDetectado[]
+  } | null>(null)
+  const [equiposDuplicados, setEquiposDuplicados] = useState<
+    Record<string, { imei: string; equipo: Equipo }>
+  >({})
+  const [equipoParaVerUbicacion, setEquipoParaVerUbicacion] = useState<{
+    imei: string
+    equipo: Equipo
   } | null>(null)
 
   const refArchivoGaleria = useRef<HTMLInputElement | null>(null)
@@ -206,6 +214,7 @@ export function FormularioProducto({
     const temporizador = window.setTimeout(async () => {
       const erroresDuplicados = validarDuplicadosLocales(equipos)
       const nuevosErroresBd: Record<string, string> = {}
+      const nuevosEquiposDuplicados: Record<string, { imei: string; equipo: Equipo }> = {}
 
       for (const [indice, eq] of equipos.entries()) {
         for (const tipo of ['imei1', 'imei2'] as const) {
@@ -216,16 +225,27 @@ export function FormularioProducto({
           if (erroresDuplicados[clave] !== undefined) continue
 
           if (valor.length > 0 && valor.length <= 25) {
-            const yaExiste = await verificarImeiEnBd(valor)
+            const equipoExistente = await consultarEquipoPorImei(valor)
             if (cancelado) return
-            if (yaExiste) {
+            if (equipoExistente !== null) {
               nuevosErroresBd[clave] = 'Este IMEI ya está registrado en el inventario'
+              nuevosEquiposDuplicados[clave] = { imei: valor, equipo: equipoExistente }
             }
           }
         }
       }
 
       if (cancelado) return
+
+      setEquiposDuplicados((prev) => {
+        const siguiente = { ...prev }
+        for (const k of Object.keys(siguiente)) {
+          if (nuevosEquiposDuplicados[k] === undefined) {
+            delete siguiente[k]
+          }
+        }
+        return { ...siguiente, ...nuevosEquiposDuplicados }
+      })
 
       setCampos((prev) => {
         const siguiente = { ...prev }
@@ -608,6 +628,11 @@ export function FormularioProducto({
           onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei1', valor)}
           onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipoActual.id}`)}
           onSubirFoto={(archivo) => void procesarFotoDeCaja(`imei1:${equipoActual.id}`, 'IMEI 1', archivo)}
+          onVerUbicacion={
+            equiposDuplicados['equipos.0.imei1']
+              ? () => setEquipoParaVerUbicacion(equiposDuplicados['equipos.0.imei1'] ?? null)
+              : undefined
+          }
           leyendoFoto={leyendoFoto === `imei1:${equipoActual.id}`}
           inputMode="text"
         />
@@ -638,6 +663,11 @@ export function FormularioProducto({
           onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei2', valor)}
           onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipoActual.id}`)}
           onSubirFoto={(archivo) => void procesarFotoDeCaja(`imei2:${equipoActual.id}`, 'IMEI 2', archivo)}
+          onVerUbicacion={
+            equiposDuplicados['equipos.0.imei2']
+              ? () => setEquipoParaVerUbicacion(equiposDuplicados['equipos.0.imei2'] ?? null)
+              : undefined
+          }
           leyendoFoto={leyendoFoto === `imei2:${equipoActual.id}`}
           inputMode="text"
         />
@@ -828,6 +858,13 @@ export function FormularioProducto({
         }}
         onCancelar={() => setSelectorCodigos(null)}
       />
+
+      <ModalUbicacionImei
+        abierto={equipoParaVerUbicacion !== null}
+        equipo={equipoParaVerUbicacion?.equipo ?? null}
+        imeiConsultado={equipoParaVerUbicacion?.imei}
+        onCerrar={() => setEquipoParaVerUbicacion(null)}
+      />
     </div>
   )
 }
@@ -838,6 +875,7 @@ interface CampoConEscanerProps extends Omit<React.InputHTMLAttributes<HTMLInputE
   onChange: (valor: string) => void
   onEscanear?: () => void
   onSubirFoto?: (archivo: File | Blob) => void
+  onVerUbicacion?: () => void
   leyendoFoto?: boolean
   error?: string
   ayuda?: string
@@ -849,6 +887,7 @@ function CampoConEscaner({
   onChange,
   onEscanear,
   onSubirFoto,
+  onVerUbicacion,
   leyendoFoto = false,
   error,
   ayuda,
@@ -926,12 +965,23 @@ function CampoConEscaner({
         <p className="text-[0.75rem] font-medium text-accion">Leyendo códigos de la foto…</p>
       )}
       {descripcion !== undefined && (
-        <p
+        <div
           id={idDescripcion}
-          className={`text-[0.75rem] ${error === undefined ? 'text-tinta-tenue' : 'font-medium text-falta'}`}
+          className={`flex items-center gap-1.5 flex-wrap text-[0.75rem] ${
+            error === undefined ? 'text-tinta-tenue' : 'font-medium text-falta'
+          }`}
         >
-          {descripcion}
-        </p>
+          <span>{descripcion}</span>
+          {onVerUbicacion !== undefined && (
+            <button
+              type="button"
+              onClick={onVerUbicacion}
+              className="inline-flex items-center font-bold text-accion underline underline-offset-2 hover:text-accion/80 active:scale-95 transition cursor-pointer"
+            >
+              Ver
+            </button>
+          )}
+        </div>
       )}
 
       <HojaInferior

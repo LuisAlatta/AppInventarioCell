@@ -48,3 +48,37 @@ describe('validarDuplicadosLocales', () => {
     expect(Object.keys(errores).length).toBe(0)
   })
 })
+
+describe('consultarEquipoPorImei y verificarImeiEnBd', () => {
+  test('retorna datos de equipo y ubicacion cuando el IMEI ya existe en BD', async () => {
+    const { consultarEquipoPorImei, verificarImeiEnBd } = await import('./validacionImei')
+    const { api } = await import('../api/cliente')
+
+    // Mock temporal de la llamada
+    const equipoMock = {
+      id: 'eq_1',
+      productoId: 'prod_1',
+      productoNombre: 'Redmi Note 15',
+      imei1: '865716085198765',
+      imei2: null,
+      listaBlanca: 'registered' as const,
+      condicion: 'new' as const,
+      ubicacionId: 'loc_1',
+      ubicacionNombre: 'Tienda Principal',
+      notas: null,
+      activo: true,
+      creadoEn: '2026-09-21',
+      actualizadoEn: '2026-09-21',
+    }
+
+    api.buscarEquipoPorImei = async () => ({ equipo: equipoMock })
+
+    const res = await consultarEquipoPorImei('865716085198765')
+    expect(res).not.toBeNull()
+    expect(res?.ubicacionNombre).toBe('Tienda Principal')
+    expect(res?.productoNombre).toBe('Redmi Note 15')
+
+    const existe = await verificarImeiEnBd('865716085198765')
+    expect(existe).toBe(true)
+  })
+})

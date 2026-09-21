@@ -6,6 +6,7 @@
  * entre equipos y verificación asíncrona contra la base de datos.
  */
 
+import type { Equipo } from '@compartido/tipos'
 import { api } from '../api/cliente'
 
 export interface ResultadoValidacionFormato {
@@ -73,28 +74,36 @@ export function validarDuplicadosLocales(
 }
 
 // Caché en memoria para no repetir peticiones por el mismo IMEI
-const cacheExistencia = new Map<string, boolean>()
+const cacheEquipos = new Map<string, Equipo | null>()
+
+/**
+ * Consulta en la base de datos si un IMEI ya fue registrado previamente y obtiene sus datos.
+ * Devuelve el objeto Equipo con su tienda/ubicación si existe, o null si está libre.
+ */
+export async function consultarEquipoPorImei(imei: string): Promise<Equipo | null> {
+  const limpio = imei.trim()
+  if (limpio === '' || limpio.length > 25) {
+    return null
+  }
+
+  if (cacheEquipos.has(limpio)) {
+    return cacheEquipos.get(limpio) ?? null
+  }
+
+  try {
+    const { equipo } = await api.buscarEquipoPorImei(limpio)
+    cacheEquipos.set(limpio, equipo)
+    return equipo
+  } catch {
+    return null
+  }
+}
 
 /**
  * Consulta en la base de datos si un IMEI ya fue registrado previamente.
  * Devuelve true si ya existe, false si está libre.
  */
 export async function verificarImeiEnBd(imei: string): Promise<boolean> {
-  const limpio = imei.trim()
-  if (limpio === '' || limpio.length > 25) {
-    return false
-  }
-
-  if (cacheExistencia.has(limpio)) {
-    return cacheExistencia.get(limpio) ?? false
-  }
-
-  try {
-    const { equipo } = await api.buscarEquipoPorImei(limpio)
-    const existe = equipo !== null
-    cacheExistencia.set(limpio, existe)
-    return existe
-  } catch {
-    return false
-  }
+  const equipo = await consultarEquipoPorImei(imei)
+  return equipo !== null
 }
