@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Camera, CheckCircle2, ImageUp, PackageCheck, Plus, ScanLine, Sparkles, Trash2, XCircle } from 'lucide-react'
+import { Camera, CheckCircle2, ImageUp, PackageCheck, ScanLine, Sparkles, Trash2, XCircle } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -216,6 +216,7 @@ export function FormularioProducto({
   }, [activa, ubicacionDestinoId])
 
   const ubicacionDestino = ubicaciones.find((u) => u.id === ubicacionDestinoId && u.activa) ?? activa
+  const equipoActual = equipos[0] ?? equipoVacio()
   const equiposConImei = equipos.filter((equipo) => equipo.imei1.trim() !== '' || equipo.imei2.trim() !== '')
 
   // Validación reactiva de IMEIs mientras el usuario digita (duplicados y existencia en BD)
@@ -634,105 +635,74 @@ export function FormularioProducto({
         </section>
       )}
 
-      <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-semibold">Datos del equipo</p>
-            <p className="text-[0.8125rem] text-tinta-suave">
-              Cada IMEI es una unidad individual que se registrará en <strong>{ubicacionDestino?.nombre ?? 'la tienda elegida'}</strong>.
-            </p>
-          </div>
-          <span className="cifras rounded-lg bg-superficie px-2 py-1 text-[0.75rem] font-semibold text-accion">{equipos.length}/50</span>
-        </div>
-        {campos.equipos !== undefined && <p className="text-[0.75rem] font-medium text-falta">{campos.equipos}</p>}
-        {equipos.map((equipo, indice) => (
-          <div key={equipo.id} className="flex flex-col gap-3.5 rounded-xl border border-borde bg-superficie p-3.5 shadow-xs">
-            <div className="flex items-center justify-between gap-2 border-b border-borde/60 pb-2">
-              <span className="text-[0.875rem] font-semibold text-tinta">Equipo {indice + 1}</span>
-              {equipos.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setEquipos((anteriores) => anteriores.filter((actual) => actual.id !== equipo.id))}
-                  aria-label={`Quitar equipo ${indice + 1}`}
-                  className="flex size-8 items-center justify-center rounded-lg text-falta transition active:bg-falta-tenue"
-                >
-                  <Trash2 aria-hidden="true" className="size-4" strokeWidth={2} />
-                </button>
-              )}
-            </div>
-            <div className="flex flex-col gap-3">
-              <CampoConEscaner
-                etiqueta="IMEI 1"
-                value={equipo.imei1}
-                error={campos[`equipos.${indice}.imei1`] ?? (indice === 0 ? campos.imei1 : undefined)}
-                ayuda={
-                  !campos[`equipos.${indice}.imei1`] &&
-                  equipo.imei1.trim().length > 0
-                    ? `${equipo.imei1.trim().length}/25 caracteres`
-                    : undefined
-                }
-                onChange={(valor) => manejarCambioImei(indice, equipo.id, 'imei1', valor)}
-                onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipo.id}`)}
-                onSubirFoto={(archivo) => iniciarLecturaFoto(`imei1:${equipo.id}`, `IMEI 1 (Equipo ${indice + 1})`, archivo)}
-                leyendoFoto={leyendoFoto === `imei1:${equipo.id}`}
-                inputMode="text"
-                placeholder="Hasta 25 caracteres"
-              />
-              <CampoConEscaner
-                etiqueta="IMEI 2"
-                value={equipo.imei2}
-                error={campos[`equipos.${indice}.imei2`] ?? (indice === 0 ? campos.imei2 : undefined)}
-                ayuda={
-                  !campos[`equipos.${indice}.imei2`] &&
-                  equipo.imei2.trim().length > 0
-                    ? `${equipo.imei2.trim().length}/25 caracteres`
-                    : undefined
-                }
-                onChange={(valor) => manejarCambioImei(indice, equipo.id, 'imei2', valor)}
-                onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipo.id}`)}
-                onSubirFoto={(archivo) => iniciarLecturaFoto(`imei2:${equipo.id}`, `IMEI 2 (Equipo ${indice + 1})`, archivo)}
-                leyendoFoto={leyendoFoto === `imei2:${equipo.id}`}
-                inputMode="text"
-                placeholder="Opcional (hasta 25 caracteres)"
-              />
-            </div>
+      <CampoConEscaner
+        etiqueta="IMEI 1"
+        value={equipoActual.imei1}
+        error={campos['equipos.0.imei1'] ?? campos.imei1}
+        ayuda={
+          !campos['equipos.0.imei1'] &&
+          equipoActual.imei1.trim().length > 0
+            ? `${equipoActual.imei1.trim().length}/25 caracteres`
+            : undefined
+        }
+        onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei1', valor)}
+        onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipoActual.id}`)}
+        onSubirFoto={(archivo) => iniciarLecturaFoto(`imei1:${equipoActual.id}`, 'IMEI 1', archivo)}
+        leyendoFoto={leyendoFoto === `imei1:${equipoActual.id}`}
+        inputMode="text"
+        placeholder="Hasta 25 caracteres"
+      />
 
-            {/* Opciones de Lista blanca en una sola fila */}
-            <div className="flex flex-col gap-1.5 pt-0.5">
-              <span className="text-[0.75rem] font-semibold text-tinta-suave">
-                Lista blanca
-              </span>
-              <div className="grid grid-cols-2 gap-2 w-full">
-                <button
-                  type="button"
-                  onClick={() => actualizarEquipo(equipo.id, { listaBlanca: 'registered' })}
-                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
-                    equipo.listaBlanca === 'registered'
-                      ? 'border-exito bg-exito-tenue text-exito shadow-xs'
-                      : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
-                  }`}
-                >
-                  <CheckCircle2 className="size-4 shrink-0" strokeWidth={2.2} />
-                  <span>Registrado</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => actualizarEquipo(equipo.id, { listaBlanca: 'not_registered' })}
-                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
-                    equipo.listaBlanca === 'not_registered'
-                      ? 'border-falta bg-falta-tenue text-falta shadow-xs'
-                      : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
-                  }`}
-                >
-                  <XCircle className="size-4 shrink-0" strokeWidth={2.2} />
-                  <span>No registrado</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-        <button type="button" disabled={equipos.length >= 50} onClick={() => setEquipos((anteriores) => [...anteriores, equipoVacio()])} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-accion/45 bg-superficie px-3 text-[0.875rem] font-semibold text-accion active:bg-accion/10 disabled:opacity-40"><Plus aria-hidden="true" className="size-4" strokeWidth={2.3} />Agregar otro equipo</button>
-      </section>
+      <CampoConEscaner
+        etiqueta="IMEI 2"
+        value={equipoActual.imei2}
+        error={campos['equipos.0.imei2'] ?? campos.imei2}
+        ayuda={
+          !campos['equipos.0.imei2'] &&
+          equipoActual.imei2.trim().length > 0
+            ? `${equipoActual.imei2.trim().length}/25 caracteres`
+            : undefined
+        }
+        onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei2', valor)}
+        onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipoActual.id}`)}
+        onSubirFoto={(archivo) => iniciarLecturaFoto(`imei2:${equipoActual.id}`, 'IMEI 2', archivo)}
+        leyendoFoto={leyendoFoto === `imei2:${equipoActual.id}`}
+        inputMode="text"
+        placeholder="Opcional (hasta 25 caracteres)"
+      />
+
+      {/* Opciones de Lista blanca en una sola fila */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[0.8125rem] font-medium text-tinta-suave">
+          Lista blanca
+        </span>
+        <div className="grid grid-cols-2 gap-2 w-full">
+          <button
+            type="button"
+            onClick={() => actualizarEquipo(equipoActual.id, { listaBlanca: 'registered' })}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+              equipoActual.listaBlanca === 'registered'
+                ? 'border-exito bg-exito-tenue text-exito shadow-xs'
+                : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+            }`}
+          >
+            <CheckCircle2 className="size-4 shrink-0" strokeWidth={2.2} />
+            <span>Registrado</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => actualizarEquipo(equipoActual.id, { listaBlanca: 'not_registered' })}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+              equipoActual.listaBlanca === 'not_registered'
+                ? 'border-falta bg-falta-tenue text-falta shadow-xs'
+                : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+            }`}
+          >
+            <XCircle className="size-4 shrink-0" strokeWidth={2.2} />
+            <span>No registrado</span>
+          </button>
+        </div>
+      </div>
 
       {productoExistente === null && (
         <>
