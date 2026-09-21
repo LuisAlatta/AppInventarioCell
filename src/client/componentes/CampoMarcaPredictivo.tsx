@@ -35,7 +35,7 @@ export function CampoMarcaPredictivo({
   etiqueta = 'Marca',
   error,
   ayuda,
-  placeholder = 'Ej. Samsung, Apple, Xiaomi...',
+  placeholder = '',
   autoFocus = false,
 }: CampoMarcaPredictivoProps) {
   const id = useId()

@@ -603,7 +603,6 @@ export function FormularioProducto({
               value={nombre}
               error={campos.nombre}
               onChange={(e) => setNombre(e.target.value)}
-              placeholder="iPhone 15 Pro 128 GB"
               autoComplete="off"
             />
 
@@ -611,6 +610,7 @@ export function FormularioProducto({
               value={marca}
               onChange={setMarca}
               error={campos.marca}
+              placeholder=""
             />
 
             {/* Opciones de Lista blanca debajo de Marca: sin iconos, letra grande, blancos en reposo y azul al seleccionarse */}
