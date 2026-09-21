@@ -7,6 +7,7 @@ import { validador } from '../lib/validador'
 import { actualizarEquipo, buscarEquipoPorImei, eliminarEquipo, equiposPorIds, listarEquiposDeProducto } from '../db/equipos'
 import { huellaOperacion, resultadoOperacion } from '../db/operaciones'
 import { exigirProducto } from '../db/productos'
+import { guardarTac } from '../db/tac'
 import { registrarEquipos } from '../services/equipos'
 import type { Variables } from '../tipos_hono'
 
@@ -27,6 +28,20 @@ rutasEquipos.post('/', validador('json', esquemaAltaEquipos), async (c) => {
     if (anterior?.equipoIds !== undefined) return c.json({ equipos: await equiposPorIds(c.env.DB, anterior.equipoIds) })
   }
   const equipos = await registrarEquipos(c.env.DB, datos, usuarioId, huella)
+
+  try {
+    const prod = await exigirProducto(c.env.DB, datos.productoId)
+    if (prod.marca && prod.nombre) {
+      for (const eq of datos.equipos) {
+        if (eq.imei1) {
+          await guardarTac(c.env.DB, eq.imei1, prod.marca, prod.nombre)
+        }
+      }
+    }
+  } catch {
+    // Falla no bloqueante
+  }
+
   return c.json({ equipos }, 201)
 })
 

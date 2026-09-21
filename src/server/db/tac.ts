@@ -308,10 +308,16 @@ export async function guardarTac(
   const tac = extraerTac(tacRaw)
   if (tac === null || !brand.trim() || !model.trim()) return
 
+  const marcaLimpia = brand.trim()
+  const modeloLimpio = model.trim()
+
+  // Actualizar inmediatamente el diccionario en memoria
+  TAC_RESPALDO[tac] = { brand: marcaLimpia, model: modeloLimpio }
+
   try {
     await db
-      .prepare('INSERT OR IGNORE INTO tac_catalog (tac, brand, model) VALUES (?, ?, ?)')
-      .bind(tac, brand.trim(), model.trim())
+      .prepare('INSERT OR REPLACE INTO tac_catalog (tac, brand, model) VALUES (?, ?, ?)')
+      .bind(tac, marcaLimpia, modeloLimpio)
       .run()
   } catch {
     // Falla no bloqueante

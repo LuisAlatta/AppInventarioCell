@@ -174,7 +174,7 @@ rutasCatalogo.post('/productos', validador('json', esquemaProducto), async (c) =
   }
   const producto = await crearProducto(c.env.DB, datos, usuarioId, huella)
   if (datos.marca && datos.nombre) {
-    void guardarTac(c.env.DB, datos.codigo, datos.marca, datos.nombre)
+    await guardarTac(c.env.DB, datos.codigo, datos.marca, datos.nombre)
   }
   return c.json({ producto: await unoConStock(c.env.DB, producto.id) }, 201)
 })
@@ -185,6 +185,9 @@ rutasCatalogo.get('/productos/:id', async (c) =>
 
 rutasCatalogo.patch('/productos/:id', validador('json', esquemaProductoParcial), async (c) => {
   const producto = await actualizarProducto(c.env.DB, c.req.param('id'), c.req.valid('json'))
+  if (producto.marca && producto.nombre && producto.codigo) {
+    await guardarTac(c.env.DB, producto.codigo, producto.marca, producto.nombre)
+  }
   return c.json({ producto: await unoConStock(c.env.DB, producto.id) })
 })
 

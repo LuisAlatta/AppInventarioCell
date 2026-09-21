@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extraerTac, buscarTac } from './tac'
+import { extraerTac, buscarTac, guardarTac } from './tac'
 
 describe('Catálogo TAC', () => {
   it('extrae correctamente los 8 primeros dígitos numéricos', () => {
@@ -47,5 +47,52 @@ describe('Catálogo TAC', () => {
 
     const noExiste = await buscarTac(mockDb, '00000000')
     expect(noExiste).toBeNull()
+  })
+
+  it('aprende y predice un nuevo TAC cuando se registra', async () => {
+    let tablaD1: Record<string, { tac: string; brand: string; model: string }> = {}
+
+    const mockDb = {
+      prepare: (sql: string) => ({
+        bind: (...args: any[]) => ({
+          run: async () => {
+            if (sql.includes('INSERT')) {
+              const [tac, brand, model] = args
+              tablaD1[tac] = { tac, brand, model }
+            }
+            return { success: true }
+          },
+          first: async () => {
+            if (sql.includes('SELECT')) {
+              const [tac] = args
+              return tablaD1[tac] ?? null
+            }
+            return null
+          },
+        }),
+      }),
+    } as unknown as D1Database
+
+    const nuevoImei = '991234560000001'
+    const tacEsperado = '99123456'
+
+    // Antes de guardar, no existe
+    expect(await buscarTac(mockDb, nuevoImei)).toBeNull()
+
+    // Se guarda el nuevo TAC
+    await guardarTac(mockDb, nuevoImei, 'Motorola', 'Edge 50 Ultra')
+
+    // Ahora se resuelve inmediatamente
+    const res = await buscarTac(mockDb, nuevoImei)
+    expect(res).not.toBeNull()
+    expect(res?.tac).toBe(tacEsperado)
+    expect(res?.brand).toBe('Motorola')
+    expect(res?.model).toBe('Edge 50 Ultra')
+
+    // También buscando solo por los 8 dígitos
+    const resPorTac = await buscarTac(mockDb, tacEsperado)
+    expect(resPorTac).not.toBeNull()
+    expect(resPorTac?.brand).toBe('Motorola')
+    expect(resPorTac?.model).toBe('Edge 50 Ultra')
   })
 })
