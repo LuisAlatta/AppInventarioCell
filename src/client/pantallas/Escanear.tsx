@@ -61,8 +61,8 @@ export function Escanear() {
   }, [campo, escaner.iniciar, escaner.detener])
 
   return (
-    <Marco titulo="Registrar">
-      <div className="flex flex-col gap-4">
+    <Marco titulo="Registrar" claseMain="pb-20 flex flex-col min-h-0">
+      <div className="flex flex-1 flex-col justify-between gap-2.5 min-h-0">
         {/* Selector de tienda o almacén en una sola fila simétrica */}
         <div className="flex flex-col gap-1">
           <span className="text-[0.75rem] font-semibold text-tinta-suave">

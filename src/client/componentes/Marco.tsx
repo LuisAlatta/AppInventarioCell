@@ -10,10 +10,11 @@ interface MarcoProps {
   /** Se conserva para pantallas especiales; la ubicación ya no se muestra como selector. */
   sinUbicacion?: boolean
   accion?: ReactNode
+  claseMain?: string
   children: ReactNode
 }
 
-export function Marco({ titulo, atras = false, accion, children }: MarcoProps) {
+export function Marco({ titulo, atras = false, accion, claseMain, children }: MarcoProps) {
   const navegar = useNavigate()
   const { activa } = useUbicacion()
   const color = activa?.color
@@ -57,7 +58,9 @@ export function Marco({ titulo, atras = false, accion, children }: MarcoProps) {
       </header>
       <main
         id="contenido-principal"
-        className="mx-auto min-h-0 w-full max-w-lg flex-1 overflow-y-auto overflow-x-hidden px-3 pt-3 pb-32 overscroll-none touch-pan-y [-webkit-overflow-scrolling:touch]"
+        className={`mx-auto min-h-0 w-full max-w-lg flex-1 overflow-y-auto overflow-x-hidden px-3 pt-3 overscroll-none touch-pan-y [-webkit-overflow-scrolling:touch] ${
+          claseMain ?? 'pb-32'
+        }`}
         style={{ overscrollBehavior: 'none', touchAction: 'pan-y' }}
       >
         {children}

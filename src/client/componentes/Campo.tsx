@@ -23,7 +23,7 @@ interface Comun {
 }
 
 const CLASES_BASE = [
-  'w-full rounded-xl bg-superficie px-4 py-3.5',
+  'w-full rounded-xl bg-superficie px-3.5 py-2.5',
   // 16px minimo para evitar el zoom de Safari.
   'text-[1rem] text-tinta placeholder:text-tinta-tenue',
   'border transition-colors duration-100',
