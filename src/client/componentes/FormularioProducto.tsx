@@ -37,14 +37,14 @@ interface DatosEquipoNuevo {
   condicion: 'new' | 'used'
 }
 
-function equipoVacio(): DatosEquipoNuevo {
+function equipoVacio(imeiInicial = ''): DatosEquipoNuevo {
   return {
     // `randomUUID` no existe en algunos Safari instalados como app. Un id
     // local solo identifica esta fila mientras el formulario está abierto.
     id: typeof globalThis.crypto?.randomUUID === 'function'
       ? globalThis.crypto.randomUUID()
       : `equipo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
-    imei1: '',
+    imei1: imeiInicial,
     imei2: '',
     listaBlanca: 'not_registered',
     condicion: 'new',
@@ -83,12 +83,11 @@ export function FormularioProducto({
   const { activa, ubicaciones } = useUbicacion()
   const queryClient = useQueryClient()
 
-  const [codigo, setCodigo] = useState(codigoInicial)
   const [productoExistente, setProductoExistente] = useState<ProductoConStock | null>(null)
   const [tacDetectado, setTacDetectado] = useState<{ marca: string; modelo: string } | null>(null)
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
-  const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>([equipoVacio()])
+  const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>(() => [equipoVacio(codigoInicial)])
   const [ubicacionDestinoIdLocal, setUbicacionDestinoIdLocal] = useState<string>(
     () => propUbicacionDestinoId ?? activa?.id ?? ubicaciones.find((u) => u.activa)?.id ?? '',
   )
@@ -112,57 +111,33 @@ export function FormularioProducto({
 
   const refArchivoGaleria = useRef<HTMLInputElement | null>(null)
 
+  const equipoActual = equipos[0] ?? equipoVacio()
+  const imei1Actual = equipoActual.imei1
+
   useEffect(() => {
     if (lectura === null) return
-    if (lectura.campo === 'codigo') setCodigo(lectura.valor)
-    if (lectura.campo !== 'codigo') {
-      const [campo, id] = lectura.campo.split(':') as ['imei1' | 'imei2', string]
-      const indice = equipos.findIndex((e) => e.id === id)
-      if (indice !== -1) {
-        manejarCambioImei(indice, id, campo, lectura.valor)
-      } else {
-        setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, [campo]: lectura.valor.trim().slice(0, 25) } : equipo))
-      }
-    }
+    const tipo = lectura.campo.startsWith('imei2') ? 'imei2' : 'imei1'
+    manejarCambioImei(0, equipoActual.id, tipo, lectura.valor)
   }, [lectura])
 
   useEffect(() => {
     if (!fotoParaRecortar) return
-    const etiqueta =
-      fotoParaRecortar.campo === 'codigo'
-        ? 'código del equipo'
-        : fotoParaRecortar.campo.startsWith('imei1:')
-          ? 'IMEI 1'
-          : 'IMEI 2'
+    const etiqueta = fotoParaRecortar.campo.startsWith('imei2') ? 'IMEI 2' : 'IMEI 1'
     iniciarLecturaFoto(fotoParaRecortar.campo, etiqueta, fotoParaRecortar.archivo)
   }, [fotoParaRecortar])
 
   useEffect(() => {
-    const codigoLimpio = codigo.trim()
-    if (codigoLimpio.length === 0) {
+    const imeiLimpio = imei1Actual.trim()
+    if (imeiLimpio.length === 0) {
       setProductoExistente(null)
       setTacDetectado(null)
       return undefined
     }
 
-    setProductoExistente((actual) => actual?.codigo === codigoLimpio ? actual : null)
     let vigente = true
     const temporizador = window.setTimeout(async () => {
-      // 1. Comprobar si ya existe como producto registrado
-      try {
-        const { producto } = await api.porCodigo(codigoLimpio)
-        if (vigente) {
-          setProductoExistente(producto)
-          if (producto.marca) setMarca(producto.marca)
-        }
-      } catch (causa: unknown) {
-        if (vigente && causa instanceof ErrorDeApi && causa.estado === 404) {
-          setProductoExistente(null)
-        }
-      }
-
-      // 2. Extraer TAC y consultar catálogo GSMA si tiene al menos 8 dígitos
-      const digitos = codigoLimpio.replace(/\D/g, '')
+      // 1. Extraer TAC y consultar catálogo GSMA si tiene al menos 8 dígitos
+      const digitos = imeiLimpio.replace(/\D/g, '')
       if (digitos.length >= 8) {
         const tac = digitos.slice(0, 8)
         try {
@@ -181,21 +156,17 @@ export function FormularioProducto({
         setTacDetectado(null)
       }
 
-      // 3. Si el código ingresado tiene longitud de IMEI completo (14 a 16 dígitos),
-      // sincronizarlo automáticamente con el primer equipo (IMEI 1)
-      if (digitos.length >= 14 && digitos.length <= 16 && vigente) {
-        setEquipos((anteriores) => {
-          if (anteriores.length === 0) return anteriores
-          const primero = anteriores[0]
-          if (!primero) return anteriores
-          if (primero.imei1.trim() === '' || primero.imei1 === codigoLimpio.slice(0, 25)) {
-            return [
-              { ...primero, imei1: codigoLimpio.slice(0, 25) },
-              ...anteriores.slice(1),
-            ]
-          }
-          return anteriores
-        })
+      // 2. Comprobar si ya existe como producto registrado por este IMEI
+      try {
+        const { producto } = await api.porCodigo(imeiLimpio)
+        if (vigente) {
+          setProductoExistente(producto)
+          if (producto.marca) setMarca(producto.marca)
+        }
+      } catch (causa: unknown) {
+        if (vigente && causa instanceof ErrorDeApi && causa.estado === 404) {
+          setProductoExistente(null)
+        }
       }
     }, 250)
 
@@ -203,7 +174,7 @@ export function FormularioProducto({
       vigente = false
       window.clearTimeout(temporizador)
     }
-  }, [codigo])
+  }, [imei1Actual])
 
   const actualizarEquipo = (id: string, cambio: Partial<DatosEquipoNuevo>): void => {
     setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, ...cambio } : equipo))
@@ -216,7 +187,6 @@ export function FormularioProducto({
   }, [activa, ubicacionDestinoId])
 
   const ubicacionDestino = ubicaciones.find((u) => u.id === ubicacionDestinoId && u.activa) ?? activa
-  const equipoActual = equipos[0] ?? equipoVacio()
   const equiposConImei = equipos.filter((equipo) => equipo.imei1.trim() !== '' || equipo.imei2.trim() !== '')
 
   // Validación reactiva de IMEIs mientras el usuario digita (duplicados y existencia en BD)
@@ -280,10 +250,6 @@ export function FormularioProducto({
     const valorLimpio = valorRaw.slice(0, 25)
     actualizarEquipo(equipoId, { [tipo]: valorLimpio })
 
-    if (indice === 0 && tipo === 'imei1' && codigo.trim() === '' && valorLimpio.trim() !== '') {
-      setCodigo(valorLimpio)
-    }
-
     const clave = `equipos.${indice}.${tipo}`
     setCampos((prev) => {
       const copia = { ...prev }
@@ -307,8 +273,9 @@ export function FormularioProducto({
         avisos.error('No se encontró un código de barras legible en esa foto')
         return
       }
-      if (campo === 'codigo') setCodigo(valor.slice(0, 50))
-      else {
+      if (campo === 'codigo' || campo.startsWith('imei1')) {
+        manejarCambioImei(0, equipoActual.id, 'imei1', valor)
+      } else {
         const [tipo, id] = campo.split(':') as ['imei1' | 'imei2', string]
         const indice = equipos.findIndex((e) => e.id === id)
         if (indice !== -1) {
@@ -418,14 +385,15 @@ export function FormularioProducto({
   }
 
   const guardar = async (): Promise<void> => {
-    if (codigo.trim().length === 0) {
-      setCampos({ codigo: 'Ingresa o escanea un código' })
-      avisos.error('Ingresa o escanea un código para el producto')
+    const imei1Limpio = (equipos[0]?.imei1 ?? '').trim()
+    if (imei1Limpio.length === 0) {
+      setCampos((prev) => ({ ...prev, 'equipos.0.imei1': 'Ingresa o escanea el IMEI 1' }))
+      avisos.error('Ingresa o escanea el IMEI 1 del equipo')
       return
     }
-    if (codigo.trim().length > 50) {
-      setCampos({ codigo: 'El código no puede tener más de 50 caracteres' })
-      avisos.error('El código no puede tener más de 50 caracteres')
+    if (imei1Limpio.length > 25) {
+      setCampos((prev) => ({ ...prev, 'equipos.0.imei1': 'El IMEI no puede tener más de 25 caracteres' }))
+      avisos.error('El IMEI no puede tener más de 25 caracteres')
       return
     }
 
@@ -495,7 +463,7 @@ export function FormularioProducto({
 
       const producto = productoExistente ?? await resolverProductoGuardado(
         async () => (await api.crearProducto({
-          codigo: codigo.trim(),
+          codigo: imei1Limpio,
           nombre: nombre.trim(),
           marca: marca.trim() === '' ? null : marca.trim(),
           modelo: null,
@@ -584,26 +552,21 @@ export function FormularioProducto({
   return (
     <div className="flex flex-col gap-4 pb-3">
       <CampoConEscaner
-        etiqueta="Código del equipo"
-        value={codigo}
-        error={campos.codigo}
-        onChange={(val) => {
-          setCodigo(val)
-          if (campos.codigo) {
-            setCampos((prev) => {
-              const copia = { ...prev }
-              delete copia.codigo
-              return copia
-            })
-          }
-        }}
-        onEscanear={onEscanear === undefined ? undefined : () => onEscanear('codigo')}
-        onSubirFoto={(archivo) => iniciarLecturaFoto('codigo', 'código del equipo', archivo)}
-        leyendoFoto={leyendoFoto === 'codigo'}
+        etiqueta="IMEI 1"
+        value={equipoActual.imei1}
+        error={campos['equipos.0.imei1'] ?? campos.imei1}
+        ayuda={
+          !campos['equipos.0.imei1'] &&
+          equipoActual.imei1.trim().length > 0
+            ? `${equipoActual.imei1.trim().length}/25 caracteres`
+            : 'Detecta automáticamente la marca y modelo por IMEI'
+        }
+        onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei1', valor)}
+        onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipoActual.id}`)}
+        onSubirFoto={(archivo) => iniciarLecturaFoto(`imei1:${equipoActual.id}`, 'IMEI 1', archivo)}
+        leyendoFoto={leyendoFoto === `imei1:${equipoActual.id}`}
         inputMode="text"
-        autoComplete="off"
-        placeholder="Escanea o escribe el IMEI o código"
-        ayuda="Detecta automáticamente la marca y modelo por IMEI"
+        placeholder="Hasta 25 caracteres"
       />
 
       {tacDetectado !== null && productoExistente === null && (
@@ -630,28 +593,10 @@ export function FormularioProducto({
             </div>
           </div>
           <p className="rounded-lg bg-superficie/80 px-2.5 py-1.5 text-[0.75rem] text-tinta-suave">
-            Nota: Los IMEI ingresados abajo se registrarán como <strong>nuevas unidades</strong> en este modelo. Si deseas <strong>editar o corregir</strong> un equipo existente, hazlo desde la ficha del producto.
+            Nota: Este equipo se registrará como una <strong>nueva unidad</strong> en este modelo. Si deseas <strong>editar o corregir</strong> un equipo existente, hazlo desde la ficha del producto.
           </p>
         </section>
       )}
-
-      <CampoConEscaner
-        etiqueta="IMEI 1"
-        value={equipoActual.imei1}
-        error={campos['equipos.0.imei1'] ?? campos.imei1}
-        ayuda={
-          !campos['equipos.0.imei1'] &&
-          equipoActual.imei1.trim().length > 0
-            ? `${equipoActual.imei1.trim().length}/25 caracteres`
-            : undefined
-        }
-        onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei1', valor)}
-        onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipoActual.id}`)}
-        onSubirFoto={(archivo) => iniciarLecturaFoto(`imei1:${equipoActual.id}`, 'IMEI 1', archivo)}
-        leyendoFoto={leyendoFoto === `imei1:${equipoActual.id}`}
-        inputMode="text"
-        placeholder="Hasta 25 caracteres"
-      />
 
       <CampoConEscaner
         etiqueta="IMEI 2"
