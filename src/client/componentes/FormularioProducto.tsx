@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, ChevronDown, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2, X } from 'lucide-react'
+import { Camera, CheckCircle2, ChevronDown, ImageUp, PackageCheck, Plus, ScanLine, Search, Trash2, X, XCircle } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -607,15 +607,15 @@ export function FormularioProducto({
         </div>
         {campos.equipos !== undefined && <p className="text-[0.75rem] font-medium text-falta">{campos.equipos}</p>}
         {equipos.map((equipo, indice) => (
-          <fieldset key={equipo.id} className="flex flex-col gap-3 rounded-xl border border-accion/20 bg-superficie p-3">
-            <div className="flex items-center justify-between gap-2">
-              <legend className="text-[0.8125rem] font-semibold text-tinta">Equipo {indice + 1}</legend>
+          <div key={equipo.id} className="flex flex-col gap-3.5 rounded-xl border border-borde bg-superficie p-3.5 shadow-xs">
+            <div className="flex items-center justify-between gap-2 border-b border-borde/60 pb-2">
+              <span className="text-[0.875rem] font-semibold text-tinta">Equipo {indice + 1}</span>
               {equipos.length > 1 && (
                 <button
                   type="button"
                   onClick={() => setEquipos((anteriores) => anteriores.filter((actual) => actual.id !== equipo.id))}
                   aria-label={`Quitar equipo ${indice + 1}`}
-                  className="flex size-9 items-center justify-center rounded-lg text-falta active:bg-falta-tenue"
+                  className="flex size-8 items-center justify-center rounded-lg text-falta transition active:bg-falta-tenue"
                 >
                   <Trash2 aria-hidden="true" className="size-4" strokeWidth={2} />
                 </button>
@@ -657,21 +657,40 @@ export function FormularioProducto({
                 placeholder="Opcional (hasta 25 caracteres)"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <GrupoChecks
-                etiqueta="Lista blanca"
-                valor={equipo.listaBlanca}
-                opciones={[["registered", "Registrado", "exito"], ["not_registered", "No registrado", "falta"]]}
-                onChange={(valor) => actualizarEquipo(equipo.id, { listaBlanca: valor })}
-              />
-              <GrupoChecks
-                etiqueta="Condición"
-                valor={equipo.condicion}
-                opciones={[["new", "Nuevo", "accion"], ["used", "Segunda mano", "alerta"]]}
-                onChange={(valor) => actualizarEquipo(equipo.id, { condicion: valor })}
-              />
+
+            {/* Opciones de Lista blanca en una sola fila */}
+            <div className="flex flex-col gap-1.5 pt-0.5">
+              <span className="text-[0.75rem] font-semibold text-tinta-suave">
+                Lista blanca
+              </span>
+              <div className="grid grid-cols-2 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => actualizarEquipo(equipo.id, { listaBlanca: 'registered' })}
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+                    equipo.listaBlanca === 'registered'
+                      ? 'border-exito bg-exito-tenue text-exito shadow-xs'
+                      : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+                  }`}
+                >
+                  <CheckCircle2 className="size-4 shrink-0" strokeWidth={2.2} />
+                  <span>Registrado</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => actualizarEquipo(equipo.id, { listaBlanca: 'not_registered' })}
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+                    equipo.listaBlanca === 'not_registered'
+                      ? 'border-falta bg-falta-tenue text-falta shadow-xs'
+                      : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+                  }`}
+                >
+                  <XCircle className="size-4 shrink-0" strokeWidth={2.2} />
+                  <span>No registrado</span>
+                </button>
+              </div>
             </div>
-          </fieldset>
+          </div>
         ))}
         <button type="button" disabled={equipos.length >= 50} onClick={() => setEquipos((anteriores) => [...anteriores, equipoVacio()])} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-accion/45 bg-superficie px-3 text-[0.875rem] font-semibold text-accion active:bg-accion/10 disabled:opacity-40"><Plus aria-hidden="true" className="size-4" strokeWidth={2.3} />Agregar otro equipo</button>
       </section>
@@ -892,7 +911,7 @@ function CampoConEscaner({
           aria-invalid={error !== undefined}
           aria-describedby={descripcion === undefined ? undefined : idDescripcion}
           onChange={(evento) => onChange(evento.target.value)}
-          className={`min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 py-3.5 text-[1rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
+          className={`h-11 min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 text-[1rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
             error === undefined ? 'border-borde' : 'border-falta'
           }`}
           {...atributos}
@@ -972,14 +991,4 @@ function CampoConEscaner({
       )}
     </div>
   )
-}
-
-function GrupoChecks<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string, 'exito' | 'falta' | 'accion' | 'alerta'])[]; onChange: (valor: T) => void }) {
-  const nombre = useId()
-  return <fieldset className="min-w-0"><legend className="mb-1.5 text-[0.75rem] font-semibold text-tinta-suave">{etiqueta}</legend><div className="grid grid-cols-1 gap-1.5">{opciones.map(([id, texto, tono]) => <OpcionCheck key={id} nombre={nombre} texto={texto} marcada={valor === id} tono={tono} onChange={() => onChange(id)} />)}</div></fieldset>
-}
-
-function OpcionCheck({ nombre, texto, marcada, tono, onChange }: { nombre: string; texto: string; marcada: boolean; tono: 'exito' | 'falta' | 'accion' | 'alerta'; onChange: () => void }) {
-  const color = tono === 'exito' ? 'border-exito bg-exito-tenue text-exito' : tono === 'falta' ? 'border-falta bg-falta-tenue text-falta' : tono === 'alerta' ? 'border-alerta bg-alerta-tenue text-alerta' : 'border-accion bg-accion-tenue text-accion'
-  return <label className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-[0.75rem] font-semibold transition ${marcada ? color : 'border-borde bg-superficie text-tinta-suave'}`}><input type="radio" name={nombre} className="sr-only" checked={marcada} onChange={onChange} /><span aria-hidden="true" className={`flex size-4 shrink-0 items-center justify-center rounded-full border-2 ${marcada ? 'border-current bg-superficie' : 'border-borde-fuerte bg-superficie'}`}>{marcada && <span className="size-2 rounded-full bg-current" />}</span>{texto}</label>
 }
