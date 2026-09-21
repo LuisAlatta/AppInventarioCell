@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Camera, CheckCircle2, ImageUp, PackageCheck, ScanLine, Sparkles, Trash2, XCircle } from 'lucide-react'
+import { Camera, CheckCircle2, ImageUp, PackageCheck, ScanLine, Trash2, XCircle } from 'lucide-react'
 import type { ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -22,6 +22,7 @@ import { HojaInferior } from './HojaInferior'
 import { ModalRecorteImagen } from './ModalRecorteImagen'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
+import { avisarDeteccion } from '../lib/retroalimentacion'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { leerCodigoDeFoto } from '../escaner/lecturaCodigo'
@@ -84,7 +85,7 @@ export function FormularioProducto({
   const queryClient = useQueryClient()
 
   const [productoExistente, setProductoExistente] = useState<ProductoConStock | null>(null)
-  const [tacDetectado, setTacDetectado] = useState<{ marca: string; modelo: string } | null>(null)
+  const ultimoTacDetectado = useRef<string | null>(null)
   const [nombre, setNombre] = useState('')
   const [marca, setMarca] = useState('')
   const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>(() => [equipoVacio(codigoInicial)])
@@ -130,7 +131,7 @@ export function FormularioProducto({
     const imeiLimpio = imei1Actual.trim()
     if (imeiLimpio.length === 0) {
       setProductoExistente(null)
-      setTacDetectado(null)
+      ultimoTacDetectado.current = null
       return undefined
     }
 
@@ -143,17 +144,20 @@ export function FormularioProducto({
         try {
           const resTac = await api.consultarTac(tac)
           if (vigente && resTac.encontrado && resTac.marca && resTac.modelo) {
-            setTacDetectado({ marca: resTac.marca, modelo: resTac.modelo })
             setMarca((actual) => (actual.trim() === '' ? resTac.marca! : actual))
             setNombre((actual) => (actual.trim() === '' ? resTac.modelo! : actual))
-          } else if (vigente) {
-            setTacDetectado(null)
+
+            if (ultimoTacDetectado.current !== tac) {
+              ultimoTacDetectado.current = tac
+              avisarDeteccion()
+              avisos.exito(`Equipo detectado: ${resTac.marca} ${resTac.modelo}`)
+            }
           }
         } catch {
-          if (vigente) setTacDetectado(null)
+          // Fallo silencioso en consulta TAC
         }
       } else if (vigente) {
-        setTacDetectado(null)
+        ultimoTacDetectado.current = null
       }
 
       // 2. Comprobar si ya existe como producto registrado por este IMEI
@@ -555,29 +559,12 @@ export function FormularioProducto({
         etiqueta="IMEI 1"
         value={equipoActual.imei1}
         error={campos['equipos.0.imei1'] ?? campos.imei1}
-        ayuda={
-          !campos['equipos.0.imei1'] &&
-          equipoActual.imei1.trim().length > 0
-            ? `${equipoActual.imei1.trim().length}/25 caracteres`
-            : 'Detecta automáticamente la marca y modelo por IMEI'
-        }
         onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei1', valor)}
         onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipoActual.id}`)}
         onSubirFoto={(archivo) => iniciarLecturaFoto(`imei1:${equipoActual.id}`, 'IMEI 1', archivo)}
         leyendoFoto={leyendoFoto === `imei1:${equipoActual.id}`}
         inputMode="text"
-        placeholder="Hasta 25 caracteres"
       />
-
-      {tacDetectado !== null && productoExistente === null && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-accion/30 bg-accion-tenue px-3.5 py-2.5 text-[0.8125rem] text-accion shadow-xs">
-          <Sparkles className="size-4.5 shrink-0" strokeWidth={2} />
-          <div className="min-w-0 flex-1">
-            <span className="font-semibold text-tinta">Equipo detectado: </span>
-            <span className="font-bold text-accion">{tacDetectado.marca} {tacDetectado.modelo}</span>
-          </div>
-        </div>
-      )}
 
       {productoExistente !== null && (
         <section className="flex flex-col gap-2 rounded-2xl border border-exito/30 bg-exito-tenue p-3.5">
@@ -602,18 +589,11 @@ export function FormularioProducto({
         etiqueta="IMEI 2"
         value={equipoActual.imei2}
         error={campos['equipos.0.imei2'] ?? campos.imei2}
-        ayuda={
-          !campos['equipos.0.imei2'] &&
-          equipoActual.imei2.trim().length > 0
-            ? `${equipoActual.imei2.trim().length}/25 caracteres`
-            : undefined
-        }
         onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei2', valor)}
         onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipoActual.id}`)}
         onSubirFoto={(archivo) => iniciarLecturaFoto(`imei2:${equipoActual.id}`, 'IMEI 2', archivo)}
         leyendoFoto={leyendoFoto === `imei2:${equipoActual.id}`}
         inputMode="text"
-        placeholder="Opcional (hasta 25 caracteres)"
       />
 
       {/* Opciones de Lista blanca en una sola fila */}
@@ -682,7 +662,6 @@ export function FormularioProducto({
               inputMode="decimal"
               placeholder="0"
               sufijo="S/"
-              ayuda="Se usa para valuar mermas"
             />
           </div>
         </>

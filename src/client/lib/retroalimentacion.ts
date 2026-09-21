@@ -99,3 +99,11 @@ export function avisarError(): void {
   pitido(300, 220, 0.18)
   vibrar([60, 50, 120])
 }
+
+/** Detección de modelo/equipo (TAC): campanita ascendente y vibración ligera. */
+export function avisarDeteccion(): void {
+  prepararSonido()
+  pitido(880, 75, 0.14)
+  window.setTimeout(() => pitido(1320, 110, 0.14), 80)
+  vibrar([20, 30, 20])
+}
