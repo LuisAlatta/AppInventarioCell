@@ -19,6 +19,7 @@ import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
 import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
 import { ModalRecorteImagen } from './ModalRecorteImagen'
+import { IconoUbicacion } from './IconoUbicacion'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
@@ -62,13 +63,13 @@ interface FormularioProductoProps {
   onEscanear?: (campo: CampoEscaneable) => void
   lectura?: { campo: CampoEscaneable; valor: string } | null
   fotoParaRecortar?: { campo: CampoEscaneable; archivo: Blob } | null
-  onCreado: (producto: ProductoConStock) => void
+  onCreado: (producto: ProductoConStock, ubicacionNombre?: string) => void
   onCancelar: () => void
 }
 
 export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = null, fotoParaRecortar = null, onCreado, onCancelar }: FormularioProductoProps) {
   const avisos = useAvisos()
-  const { activa } = useUbicacion()
+  const { activa, ubicaciones } = useUbicacion()
 
   const [codigo, setCodigo] = useState(codigoInicial)
   const [productoExistente, setProductoExistente] = useState<ProductoConStock | null>(null)
@@ -78,6 +79,10 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [marca, setMarca] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
   const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>([equipoVacio()])
+  const [ubicacionDestinoId, setUbicacionDestinoId] = useState<string>(
+    () => activa?.id ?? ubicaciones.find((u) => u.activa)?.id ?? '',
+  )
+  const [stockInicial, setStockInicial] = useState('')
   const [precioVenta, setPrecioVenta] = useState('')
   const [precioCosto, setPrecioCosto] = useState('')
   const [fotos, setFotos] = useState<Array<{ id: string; archivo: Blob; vista: string }>>([])
@@ -162,6 +167,15 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const actualizarEquipo = (id: string, cambio: Partial<DatosEquipoNuevo>): void => {
     setEquipos((anteriores) => anteriores.map((equipo) => equipo.id === id ? { ...equipo, ...cambio } : equipo))
   }
+
+  useEffect(() => {
+    if (!ubicacionDestinoId && activa?.id) {
+      setUbicacionDestinoId(activa.id)
+    }
+  }, [activa, ubicacionDestinoId])
+
+  const ubicacionDestino = ubicaciones.find((u) => u.id === ubicacionDestinoId && u.activa) ?? activa
+  const equiposConImei = equipos.filter((equipo) => equipo.imei1.trim() !== '' || equipo.imei2.trim() !== '')
 
   // Validación reactiva de IMEIs mientras el usuario digita (duplicados y existencia en BD)
   useEffect(() => {
@@ -369,9 +383,14 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       return
     }
 
-    const equiposConImei = equipos.filter((equipo) => equipo.imei1.trim() !== '' || equipo.imei2.trim() !== '')
     if (productoExistente !== null && equiposConImei.length === 0) {
       setCampos({ equipos: 'Agrega al menos un IMEI para registrar equipos en este modelo' })
+      return
+    }
+
+    const destino = ubicacionDestino ?? activa
+    if (destino === null) {
+      avisos.error('Elige una tienda o almacén antes de guardar')
       return
     }
 
@@ -424,10 +443,10 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       setProductoExistente(producto)
 
       const hayImei = equiposConImei.length > 0
-      if (hayImei && activa !== null) {
+      if (hayImei) {
         const datosEquipos = {
           productoId: producto.id,
-          ubicacionId: activa.id,
+          ubicacionId: destino.id,
           idOperacion: idOperacionEquipos,
           equipos: equiposConImei.map((equipo) => ({
             imei1: equipo.imei1.trim() === '' ? null : equipo.imei1.trim(),
@@ -437,6 +456,17 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           })),
         }
         await registrarEquiposConRecuperacion(() => api.registrarEquipos(datosEquipos))
+      } else {
+        const piezasIniciales = Math.trunc(aNumero(stockInicial))
+        if (piezasIniciales > 0) {
+          await api.entrada({
+            productoId: producto.id,
+            ubicacionId: destino.id,
+            cantidad: piezasIniciales,
+            costoUnitario: aNumero(precioCosto) || undefined,
+            nota: 'Stock inicial al registrar producto',
+          })
+        }
       }
 
       // La foto se sube después de crear el producto porque necesita su id.
@@ -468,10 +498,11 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
       }
 
       void queryClient.invalidateQueries({ queryKey: ['marcas'] })
-      onCreado(conFoto)
-      if (hayImei && activa === null) {
-        avisos.información(`${productoExistente === null ? 'Producto creado' : producto.nombre}. Elige una ubicación para registrar sus IMEI.`)
-      }
+      void queryClient.invalidateQueries({ queryKey: ['inicio'] })
+      void queryClient.invalidateQueries({ queryKey: ['buscar'] })
+      void queryClient.invalidateQueries({ queryKey: ['movimientos'] })
+      void queryClient.invalidateQueries({ queryKey: ['producto', producto.id] })
+      onCreado(conFoto, destino.nombre)
     } catch (causa) {
       if (causa instanceof ErrorDeApi) {
         setCampos(causa.campos ?? {})
@@ -552,11 +583,63 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
         </section>
       )}
 
+      {/* Selector de tienda o almacén donde se guardará el stock */}
+      <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3.5">
+        <div className="flex items-center justify-between">
+          <label className="text-[0.8125rem] font-semibold text-tinta-suave">
+            ¿Dónde se guardará el stock?
+          </label>
+          {ubicacionDestino && (
+            <span
+              className="cifras inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[0.75rem] font-semibold"
+              style={{
+                backgroundColor: `${ubicacionDestino.color ?? '#315DB8'}18`,
+                color: ubicacionDestino.color ?? '#315DB8',
+              }}
+            >
+              <IconoUbicacion icono={ubicacionDestino.icono} tipo={ubicacionDestino.tipo} className="size-3.5 shrink-0" />
+              {ubicacionDestino.nombre}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {ubicaciones
+            .filter((u) => u.activa)
+            .map((u) => {
+              const elegida = u.id === (ubicacionDestino?.id ?? '')
+              const color = u.color ?? '#315DB8'
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setUbicacionDestinoId(u.id)}
+                  aria-pressed={elegida}
+                  className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2.5 py-2 text-center text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+                    elegida
+                      ? 'border-transparent shadow-xs'
+                      : 'border-borde bg-papel text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+                  }`}
+                  style={
+                    elegida
+                      ? { backgroundColor: `${color}1f`, borderColor: color, color }
+                      : undefined
+                  }
+                >
+                  <IconoUbicacion icono={u.icono} tipo={u.tipo} className="size-4 shrink-0" />
+                  <span className="truncate">{u.nombre}</span>
+                </button>
+              )
+            })}
+        </div>
+      </section>
+
       <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
         <div className="flex items-start justify-between gap-3">
           <div>
-          <p className="font-semibold">Datos del equipo</p>
-          <p className="text-[0.8125rem] text-tinta-suave">Cada IMEI es una unidad individual en {activa?.nombre ?? 'la ubicación que elijas después'}.</p>
+            <p className="font-semibold">Datos del equipo</p>
+            <p className="text-[0.8125rem] text-tinta-suave">
+              Cada IMEI es una unidad individual que se registrará en <strong>{ubicacionDestino?.nombre ?? 'la tienda elegida'}</strong>.
+            </p>
           </div>
           <span className="cifras rounded-lg bg-superficie px-2 py-1 text-[0.75rem] font-semibold text-accion">{equipos.length}/50</span>
         </div>
@@ -768,6 +851,17 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           ayuda="Se usa para valuar mermas"
         />
       </div>
+
+      {equiposConImei.length === 0 && (
+        <CampoTexto
+          etiqueta={`Stock inicial en ${ubicacionDestino?.nombre ?? 'la tienda'}`}
+          value={stockInicial}
+          onChange={(e) => setStockInicial(e.target.value)}
+          inputMode="numeric"
+          placeholder="0"
+          ayuda="Piezas iniciales que ingresarán directamente a esta ubicación"
+        />
+      )}
       </>)}
 
       <div className="grid grid-cols-[1fr_2fr] gap-2.5 pt-1">

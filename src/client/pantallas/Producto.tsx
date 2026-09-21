@@ -22,6 +22,7 @@ import { CampoMarcaPredictivo } from '../componentes/CampoMarcaPredictivo'
 import { Confirmacion } from '../componentes/Confirmacion'
 import { Marco } from '../componentes/Marco'
 import { ModalRecorteImagen } from '../componentes/ModalRecorteImagen'
+import { IconoUbicacion } from '../componentes/IconoUbicacion'
 import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { NOMBRE_MOVIMIENTO, cuandoFue, dinero, fechaLarga, numero } from '../lib/formato'
@@ -585,7 +586,10 @@ export function Producto() {
 
 function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { productoId: string; productoNombre: string; onListo: () => void }) {
   const avisos = useAvisos()
-  const { activa } = useUbicacion()
+  const { activa, ubicaciones } = useUbicacion()
+  const [ubicacionId, setUbicacionId] = useState<string>(
+    () => activa?.id ?? ubicaciones.find((u) => u.activa)?.id ?? '',
+  )
   const [imei1, setImei1] = useState('')
   const [imei2, setImei2] = useState('')
   const [errorImei1, setErrorImei1] = useState<string | undefined>()
@@ -603,6 +607,8 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
   const refGaleriaImei1 = useRef<HTMLInputElement>(null)
   const refCamaraImei2 = useRef<HTMLInputElement>(null)
   const refGaleriaImei2 = useRef<HTMLInputElement>(null)
+
+  const ubi = ubicaciones.find((u) => u.id === ubicacionId && u.activa) ?? activa
 
   const procesarFotoImei = async (tipo: 'imei1' | 'imei2', blob: Blob) => {
     setLeyendoFotoImei(tipo)
@@ -665,7 +671,7 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
   }
 
   const guardar = async (): Promise<void> => {
-    if (activa === null) { avisos.error('Elige una ubicación antes de registrar el equipo'); return }
+    if (ubi === null) { avisos.error('Elige una ubicación antes de registrar el equipo'); return }
     if (errorImei1 || errorImei2) {
       avisos.error(errorImei1 ?? errorImei2 ?? 'Revisa los IMEI ingresados')
       return
@@ -687,15 +693,51 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
     }
     setEnviando(true)
     try {
-      await api.registrarEquipos({ productoId, ubicacionId: activa.id, equipos: [{ imei1: imei1.trim() || null, imei2: imei2.trim() || null, listaBlanca, condicion, notas: notas.trim() || null }] })
-      avisos.exito(`${productoNombre} registrado en ${activa.nombre}`)
+      await api.registrarEquipos({ productoId, ubicacionId: ubi.id, equipos: [{ imei1: imei1.trim() || null, imei2: imei2.trim() || null, listaBlanca, condicion, notas: notas.trim() || null }] })
+      avisos.exito(`${productoNombre} registrado en ${ubi.nombre}`)
       onListo()
     } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo registrar el equipo') } finally { setEnviando(false) }
   }
   return (
     <div className="flex flex-col gap-4 pb-3">
+      {/* Selector de tienda o almacén */}
+      <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3">
+        <label className="text-[0.8125rem] font-semibold text-tinta-suave">
+          ¿En qué tienda o almacén entrará este equipo?
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {ubicaciones
+            .filter((u) => u.activa)
+            .map((u) => {
+              const elegida = u.id === (ubi?.id ?? '')
+              const color = u.color ?? '#315DB8'
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setUbicacionId(u.id)}
+                  aria-pressed={elegida}
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-2.5 py-2 text-center text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+                    elegida
+                      ? 'border-transparent shadow-xs'
+                      : 'border-borde bg-papel text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+                  }`}
+                  style={
+                    elegida
+                      ? { backgroundColor: `${color}1f`, borderColor: color, color }
+                      : undefined
+                  }
+                >
+                  <IconoUbicacion icono={u.icono} tipo={u.tipo} className="size-4 shrink-0" />
+                  <span className="truncate">{u.nombre}</span>
+                </button>
+              )
+            })}
+        </div>
+      </section>
+
       <p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.875rem] text-tinta-suave">
-        Entrada de una unidad en <strong>{activa?.nombre ?? 'sin ubicación'}</strong>.
+        Entrada de una unidad en <strong>{ubi?.nombre ?? 'sin ubicación'}</strong>.
       </p>
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">

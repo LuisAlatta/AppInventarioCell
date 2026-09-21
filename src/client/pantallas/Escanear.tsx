@@ -66,11 +66,13 @@ export function Escanear() {
           fotoParaRecortar={fotoParaRecortar}
           onEscanear={setCampo}
           onCancelar={() => navegar(-1)}
-          onCreado={(producto) => {
+          onCreado={(producto, ubicacionNombre) => {
             void cliente.invalidateQueries({ queryKey: ['inicio'] })
             void cliente.invalidateQueries({ queryKey: ['movimientos'] })
             void cliente.invalidateQueries({ queryKey: ['buscar'] })
-            avisos.exito(`${producto.nombre} registrado`)
+            avisos.exito(
+              `${producto.nombre} registrado con éxito${ubicacionNombre ? ` en ${ubicacionNombre}` : ''}`,
+            )
             navegar(`/producto/${producto.id}`)
           }}
         />
