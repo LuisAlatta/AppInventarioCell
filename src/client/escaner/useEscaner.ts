@@ -29,7 +29,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { leerCodigoDeCamara } from './lecturaCodigo'
+import { esImeiValido, leerCodigoDeCamara } from './lecturaCodigo'
 
 /** Cadencia de decodificacion. Ocho por segundo es de sobra para leer al vuelo. */
 const MS_ENTRE_INTENTOS = 125
@@ -76,7 +76,12 @@ const MENSAJES: Readonly<Record<EstadoEscaner, string | null>> = {
   error: 'La camara no pudo arrancar. Intenta de nuevo o escribe el codigo a mano.',
 }
 
-export function useEscaner(alLeer: (codigo: string) => void): Escaner {
+export interface OpcionesEscaner {
+  /** Si es true, ignora códigos que no tengan formato numérico de IMEI (14 a 16 dígitos). */
+  soloImei?: boolean
+}
+
+export function useEscaner(alLeer: (codigo: string) => void, opciones?: OpcionesEscaner): Escaner {
   const [estado, setEstado] = useState<EstadoEscaner>('inactivo')
 
   const refVideo = useRef<HTMLVideoElement | null>(null)
@@ -85,6 +90,9 @@ export function useEscaner(alLeer: (codigo: string) => void): Escaner {
   const refTemporizador = useRef<number | null>(null)
   const refActivo = useRef(false)
   const refUltimo = useRef<{ codigo: string; cuando: number } | null>(null)
+
+  const refSoloImei = useRef(opciones?.soloImei ?? false)
+  refSoloImei.current = opciones?.soloImei ?? false
 
   // La referencia evita que el bucle se reconstruya cada vez que el componente
   // de arriba se vuelve a dibujar, que cortaria la lectura a media sesion.
@@ -238,6 +246,12 @@ export function useEscaner(alLeer: (codigo: string) => void): Escaner {
 
       const codigo = await leerCodigoDeCamara(imagen)
       if (codigo === null) return
+
+      if (refSoloImei.current && !esImeiValido(codigo)) {
+        // Ignorar códigos que no correspondan al formato numérico de un IMEI (como EAN o SN)
+        return
+      }
+
       const ahora = Date.now()
       const último = refUltimo.current
 

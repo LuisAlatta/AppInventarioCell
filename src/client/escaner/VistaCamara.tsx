@@ -79,7 +79,7 @@ export function VistaCamara({ escaner, indicacion, onEscribirCodigo, onTomarFoto
             className="flex items-center gap-2 rounded-full border border-white/30 bg-black/60 px-5 py-2.5 text-[0.875rem] font-semibold text-white shadow-xl backdrop-blur-md transition active:scale-95 active:bg-black/80"
           >
             <Camera className="size-4.5" strokeWidth={2.2} />
-            <span>Tomar foto y recortar</span>
+            <span>Tomar foto a la caja</span>
           </button>
         </div>
       )}

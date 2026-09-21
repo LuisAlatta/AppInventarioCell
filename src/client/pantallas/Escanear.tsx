@@ -64,11 +64,16 @@ export function Escanear() {
     document.getElementById('contenido-principal')?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [])
 
-  const escaner = useEscaner((valor) => {
-    if (campo === null) return
-    setLectura({ campo, valor })
-    setCampo(null)
-  })
+  const esImeiCampo = campo !== null && (campo.startsWith('imei1:') || campo.startsWith('imei2:') || campo === 'codigo')
+
+  const escaner = useEscaner(
+    (valor) => {
+      if (campo === null) return
+      setLectura({ campo, valor })
+      setCampo(null)
+    },
+    { soloImei: esImeiCampo },
+  )
 
   useEffect(() => {
     if (campo !== null) {

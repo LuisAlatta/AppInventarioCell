@@ -20,12 +20,13 @@ import { CampoTexto } from './Campo'
 import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
 import { HojaInferior } from './HojaInferior'
 import { ModalRecorteImagen } from './ModalRecorteImagen'
+import { ModalSelectorCodigos } from './ModalSelectorCodigos'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { avisarDeteccion } from '../lib/retroalimentacion'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
 import { useUbicacion } from '../contexto/Ubicacion'
-import { leerCodigoDeFoto } from '../escaner/lecturaCodigo'
+import { leerCodigoDeFoto, leerTodosLosCodigosDeFoto, type CodigoDetectado } from '../escaner/lecturaCodigo'
 import { validarDuplicadosLocales, validarFormatoImei, verificarImeiEnBd } from '../lib/validacionImei'
 
 export type CampoEscaneable = 'codigo' | `imei1:${string}` | `imei2:${string}`
@@ -109,6 +110,12 @@ export function FormularioProducto({
     subtitulo?: string
     onListo: (resultado: Blob) => void
   } | null>(null)
+  const [selectorCodigos, setSelectorCodigos] = useState<{
+    campo: CampoEscaneable
+    etiqueta: string
+    archivo: Blob | File
+    codigos: CodigoDetectado[]
+  } | null>(null)
 
   const refArchivoGaleria = useRef<HTMLInputElement | null>(null)
 
@@ -124,7 +131,7 @@ export function FormularioProducto({
   useEffect(() => {
     if (!fotoParaRecortar) return
     const etiqueta = fotoParaRecortar.campo.startsWith('imei2') ? 'IMEI 2' : 'IMEI 1'
-    iniciarLecturaFoto(fotoParaRecortar.campo, etiqueta, fotoParaRecortar.archivo)
+    void procesarFotoDeCaja(fotoParaRecortar.campo, etiqueta, fotoParaRecortar.archivo)
   }, [fotoParaRecortar])
 
   useEffect(() => {
@@ -268,6 +275,20 @@ export function FormularioProducto({
     })
   }
 
+  const aplicarCodigoACampo = (campo: CampoEscaneable, valor: string): void => {
+    if (campo === 'codigo' || campo.startsWith('imei1')) {
+      manejarCambioImei(0, equipoActual.id, 'imei1', valor)
+    } else {
+      const [tipo, id] = campo.split(':') as ['imei1' | 'imei2', string]
+      const indice = equipos.findIndex((e) => e.id === id)
+      if (indice !== -1) {
+        manejarCambioImei(indice, id, tipo, valor)
+      } else {
+        actualizarEquipo(id, { [tipo]: valor.trim().slice(0, 25) })
+      }
+    }
+  }
+
   const leerFotoDeCodigo = async (campo: CampoEscaneable, archivo: Blob | File): Promise<void> => {
     setLeyendoFoto(campo)
     try {
@@ -276,17 +297,9 @@ export function FormularioProducto({
         avisos.error('No se encontró un código de barras legible en esa foto')
         return
       }
-      if (campo === 'codigo' || campo.startsWith('imei1')) {
-        manejarCambioImei(0, equipoActual.id, 'imei1', valor)
-      } else {
-        const [tipo, id] = campo.split(':') as ['imei1' | 'imei2', string]
-        const indice = equipos.findIndex((e) => e.id === id)
-        if (indice !== -1) {
-          manejarCambioImei(indice, id, tipo, valor)
-        } else {
-          actualizarEquipo(id, { [tipo]: valor.trim().slice(0, 25) })
-        }
-      }
+      aplicarCodigoACampo(campo, valor)
+      avisarDeteccion()
+      avisos.exito(`Código detectado: ${valor}`)
     } catch {
       avisos.error('No se pudo leer esa foto. Prueba con otra más nítida.')
     } finally {
@@ -294,15 +307,48 @@ export function FormularioProducto({
     }
   }
 
-  const iniciarLecturaFoto = (campo: CampoEscaneable, etiqueta: string, archivo: File | Blob): void => {
-    setRecortePendiente({
-      archivo,
-      titulo: `Recortar ${etiqueta}`,
-      subtitulo: 'Enfoca las líneas del código o usa la foto completa',
-      onListo: (resultado) => {
-        void leerFotoDeCodigo(campo, resultado)
-      },
-    })
+  const procesarFotoDeCaja = async (
+    campo: CampoEscaneable,
+    etiqueta: string,
+    archivo: File | Blob,
+  ): Promise<void> => {
+    setLeyendoFoto(campo)
+    try {
+      const codigos = await leerTodosLosCodigosDeFoto(archivo)
+      if (codigos.length === 0) {
+        // Si no se encontró ningún código automáticamente, ofrecer recorte manual
+        setRecortePendiente({
+          archivo,
+          titulo: `Recortar ${etiqueta}`,
+          subtitulo: 'No se detectó un código claro automáticamente. Encuadra la zona del código:',
+          onListo: (resultado) => {
+            void leerFotoDeCodigo(campo, resultado)
+          },
+        })
+        return
+      }
+
+      if (codigos.length === 1 && codigos[0]) {
+        // Solo un código detectado: aplicar directamente
+        aplicarCodigoACampo(campo, codigos[0].valorLimpio)
+        avisarDeteccion()
+        avisos.exito(`Código detectado: ${codigos[0].valorLimpio}`)
+        return
+      }
+
+      // Múltiples códigos detectados (SN, IMEI 1, IMEI 2, EAN, etc.):
+      // Abrir selector táctil para que el usuario elija con un toque o rellene ambos
+      setSelectorCodigos({
+        campo,
+        etiqueta,
+        archivo,
+        codigos,
+      })
+    } catch {
+      avisos.error('No se pudo procesar la foto. Prueba con otra más nítida.')
+    } finally {
+      setLeyendoFoto(null)
+    }
   }
 
   // Las URL de vista previa hay que liberarlas o se acumulan en memoria
@@ -561,7 +607,7 @@ export function FormularioProducto({
           error={campos['equipos.0.imei1'] ?? campos.imei1}
           onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei1', valor)}
           onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei1:${equipoActual.id}`)}
-          onSubirFoto={(archivo) => iniciarLecturaFoto(`imei1:${equipoActual.id}`, 'IMEI 1', archivo)}
+          onSubirFoto={(archivo) => void procesarFotoDeCaja(`imei1:${equipoActual.id}`, 'IMEI 1', archivo)}
           leyendoFoto={leyendoFoto === `imei1:${equipoActual.id}`}
           inputMode="text"
         />
@@ -591,7 +637,7 @@ export function FormularioProducto({
           error={campos['equipos.0.imei2'] ?? campos.imei2}
           onChange={(valor) => manejarCambioImei(0, equipoActual.id, 'imei2', valor)}
           onEscanear={onEscanear === undefined ? undefined : () => onEscanear(`imei2:${equipoActual.id}`)}
-          onSubirFoto={(archivo) => iniciarLecturaFoto(`imei2:${equipoActual.id}`, 'IMEI 2', archivo)}
+          onSubirFoto={(archivo) => void procesarFotoDeCaja(`imei2:${equipoActual.id}`, 'IMEI 2', archivo)}
           leyendoFoto={leyendoFoto === `imei2:${equipoActual.id}`}
           inputMode="text"
         />
@@ -748,8 +794,53 @@ export function FormularioProducto({
         }}
         onCancelar={() => setRecortePendiente(null)}
       />
+
+      <ModalSelectorCodigos
+        abierto={selectorCodigos !== null}
+        codigos={selectorCodigos?.codigos ?? []}
+        campoDestinoNombre={selectorCodigos?.etiqueta}
+        onSeleccionarCodigo={(valor) => {
+          if (!selectorCodigos) return
+          aplicarCodigoACampo(selectorCodigos.campo, valor)
+          setSelectorCodigos(null)
+          avisarDeteccion()
+          avisos.exito(`Código aplicado: ${valor}`)
+        }}
+        onSeleccionarAmbosImeis={(imeis) => {
+          manejarCambioImei(0, equipoActual.id, 'imei1', imeis.imei1)
+          manejarCambioImei(0, equipoActual.id, 'imei2', imeis.imei2)
+          setSelectorCodigos(null)
+          avisarDeteccion()
+          avisos.exito('IMEI 1 e IMEI 2 cargados con éxito')
+        }}
+        onRecortarManualmente={() => {
+          if (!selectorCodigos) return
+          const { campo, etiqueta, archivo } = selectorCodigos
+          setSelectorCodigos(null)
+          setRecortePendiente({
+            archivo,
+            titulo: `Recortar ${etiqueta}`,
+            subtitulo: 'Enfoca las líneas del código o usa la foto completa',
+            onListo: (resultado) => {
+              void leerFotoDeCodigo(campo, resultado)
+            },
+          })
+        }}
+        onCancelar={() => setSelectorCodigos(null)}
+      />
     </div>
   )
+}
+
+interface CampoConEscanerProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+  etiqueta: string
+  value: string
+  onChange: (valor: string) => void
+  onEscanear?: () => void
+  onSubirFoto?: (archivo: File | Blob) => void
+  leyendoFoto?: boolean
+  error?: string
+  ayuda?: string
 }
 
 function CampoConEscaner({
@@ -762,39 +853,30 @@ function CampoConEscaner({
   error,
   ayuda,
   ...atributos
-}: {
-  etiqueta: string
-  value: string
-  onChange: (valor: string) => void
-  onEscanear?: () => void
-  onSubirFoto?: (archivo: File | Blob) => void
-  leyendoFoto?: boolean
-  error?: string
-  ayuda?: string
-  inputMode?: 'text' | 'numeric'
-  autoComplete?: string
-  placeholder?: string
-}) {
-  const id = useId()
+}: CampoConEscanerProps) {
   const [mostrarOpciones, setMostrarOpciones] = useState(false)
+  const id = useId()
+  const idDescripcion = useId()
+  const descripcion = error ?? ayuda
   const refFotoCamara = useRef<HTMLInputElement | null>(null)
   const refFotoGaleria = useRef<HTMLInputElement | null>(null)
-  const descripcion = error === undefined ? ayuda : error
-  const idDescripcion = `${id}-descripcion`
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[0.9375rem] font-semibold text-tinta-suave">
+      <label htmlFor={id} className="text-[0.875rem] font-semibold text-tinta">
         {etiqueta}
       </label>
-      <div className="flex items-center gap-1.5">
+
+      <div className="flex items-center gap-2">
         <input
           id={id}
+          type="text"
           value={value}
-          aria-invalid={error !== undefined}
-          aria-describedby={descripcion === undefined ? undefined : idDescripcion}
           onChange={(evento) => onChange(evento.target.value)}
-          className={`h-11 min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 text-[1.0625rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
+          aria-invalid={error !== undefined}
+          aria-describedby={descripcion !== undefined ? idDescripcion : undefined}
+          placeholder=""
+          className={`h-11 flex-1 rounded-xl border bg-superficie px-3.5 text-[0.9375rem] text-tinta outline-hidden transition focus:border-accion focus:ring-2 focus:ring-accion/20 ${
             error === undefined ? 'border-borde' : 'border-falta'
           }`}
           {...atributos}
@@ -841,7 +923,7 @@ function CampoConEscaner({
       </div>
 
       {leyendoFoto && (
-        <p className="text-[0.75rem] font-medium text-accion">Leyendo código de la foto…</p>
+        <p className="text-[0.75rem] font-medium text-accion">Leyendo códigos de la foto…</p>
       )}
       {descripcion !== undefined && (
         <p
@@ -891,8 +973,8 @@ function CampoConEscaner({
                   <Camera className="size-5" strokeWidth={2.2} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.9375rem] font-semibold text-tinta">Tomar foto y recortar</p>
-                  <p className="text-[0.75rem] text-tinta-suave">Abre la cámara para encuadrar y recortar el código</p>
+                  <p className="text-[0.9375rem] font-semibold text-tinta">Tomar foto a la caja</p>
+                  <p className="text-[0.75rem] text-tinta-suave">Detecta y separa automáticamente SN, IMEI 1, IMEI 2 y EAN</p>
                 </div>
               </button>
 
@@ -909,7 +991,7 @@ function CampoConEscaner({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[0.9375rem] font-semibold text-tinta">Subir foto de la galería</p>
-                  <p className="text-[0.75rem] text-tinta-suave">Selecciona una foto guardada y recorta el código</p>
+                  <p className="text-[0.75rem] text-tinta-suave">Selecciona una imagen de la caja desde tu galería</p>
                 </div>
               </button>
             </>
