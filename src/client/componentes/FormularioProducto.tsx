@@ -88,6 +88,9 @@ export function FormularioProducto({
   const [productoExistente, setProductoExistente] = useState<ProductoConStock | null>(null)
   const ultimoTacDetectado = useRef<string | null>(null)
   const [nombre, setNombre] = useState('')
+  const [ram, setRam] = useState('')
+  const [almacenamiento, setAlmacenamiento] = useState('')
+  const [color, setColor] = useState('')
   const [marca, setMarca] = useState('')
   const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>(() => [equipoVacio(codigoInicial)])
   const [ubicacionDestinoIdLocal, setUbicacionDestinoIdLocal] = useState<string>(
@@ -452,6 +455,24 @@ export function FormularioProducto({
     return Number.isFinite(valor) && valor >= 0 ? valor : 0
   }
 
+  const formatearAlmacenamiento = (val: string): string => {
+    const v = val.trim()
+    if (/^\d+$/.test(v)) {
+      const num = Number(v)
+      if (num <= 2) return `${num}TB`
+      return `${num}GB`
+    }
+    return v
+  }
+
+  const formatearRam = (val: string): string => {
+    const v = val.trim()
+    if (/^\d+$/.test(v)) {
+      return `${v}GB`
+    }
+    return v
+  }
+
   const guardar = async (): Promise<void> => {
     const imei1Limpio = (equipos[0]?.imei1 ?? '').trim()
     if (imei1Limpio.length === 0) {
@@ -529,12 +550,29 @@ export function FormularioProducto({
         // Continuar si falla la obtención o creación de categoría
       }
 
+      const partesNombre = [nombre.trim()]
+      const nombreLower = nombre.toLowerCase()
+
+      if (ram.trim()) {
+        const r = formatearRam(ram.trim())
+        if (!nombreLower.includes(r.toLowerCase())) partesNombre.push(r)
+      }
+      if (almacenamiento.trim()) {
+        const a = formatearAlmacenamiento(almacenamiento.trim())
+        if (!nombreLower.includes(a.toLowerCase())) partesNombre.push(a)
+      }
+      if (color.trim()) {
+        const c = color.trim()
+        if (!nombreLower.includes(c.toLowerCase())) partesNombre.push(c)
+      }
+      const nombreFinal = partesNombre.filter(Boolean).join(' ')
+
       const producto = productoExistente ?? await resolverProductoGuardado(
         async () => (await api.crearProducto({
           codigo: imei1Limpio,
-          nombre: nombre.trim(),
+          nombre: nombreFinal,
           marca: marca.trim() === '' ? null : marca.trim(),
-          modelo: null,
+          modelo: nombre.trim() === '' ? null : nombre.trim(),
           categoriaId: catCelularesId,
           precioVenta: aNumero(precioVenta),
           precioCosto: aNumero(precioCosto),
@@ -680,6 +718,67 @@ export function FormularioProducto({
               onChange={(e) => setNombre(e.target.value)}
               autoComplete="off"
             />
+
+            {/* Fila simétrica con los 3 campos: RAM, Almacenamiento y Color */}
+            <div className="grid grid-cols-3 gap-2 w-full">
+              <CampoTexto
+                etiqueta="RAM"
+                value={ram}
+                onChange={(e) => setRam(e.target.value)}
+                autoComplete="off"
+                placeholder=""
+                claseInput="px-2 text-[0.9375rem] text-center"
+                claseEtiqueta="text-[0.8125rem]"
+                list="opciones-ram"
+              />
+              <CampoTexto
+                etiqueta="Almacenamiento"
+                value={almacenamiento}
+                onChange={(e) => setAlmacenamiento(e.target.value)}
+                autoComplete="off"
+                placeholder=""
+                claseInput="px-2 text-[0.9375rem] text-center"
+                claseEtiqueta="text-[0.8125rem] truncate"
+                list="opciones-almacenamiento"
+              />
+              <CampoTexto
+                etiqueta="Color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                autoComplete="off"
+                placeholder=""
+                claseInput="px-2 text-[0.9375rem] text-center"
+                claseEtiqueta="text-[0.8125rem]"
+                list="opciones-color"
+              />
+            </div>
+
+            <datalist id="opciones-ram">
+              <option value="4GB" />
+              <option value="6GB" />
+              <option value="8GB" />
+              <option value="12GB" />
+              <option value="16GB" />
+            </datalist>
+
+            <datalist id="opciones-almacenamiento">
+              <option value="64GB" />
+              <option value="128GB" />
+              <option value="256GB" />
+              <option value="512GB" />
+              <option value="1TB" />
+            </datalist>
+
+            <datalist id="opciones-color">
+              <option value="Negro" />
+              <option value="Blanco" />
+              <option value="Azul" />
+              <option value="Plata" />
+              <option value="Dorado" />
+              <option value="Gris" />
+              <option value="Verde" />
+              <option value="Titanio" />
+            </datalist>
 
             <CampoMarcaPredictivo
               value={marca}

@@ -20,6 +20,8 @@ interface Comun {
   prefijo?: ReactNode
   /** Contenido a la derecha del input, como unidades. */
   sufijo?: ReactNode
+  claseEtiqueta?: string
+  claseInput?: string
 }
 
 const CLASES_BASE = [
@@ -32,14 +34,23 @@ const CLASES_BASE = [
 
 type CampoTextoProps = Comun & Omit<InputHTMLAttributes<HTMLInputElement>, 'className'>
 
-export function CampoTexto({ etiqueta, error, ayuda, prefijo, sufijo, ...resto }: CampoTextoProps) {
+export function CampoTexto({
+  etiqueta,
+  error,
+  ayuda,
+  prefijo,
+  sufijo,
+  claseEtiqueta,
+  claseInput,
+  ...resto
+}: CampoTextoProps) {
   const id = useId()
   const idError = `${id}-error`
   const idAyuda = `${id}-ayuda`
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[0.9375rem] font-semibold text-tinta-suave">
+    <div className="flex flex-col gap-1.5 min-w-0">
+      <label htmlFor={id} className={`text-[0.9375rem] font-semibold text-tinta-suave ${claseEtiqueta ?? ''}`}>
         {etiqueta}
       </label>
 
@@ -62,6 +73,7 @@ export function CampoTexto({ etiqueta, error, ayuda, prefijo, sufijo, ...resto }
             error === undefined ? 'border-borde' : 'border-falta',
             prefijo === undefined ? '' : 'pl-11',
             sufijo === undefined ? '' : 'pr-12',
+            claseInput ?? '',
           ].join(' ')}
           {...resto}
         />
