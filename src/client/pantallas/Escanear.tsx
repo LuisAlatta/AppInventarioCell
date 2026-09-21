@@ -61,11 +61,11 @@ export function Escanear() {
   }, [campo, escaner.iniciar, escaner.detener])
 
   return (
-    <Marco titulo="Registrar" claseMain="pb-20 flex flex-col min-h-0">
+    <Marco titulo="Registrar" claseMain="pb-28 flex flex-col min-h-0">
       <div className="flex flex-1 flex-col justify-between gap-2.5 min-h-0">
         {/* Selector de tienda o almacén en una sola fila simétrica */}
         <div className="flex flex-col gap-1">
-          <span className="text-[0.75rem] font-semibold text-tinta-suave">
+          <span className="text-[0.875rem] font-semibold text-tinta-suave">
             Guardar stock en:
           </span>
           <div className="grid grid-flow-col auto-cols-fr gap-1.5 w-full">
@@ -83,7 +83,7 @@ export function Escanear() {
                       cambiarUbicacion(u.id)
                     }}
                     aria-pressed={elegida}
-                    className={`inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border px-1.5 py-2 text-center text-[0.75rem] font-semibold leading-none transition active:scale-[0.98] ${
+                    className={`inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border px-1.5 py-2 text-center text-[0.8125rem] font-semibold leading-none transition active:scale-[0.98] ${
                       elegida
                         ? 'border-transparent shadow-xs'
                         : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'

@@ -132,7 +132,7 @@ export function CampoMarcaPredictivo({
 
   return (
     <div ref={contenedorRef} className="relative flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[0.8125rem] font-semibold text-tinta-suave">
+      <label htmlFor={id} className="text-[0.9375rem] font-semibold text-tinta-suave">
         {etiqueta}
       </label>
 
@@ -173,9 +173,8 @@ export function CampoMarcaPredictivo({
               .join(' ') || undefined
           }
           className={[
-            'w-full rounded-xl bg-superficie py-3 pl-3 pr-20',
-            // 16px minimo para evitar zoom automatico en iOS Safari
-            'text-[1rem] text-tinta placeholder:text-tinta-tenue',
+            'w-full rounded-xl bg-superficie py-2.5 pl-3 pr-20',
+            'text-[1.0625rem] text-tinta placeholder:text-tinta-tenue',
             'border transition-colors duration-100',
             'focus:outline-none focus:border-accion focus:ring-2 focus:ring-accion/15',
             error === undefined ? 'border-borde' : 'border-falta',

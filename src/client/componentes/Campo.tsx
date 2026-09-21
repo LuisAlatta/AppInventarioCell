@@ -24,8 +24,8 @@ interface Comun {
 
 const CLASES_BASE = [
   'w-full rounded-xl bg-superficie px-3.5 py-2.5',
-  // 16px minimo para evitar el zoom de Safari.
-  'text-[1rem] text-tinta placeholder:text-tinta-tenue',
+  // Tamaño legible que evita zoom en móviles.
+  'text-[1.0625rem] text-tinta placeholder:text-tinta-tenue',
   'border transition-colors duration-100',
   'focus:outline-none focus:border-accion focus:ring-2 focus:ring-accion/15',
 ].join(' ')
@@ -39,13 +39,13 @@ export function CampoTexto({ etiqueta, error, ayuda, prefijo, sufijo, ...resto }
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[0.8125rem] font-medium text-tinta-suave">
+      <label htmlFor={id} className="text-[0.9375rem] font-semibold text-tinta-suave">
         {etiqueta}
       </label>
 
       <div className="relative flex items-center">
         {prefijo !== undefined && (
-          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[0.875rem] font-medium text-tinta-suave select-none">
+          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[1rem] font-semibold text-tinta-suave select-none">
             {prefijo}
           </span>
         )}
@@ -60,7 +60,7 @@ export function CampoTexto({ etiqueta, error, ayuda, prefijo, sufijo, ...resto }
           className={[
             CLASES_BASE,
             error === undefined ? 'border-borde' : 'border-falta',
-            prefijo === undefined ? '' : 'pl-10',
+            prefijo === undefined ? '' : 'pl-11',
             sufijo === undefined ? '' : 'pr-12',
           ].join(' ')}
           {...resto}

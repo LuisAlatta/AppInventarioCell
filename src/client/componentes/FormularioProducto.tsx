@@ -717,8 +717,8 @@ export function FormularioProducto({
         }}
       />
 
-      <div className="mt-auto grid grid-cols-3 gap-2 pt-2">
-        <Boton tono="contorno" onClick={onCancelar} disabled={enviando} className="px-2 text-[0.875rem]">
+      <div className="mt-auto grid grid-cols-3 gap-2 pt-2 pb-2">
+        <Boton tono="contorno" onClick={onCancelar} disabled={enviando} className="px-2 text-[0.9375rem] font-semibold">
           Cancelar
         </Boton>
         <Boton
@@ -726,12 +726,12 @@ export function FormularioProducto({
           type="button"
           disabled={enviando}
           onClick={() => refArchivoGaleria.current?.click()}
-          className="px-2 text-[0.875rem]"
+          className="px-2 text-[0.9375rem] font-semibold"
         >
           <ImageUp className="size-4.5 shrink-0 text-accion" strokeWidth={2} />
           <span>Foto</span>
         </Boton>
-        <Boton cargando={enviando} onClick={() => void guardar()} className="px-2 text-[0.875rem]">
+        <Boton cargando={enviando} onClick={() => void guardar()} className="px-2 text-[0.9375rem] font-semibold">
           Guardar
         </Boton>
       </div>
@@ -784,7 +784,7 @@ function CampoConEscaner({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[0.8125rem] font-medium text-tinta-suave">
+      <label htmlFor={id} className="text-[0.9375rem] font-semibold text-tinta-suave">
         {etiqueta}
       </label>
       <div className="flex items-center gap-1.5">
@@ -794,7 +794,7 @@ function CampoConEscaner({
           aria-invalid={error !== undefined}
           aria-describedby={descripcion === undefined ? undefined : idDescripcion}
           onChange={(evento) => onChange(evento.target.value)}
-          className={`h-11 min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 text-[1rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
+          className={`h-11 min-w-0 flex-1 rounded-xl border bg-superficie px-3.5 text-[1.0625rem] text-tinta placeholder:text-tinta-tenue transition-colors duration-100 focus:border-accion focus:ring-2 focus:ring-accion/15 focus:outline-none ${
             error === undefined ? 'border-borde' : 'border-falta'
           }`}
           {...atributos}
