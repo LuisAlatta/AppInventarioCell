@@ -12,13 +12,12 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Camera, ImageUp, PackageCheck, ScanLine, Trash2 } from 'lucide-react'
+import { Camera, ImageUp, PackageCheck, Trash2 } from 'lucide-react'
 import type { Equipo, ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
 import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
-import { HojaInferior } from './HojaInferior'
 import { ModalRecorteImagen } from './ModalRecorteImagen'
 import { ModalSelectorCodigos } from './ModalSelectorCodigos'
 import { ModalUbicacionImei } from './ModalUbicacionImei'
@@ -893,11 +892,9 @@ function CampoConEscaner({
   ayuda,
   ...atributos
 }: CampoConEscanerProps) {
-  const [mostrarOpciones, setMostrarOpciones] = useState(false)
   const id = useId()
   const idDescripcion = useId()
   const descripcion = error ?? ayuda
-  const refFotoCamara = useRef<HTMLInputElement | null>(null)
   const refFotoGaleria = useRef<HTMLInputElement | null>(null)
 
   return (
@@ -921,26 +918,12 @@ function CampoConEscaner({
           {...atributos}
         />
 
-        {/* 1. Tomar foto directamente con la cámara del dispositivo */}
-        <input
-          ref={refFotoCamara}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(evento) => {
-            const archivo = evento.target.files?.[0]
-            if (archivo !== undefined) onSubirFoto?.(archivo)
-            evento.target.value = ''
-          }}
-        />
-
-        {/* 2. Subir foto desde la galería */}
+        {/* Input seguro de galería como fallback (sr-only, sin capture) */}
         <input
           ref={refFotoGaleria}
           type="file"
           accept="image/*"
-          className="hidden"
+          className="sr-only"
           onChange={(evento) => {
             const archivo = evento.target.files?.[0]
             if (archivo !== undefined) onSubirFoto?.(archivo)
@@ -948,14 +931,20 @@ function CampoConEscaner({
           }}
         />
 
-        {/* Botón único de cámara que despliega las opciones */}
+        {/* Botón directo de cámara: abre el visor seguro de inmediato */}
         <button
           type="button"
-          aria-label={`Opciones de cámara para ${etiqueta}`}
-          title={`Capturar ${etiqueta}`}
+          aria-label={`Escanear ${etiqueta}`}
+          title={`Escanear ${etiqueta}`}
           disabled={leyendoFoto}
-          onClick={() => setMostrarOpciones(true)}
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:opacity-50"
+          onClick={() => {
+            if (onEscanear !== undefined) {
+              onEscanear()
+            } else if (onSubirFoto !== undefined) {
+              refFotoGaleria.current?.click()
+            }
+          }}
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion transition active:scale-95 active:bg-accion/20 disabled:opacity-50 cursor-pointer"
         >
           <Camera aria-hidden="true" className="size-5" strokeWidth={2.2} />
         </button>
@@ -983,71 +972,6 @@ function CampoConEscaner({
           )}
         </div>
       )}
-
-      <HojaInferior
-        abierta={mostrarOpciones}
-        onCerrar={() => setMostrarOpciones(false)}
-        titulo={`Capturar ${etiqueta}`}
-      >
-        <div className="flex flex-col gap-2.5 pb-2">
-          {onEscanear !== undefined && (
-            <button
-              type="button"
-              onClick={() => {
-                setMostrarOpciones(false)
-                onEscanear()
-              }}
-              className="flex items-center gap-3.5 rounded-2xl border border-borde bg-superficie p-3.5 text-left transition active:scale-[0.98] active:bg-accion-tenue"
-            >
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accion text-white shadow-xs">
-                <ScanLine className="size-5" strokeWidth={2.2} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[0.9375rem] font-semibold text-tinta">Escanear en vivo con cámara</p>
-                <p className="text-[0.75rem] text-tinta-suave">Apunta la cámara para leer el código en tiempo real</p>
-              </div>
-            </button>
-          )}
-
-          {onSubirFoto !== undefined && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setMostrarOpciones(false)
-                  refFotoCamara.current?.click()
-                }}
-                className="flex items-center gap-3.5 rounded-2xl border border-borde bg-superficie p-3.5 text-left transition active:scale-[0.98] active:bg-accion-tenue"
-              >
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion shadow-xs">
-                  <Camera className="size-5" strokeWidth={2.2} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[0.9375rem] font-semibold text-tinta">Tomar foto a la caja</p>
-                  <p className="text-[0.75rem] text-tinta-suave">Detecta y separa automáticamente SN, IMEI 1, IMEI 2 y EAN</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMostrarOpciones(false)
-                  refFotoGaleria.current?.click()
-                }}
-                className="flex items-center gap-3.5 rounded-2xl border border-borde bg-superficie p-3.5 text-left transition active:scale-[0.98] active:bg-accion-tenue"
-              >
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave shadow-xs">
-                  <ImageUp className="size-5" strokeWidth={2.2} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[0.9375rem] font-semibold text-tinta">Subir foto de la galería</p>
-                  <p className="text-[0.75rem] text-tinta-suave">Selecciona una imagen de la caja desde tu galería</p>
-                </div>
-              </button>
-            </>
-          )}
-        </div>
-      </HojaInferior>
     </div>
   )
 }

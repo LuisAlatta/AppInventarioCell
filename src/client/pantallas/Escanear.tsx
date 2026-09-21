@@ -1,6 +1,6 @@
 /** Registro de productos y equipos con escaneo opcional por campo. */
 
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Camera } from 'lucide-react'
@@ -12,6 +12,7 @@ import { useAvisos } from '../contexto/Avisos'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { VistaCamara } from '../escaner/VistaCamara'
 import { useEscaner } from '../escaner/useEscaner'
+import { avisarLectura } from '../lib/retroalimentacion'
 
 function nombreCampo(campo: CampoEscaneable): string {
   if (campo === 'codigo') return 'código del equipo'
@@ -65,10 +66,13 @@ export function Escanear() {
   }, [])
 
   const esImeiCampo = campo !== null && (campo.startsWith('imei1:') || campo.startsWith('imei2:') || campo === 'codigo')
+  const refGaleria = useRef<HTMLInputElement | null>(null)
 
   const escaner = useEscaner(
     (valor) => {
       if (campo === null) return
+      avisarLectura()
+      avisos.exito(`Código detectado: ${valor}`)
       setLectura({ campo, valor })
       setCampo(null)
     },
@@ -134,8 +138,23 @@ export function Escanear() {
         />
       </div>
 
+      <input
+        ref={refGaleria}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(evento) => {
+          const archivo = evento.target.files?.[0]
+          if (archivo !== undefined && campo !== null) {
+            setFotoParaRecortar({ campo, archivo })
+            setCampo(null)
+          }
+          evento.target.value = ''
+        }}
+      />
+
       <HojaInferior abierta={campo !== null} onCerrar={() => setCampo(null)} titulo={campo === null ? 'Escanear' : `Escanear ${nombreCampo(campo)}`}>
-        <div className="-mx-5 flex h-[65vh] flex-col overflow-hidden bg-tinta">
+        <div className="-mx-5 flex h-[82vh] flex-col overflow-hidden bg-tinta">
           <VistaCamara
             escaner={escaner}
             indicacion={campo === null ? undefined : `Apunta al ${nombreCampo(campo)}`}
@@ -146,8 +165,9 @@ export function Escanear() {
                 setCampo(null)
               }
             }}
+            onSubirGaleria={() => refGaleria.current?.click()}
           />
-          <div className="flex shrink-0 items-center gap-2 bg-tinta px-4 py-3 text-[0.8125rem] text-white/80"><Camera aria-hidden="true" className="size-4" strokeWidth={2} /><span>Apunta al código para leerlo o toma una foto para recortar.</span></div>
+          <div className="flex shrink-0 items-center gap-2 bg-tinta px-4 py-2.5 text-[0.8125rem] text-white/80"><Camera aria-hidden="true" className="size-4" strokeWidth={2} /><span>Apunta al código para leerlo o toma una foto para clasificar.</span></div>
         </div>
       </HojaInferior>
     </Marco>

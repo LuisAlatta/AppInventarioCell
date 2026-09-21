@@ -15,6 +15,7 @@ import { ErrorEnPantalla } from './componentes/Estados'
 import { ProveedorAvisos } from './contexto/Avisos'
 import { ProveedorUbicacion } from './contexto/Ubicacion'
 import { NavegacionInferior } from './componentes/NavegacionInferior'
+import { ErrorBoundary } from './componentes/ErrorBoundary'
 import { Acceso } from './pantallas/Acceso'
 import { Ajustes } from './pantallas/Ajustes'
 import { Buscar } from './pantallas/Buscar'
@@ -59,13 +60,15 @@ const clienteConsultas = new QueryClient({
 
 export function App() {
   return (
-    <QueryClientProvider client={clienteConsultas}>
-      <ProveedorAvisos>
-        <BrowserRouter>
-          <Puerta />
-        </BrowserRouter>
-      </ProveedorAvisos>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={clienteConsultas}>
+        <ProveedorAvisos>
+          <BrowserRouter>
+            <Puerta />
+          </BrowserRouter>
+        </ProveedorAvisos>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
 

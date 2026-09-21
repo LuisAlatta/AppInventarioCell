@@ -38,11 +38,44 @@ async function reducirFotoParaLectura(archivo: Blob): Promise<Blob> {
   let limpiar = (): void => {}
 
   if (typeof createImageBitmap === 'function') {
-    const mapa = await createImageBitmap(archivo)
-    ancho = mapa.width
-    alto = mapa.height
-    dibujar = (anchoDestino, altoDestino) => contexto.drawImage(mapa, 0, 0, anchoDestino, altoDestino)
-    limpiar = () => mapa.close()
+    let mapa: ImageBitmap | null = null
+    try {
+      // Intentar redimensionar durante la decodificación para no cargar 48MP en RAM
+      mapa = await createImageBitmap(archivo, {
+        resizeWidth: LADO_MAXIMO_FOTO,
+        resizeQuality: 'medium',
+      })
+    } catch {
+      try {
+        mapa = await createImageBitmap(archivo)
+      } catch {
+        mapa = null
+      }
+    }
+
+    if (mapa !== null) {
+      ancho = mapa.width
+      alto = mapa.height
+      const refMapa = mapa
+      dibujar = (anchoDestino, altoDestino) => contexto.drawImage(refMapa, 0, 0, anchoDestino, altoDestino)
+      limpiar = () => refMapa.close()
+    } else {
+      // Fallback a elemento Image si createImageBitmap falla
+      const url = URL.createObjectURL(archivo)
+      const imagen = new Image()
+      try {
+        await new Promise<void>((resolver, rechazar) => {
+          imagen.onload = () => resolver()
+          imagen.onerror = () => rechazar(new Error('No se pudo abrir la foto'))
+          imagen.src = url
+        })
+      } finally {
+        URL.revokeObjectURL(url)
+      }
+      ancho = imagen.naturalWidth
+      alto = imagen.naturalHeight
+      dibujar = (anchoDestino, altoDestino) => contexto.drawImage(imagen, 0, 0, anchoDestino, altoDestino)
+    }
   } else {
     const url = URL.createObjectURL(archivo)
     const imagen = new Image()

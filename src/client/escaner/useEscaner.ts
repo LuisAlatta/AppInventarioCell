@@ -34,6 +34,9 @@ import { esImeiValido, leerCodigoDeCamara } from './lecturaCodigo'
 /** Cadencia de decodificacion. Ocho por segundo es de sobra para leer al vuelo. */
 const MS_ENTRE_INTENTOS = 125
 
+/** Tiempo de estabilización tras encender la cámara antes de procesar códigos. */
+const MS_ESTABILIZACION_INICIAL = 350
+
 /** Un mismo codigo no se repite dentro de este plazo. */
 const MS_ANTIRREPETICION = 2000
 
@@ -89,6 +92,8 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
   const refLienzo = useRef<HTMLCanvasElement | null>(null)
   const refTemporizador = useRef<number | null>(null)
   const refActivo = useRef(false)
+  const refListoParaLeer = useRef(0)
+  const refReanudarAlVolver = useRef(false)
   const refUltimo = useRef<{ codigo: string; cuando: number } | null>(null)
 
   const refSoloImei = useRef(opciones?.soloImei ?? false)
@@ -101,6 +106,7 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
 
   const detener = useCallback(() => {
     refActivo.current = false
+    refReanudarAlVolver.current = false
 
     if (refTemporizador.current !== null) {
       window.clearTimeout(refTemporizador.current)
@@ -108,8 +114,6 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
     }
 
     if (refFlujo.current !== null) {
-      // Cada pista hay que pararla explicitamente, o la luz de la camara se
-      // queda encendida y la bateria se va.
       for (const pista of refFlujo.current.getTracks()) pista.stop()
       refFlujo.current = null
     }
@@ -144,7 +148,6 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
       try {
         flujo = await navigator.mediaDevices.getUserMedia({
           video: {
-            // La camara de atras es la que se usa para escanear.
             facingMode: { ideal: 'environment' },
             width: { ideal: 1280 },
             height: { ideal: 720 },
@@ -161,8 +164,6 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
         return
       }
 
-      // Si se cerro la pantalla mientras se pedia el permiso, se suelta la
-      // camara de inmediato en lugar de dejarla abierta.
       if (!refActivo.current) {
         for (const pista of flujo.getTracks()) pista.stop()
         return
@@ -178,14 +179,26 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
         return
       }
 
+      // Atributos obligatorios para Safari iOS / WebKit
+      video.setAttribute('playsinline', 'true')
+      video.setAttribute('webkit-playsinline', 'true')
+      video.muted = true
       video.srcObject = flujo
+
       try {
         await video.play()
       } catch {
         // Safari a veces rechaza el play aunque el video ya este corriendo.
-        // No es motivo para abortar.
       }
 
+      if (!refActivo.current) {
+        for (const pista of flujo.getTracks()) pista.stop()
+        video.srcObject = null
+        return
+      }
+
+      // Margen de gracia para estabilizar autoenfoque y permitir que el usuario vea la cámara
+      refListoParaLeer.current = Date.now() + MS_ESTABILIZACION_INICIAL
       setEstado('leyendo')
       void bucle()
     }
@@ -196,8 +209,7 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
       try {
         await intentarLeer()
       } catch {
-        // Un cuadro que no se pudo decodificar no es un error: es lo normal
-        // mientras se apunta. Se sigue intentando.
+        // Un cuadro que no se pudo decodificar no es un error
       }
 
       if (!refActivo.current) return
@@ -205,6 +217,8 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
     }
 
     const intentarLeer = async (): Promise<void> => {
+      if (Date.now() < refListoParaLeer.current) return
+
       const video = refVideo.current
       if (video === null || video.readyState < 2) return
 
@@ -217,8 +231,6 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
       const contexto = lienzo.getContext('2d', { willReadFrequently: true })
       if (contexto === null) return
 
-      // Franja central, reducida a un ancho fijo: menos pixeles que analizar y
-      // el codigo apuntado a la guia entra completo.
       const escala = Math.min(1, ANCHO_ANALISIS / anchoVideo)
       const anchoDestino = Math.round(anchoVideo * escala)
       const altoFranja = Math.round(altoVideo * FRACCION_FRANJA)
@@ -245,10 +257,9 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
       const imagen = contexto.getImageData(0, 0, anchoDestino, altoDestino)
 
       const codigo = await leerCodigoDeCamara(imagen)
-      if (codigo === null) return
+      if (codigo === null || !refActivo.current) return
 
       if (refSoloImei.current && !esImeiValido(codigo)) {
-        // Ignorar códigos que no correspondan al formato numérico de un IMEI (como EAN o SN)
         return
       }
 
@@ -266,24 +277,33 @@ export function useEscaner(alLeer: (codigo: string) => void, opciones?: Opciones
     void arrancar()
   }, [])
 
-  // Soltar la camara al salir de la pantalla, siempre. Sin esto queda
-  // encendida en segundo plano.
   useEffect(() => detener, [detener])
 
   /**
-   * Al mandar la app al fondo, iOS congela el video y al volver queda en
-   * negro. Se para la camara al ocultarse y se vuelve a arrancar al regresar.
+   * Manejo robusto de visibilidad: si el usuario manda la app al fondo mientras
+   * lee, se pausa el flujo para ahorrar batería; al regresar a primer plano,
+   * se reanuda automáticamente sin quedarse congelada.
    */
   useEffect(() => {
     const alCambiarVisibilidad = (): void => {
-      if (document.visibilityState === 'hidden' && refActivo.current) {
-        detener()
+      if (document.visibilityState === 'hidden') {
+        // Solo pausar si estaba en estado de lectura activa, para no interferir
+        // con el diálogo inicial de permisos del sistema operativo.
+        if (refActivo.current && estado === 'leyendo') {
+          refReanudarAlVolver.current = true
+          detener()
+        }
+      } else if (document.visibilityState === 'visible') {
+        if (refReanudarAlVolver.current) {
+          refReanudarAlVolver.current = false
+          iniciar()
+        }
       }
     }
 
     document.addEventListener('visibilitychange', alCambiarVisibilidad)
     return () => document.removeEventListener('visibilitychange', alCambiarVisibilidad)
-  }, [detener])
+  }, [detener, iniciar, estado])
 
   return {
     estado,

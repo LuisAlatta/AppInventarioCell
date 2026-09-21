@@ -11,7 +11,7 @@
  */
 
 import type { ReactNode } from 'react'
-import { Camera } from 'lucide-react'
+import { Camera, ImageUp } from 'lucide-react'
 import type { Escaner } from './useEscaner'
 import { Boton, Girador } from '../componentes/Boton'
 import { ErrorEnPantalla } from '../componentes/Estados'
@@ -22,9 +22,16 @@ interface VistaCamaraProps {
   indicacion?: ReactNode
   onEscribirCodigo: () => void
   onTomarFoto?: (blob: Blob) => void
+  onSubirGaleria?: () => void
 }
 
-export function VistaCamara({ escaner, indicacion, onEscribirCodigo, onTomarFoto }: VistaCamaraProps) {
+export function VistaCamara({
+  escaner,
+  indicacion,
+  onEscribirCodigo,
+  onTomarFoto,
+  onSubirGaleria,
+}: VistaCamaraProps) {
   const { estado, problema, refVideo } = escaner
 
   const capturarFotoActual = () => {
@@ -49,7 +56,6 @@ export function VistaCamara({ escaner, indicacion, onEscribirCodigo, onTomarFoto
         muted
         autoPlay
         className="size-full object-cover"
-        // Sin esto Safari muestra el poster gris un instante al arrancar.
         poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
       />
 
@@ -64,23 +70,35 @@ export function VistaCamara({ escaner, indicacion, onEscribirCodigo, onTomarFoto
           </div>
 
           {indicacion !== undefined && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded-full bg-tinta/75 px-4 py-2 text-[0.875rem] font-medium text-white backdrop-blur-sm">
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-tinta/75 px-4 py-2 text-[0.875rem] font-medium text-white backdrop-blur-sm">
               {indicacion}
             </div>
           )}
         </div>
       )}
 
-      {estado === 'leyendo' && onTomarFoto !== undefined && (
-        <div className="absolute bottom-4 inset-x-0 flex justify-center z-10 px-4">
-          <button
-            type="button"
-            onClick={capturarFotoActual}
-            className="flex items-center gap-2 rounded-full border border-white/30 bg-black/60 px-5 py-2.5 text-[0.875rem] font-semibold text-white shadow-xl backdrop-blur-md transition active:scale-95 active:bg-black/80"
-          >
-            <Camera className="size-4.5" strokeWidth={2.2} />
-            <span>Tomar foto a la caja</span>
-          </button>
+      {estado === 'leyendo' && (onTomarFoto !== undefined || onSubirGaleria !== undefined) && (
+        <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-2.5 z-10 px-4">
+          {onTomarFoto !== undefined && (
+            <button
+              type="button"
+              onClick={capturarFotoActual}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/30 bg-black/60 px-4 py-2.5 text-[0.8125rem] font-semibold text-white shadow-xl backdrop-blur-md transition active:scale-95 active:bg-black/80"
+            >
+              <Camera className="size-4 shrink-0" strokeWidth={2.2} />
+              <span>Tomar foto a la caja</span>
+            </button>
+          )}
+          {onSubirGaleria !== undefined && (
+            <button
+              type="button"
+              onClick={onSubirGaleria}
+              className="inline-flex items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3.5 py-2.5 text-[0.8125rem] font-semibold text-white shadow-xl backdrop-blur-md transition active:scale-95 active:bg-black/80"
+            >
+              <ImageUp className="size-4 shrink-0" strokeWidth={2.2} />
+              <span>Galería</span>
+            </button>
+          )}
         </div>
       )}
 

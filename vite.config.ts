@@ -11,7 +11,7 @@ export default defineConfig({
     tailwindcss(),
     cloudflare(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       // Los iconos ya estan en `public/` y los copia Vite; aqui solo se
       // declaran para el manifiesto.
       includeAssets: ['apple-touch-icon.png', 'favicon-32.png', 'icono.svg'],
