@@ -68,19 +68,43 @@
 }
 
 @layer base {
-  html {
-    background: var(--color-papel);
-    /* Safari en iPhone hace zoom al enfocar un input de menos de 16px. */
-    -webkit-text-size-adjust: 100%;
-  }
-
+  html,
   body {
     background: var(--color-papel);
     color: var(--color-tinta);
     font-family: var(--font-sans);
-    /* El rebote al final del scroll se siente a roto en una app instalada. */
-    overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
+    /* Evitar que el navegador reescale texto en rotaciones */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+
+    /* Fijar dimensiones y evitar rebote elástico o desplazamiento lateral del documento */
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    position: fixed;
+    overscroll-behavior: none;
+    -webkit-overscroll-behavior: none;
+
+    /* Desactivar gestos de zoom táctil a nivel de navegador y retrasos de pulsación */
+    touch-action: manipulation;
+
+    /* No permitir selección de texto en la app para comportamiento idéntico a nativo */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  #raiz {
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-overscroll-behavior: none;
   }
 
   /* Nada de resaltado azul al tocar: delata que es una web y no una app. */
@@ -107,6 +131,29 @@
   button {
     font: inherit;
     color: inherit;
+  }
+
+  /* En campos de texto permitir selección normal y forzar tamaño mínimo de 16px para que iOS no haga zoom al enfocar */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+    touch-action: manipulation;
+  }
+
+  button,
+  a {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  img {
+    -webkit-user-drag: none;
+    user-select: none;
   }
 
   /* Respeta a quien pidio menos movimiento en los ajustes del telefono. */

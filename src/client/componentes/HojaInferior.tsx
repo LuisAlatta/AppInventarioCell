@@ -84,11 +84,11 @@ export function HojaInferior({ abierta, onCerrar, onVolver, etiquetaVolver = 'Vo
         className="animar-aviso relative flex max-h-[calc(100dvh-0.5rem)] w-full max-w-lg flex-col rounded-t-3xl bg-superficie shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.35)]"
       >
         {/* Asa visual: indica que la hoja se puede cerrar. */}
-        <div className="flex shrink-0 justify-center pt-3 pb-1">
+        <div className="flex shrink-0 justify-center pt-3 pb-1 select-none touch-none">
           <span className="h-1.5 w-10 rounded-full bg-borde-fuerte" />
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 px-4">
+        <div className="flex shrink-0 items-center gap-2 px-4 select-none touch-none">
           {onVolver !== undefined && (
             <button type="button" aria-label={etiquetaVolver} onClick={onVolver} className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-papel-hundido text-tinta active:bg-borde">
               <ArrowLeft aria-hidden="true" className="size-5" strokeWidth={2} />
@@ -100,7 +100,7 @@ export function HojaInferior({ abierta, onCerrar, onVolver, etiquetaVolver = 'Vo
           </button>
         </div>
 
-        <div className="area-segura-abajo min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2">{children}</div>
+        <div className="area-segura-abajo min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-2 overscroll-none touch-pan-y [-webkit-overflow-scrolling:touch]" style={{ overscrollBehavior: 'none', touchAction: 'pan-y' }}>{children}</div>
       </div>
     </div>,
     document.body,

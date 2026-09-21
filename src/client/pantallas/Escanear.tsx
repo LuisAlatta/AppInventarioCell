@@ -63,12 +63,12 @@ export function Escanear() {
   return (
     <Marco titulo="Registrar">
       <div className="flex flex-col gap-4">
-        {/* Selector de tienda o almacén en una sola fila */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[0.8125rem] font-semibold text-tinta-suave">
+        {/* Selector de tienda o almacén en una sola fila simétrica */}
+        <div className="flex flex-col gap-1">
+          <span className="text-[0.75rem] font-semibold text-tinta-suave">
             Guardar stock en:
           </span>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="grid grid-flow-col auto-cols-fr gap-1.5 w-full">
             {ubicaciones
               .filter((u) => u.activa)
               .map((u) => {
@@ -83,7 +83,7 @@ export function Escanear() {
                       cambiarUbicacion(u.id)
                     }}
                     aria-pressed={elegida}
-                    className={`inline-flex min-h-12 flex-1 min-w-[7.5rem] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-center text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+                    className={`inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border px-1.5 py-2 text-center text-[0.75rem] font-semibold leading-none transition active:scale-[0.98] ${
                       elegida
                         ? 'border-transparent shadow-xs'
                         : 'border-borde bg-superficie text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
@@ -94,7 +94,7 @@ export function Escanear() {
                         : undefined
                     }
                   >
-                    <IconoUbicacion icono={u.icono} tipo={u.tipo} className="size-4 shrink-0" />
+                    <IconoUbicacion icono={u.icono} tipo={u.tipo} className="size-3.5 shrink-0" />
                     <span className="truncate">{u.nombre}</span>
                   </button>
                 )

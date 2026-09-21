@@ -130,7 +130,10 @@ export function Acceso({ configurado, onEntro }: AccesoProps) {
   }
 
   return (
-    <div className="area-segura-arriba area-segura-abajo flex min-h-dvh flex-col justify-between gap-8 bg-papel px-6 pt-10">
+    <div
+      className="area-segura-arriba area-segura-abajo fixed inset-0 flex flex-col justify-between overflow-y-auto overflow-x-hidden gap-8 bg-papel px-6 pt-10 select-none overscroll-none touch-pan-y"
+      style={{ overscrollBehavior: 'none', touchAction: 'pan-y' }}
+    >
       <header className="flex flex-col items-center gap-6 pt-8">
         <Marca />
 
