@@ -19,7 +19,6 @@ import { Boton } from './Boton'
 import { CampoTexto } from './Campo'
 import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
 import { ModalRecorteImagen } from './ModalRecorteImagen'
-import { IconoUbicacion } from './IconoUbicacion'
 import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
@@ -63,11 +62,22 @@ interface FormularioProductoProps {
   onEscanear?: (campo: CampoEscaneable) => void
   lectura?: { campo: CampoEscaneable; valor: string } | null
   fotoParaRecortar?: { campo: CampoEscaneable; archivo: Blob } | null
+  ubicacionDestinoId?: string
+  onCambiarUbicacion?: (id: string) => void
   onCreado: (producto: ProductoConStock, ubicacionNombre?: string) => void
   onCancelar: () => void
 }
 
-export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = null, fotoParaRecortar = null, onCreado, onCancelar }: FormularioProductoProps) {
+export function FormularioProducto({
+  codigoInicial = '',
+  onEscanear,
+  lectura = null,
+  fotoParaRecortar = null,
+  ubicacionDestinoId: propUbicacionDestinoId,
+  onCambiarUbicacion,
+  onCreado,
+  onCancelar,
+}: FormularioProductoProps) {
   const avisos = useAvisos()
   const { activa, ubicaciones } = useUbicacion()
 
@@ -79,9 +89,11 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
   const [marca, setMarca] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
   const [equipos, setEquipos] = useState<DatosEquipoNuevo[]>([equipoVacio()])
-  const [ubicacionDestinoId, setUbicacionDestinoId] = useState<string>(
-    () => activa?.id ?? ubicaciones.find((u) => u.activa)?.id ?? '',
+  const [ubicacionDestinoIdLocal, setUbicacionDestinoIdLocal] = useState<string>(
+    () => propUbicacionDestinoId ?? activa?.id ?? ubicaciones.find((u) => u.activa)?.id ?? '',
   )
+  const ubicacionDestinoId = propUbicacionDestinoId ?? ubicacionDestinoIdLocal
+  const setUbicacionDestinoId = onCambiarUbicacion ?? setUbicacionDestinoIdLocal
   const [stockInicial, setStockInicial] = useState('')
   const [precioVenta, setPrecioVenta] = useState('')
   const [precioCosto, setPrecioCosto] = useState('')
@@ -582,56 +594,6 @@ export function FormularioProducto({ codigoInicial = '', onEscanear, lectura = n
           </p>
         </section>
       )}
-
-      {/* Selector de tienda o almacén donde se guardará el stock */}
-      <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3.5">
-        <div className="flex items-center justify-between">
-          <label className="text-[0.8125rem] font-semibold text-tinta-suave">
-            ¿Dónde se guardará el stock?
-          </label>
-          {ubicacionDestino && (
-            <span
-              className="cifras inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[0.75rem] font-semibold"
-              style={{
-                backgroundColor: `${ubicacionDestino.color ?? '#315DB8'}18`,
-                color: ubicacionDestino.color ?? '#315DB8',
-              }}
-            >
-              <IconoUbicacion icono={ubicacionDestino.icono} tipo={ubicacionDestino.tipo} className="size-3.5 shrink-0" />
-              {ubicacionDestino.nombre}
-            </span>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {ubicaciones
-            .filter((u) => u.activa)
-            .map((u) => {
-              const elegida = u.id === (ubicacionDestino?.id ?? '')
-              const color = u.color ?? '#315DB8'
-              return (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => setUbicacionDestinoId(u.id)}
-                  aria-pressed={elegida}
-                  className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2.5 py-2 text-center text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
-                    elegida
-                      ? 'border-transparent shadow-xs'
-                      : 'border-borde bg-papel text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
-                  }`}
-                  style={
-                    elegida
-                      ? { backgroundColor: `${color}1f`, borderColor: color, color }
-                      : undefined
-                  }
-                >
-                  <IconoUbicacion icono={u.icono} tipo={u.tipo} className="size-4 shrink-0" />
-                  <span className="truncate">{u.nombre}</span>
-                </button>
-              )
-            })}
-        </div>
-      </section>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-accion/25 bg-accion-tenue p-3.5">
         <div className="flex items-start justify-between gap-3">
