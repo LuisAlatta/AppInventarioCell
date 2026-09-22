@@ -34,6 +34,7 @@ import {
   OPCIONES_COLOR,
   OPCIONES_RAM,
   actualizarNombreConVariantes,
+  nombreIncluyeVariante,
   normalizarAlmacenamiento,
   normalizarColor,
   normalizarRam,
@@ -1005,11 +1006,12 @@ function FormularioEdicionEquipo({
   const [imei2, setImei2] = useState(equipo.imei2 ?? '')
   const [errorImei1, setErrorImei1] = useState<string | undefined>()
   const [errorImei2, setErrorImei2] = useState<string | undefined>()
+  const [modelo, setModelo] = useState(producto?.modelo ?? producto?.nombre ?? '')
+  const [marca, setMarca] = useState(producto?.marca ?? '')
   const [ram, setRam] = useState(equipo.ram ?? producto?.ram ?? '')
   const [almacenamiento, setAlmacenamiento] = useState(equipo.almacenamiento ?? producto?.almacenamiento ?? '')
   const [color, setColor] = useState(equipo.color ?? producto?.color ?? '')
   const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>(equipo.listaBlanca)
-  const [condicion, setCondicion] = useState<'new' | 'used'>(equipo.condicion)
   const [notas, setNotas] = useState(equipo.notas ?? '')
   const [enviando, setEnviando] = useState(false)
   const [recorteImei, setRecorteImei] = useState<{
@@ -1112,15 +1114,37 @@ function FormularioEdicionEquipo({
       const ramFinal = ram.trim() === '' ? null : normalizarRam(ram)
       const almacenamientoFinal = almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
       const colorFinal = color.trim() === '' ? null : normalizarColor(color)
+      const modeloFinal = modelo.trim() || null
+      const marcaFinal = marca.trim() || null
+
+      if (producto) {
+        const base = modeloFinal ?? producto.nombre
+        const partesNombre = [base]
+        if (ramFinal && !nombreIncluyeVariante(base, ramFinal)) partesNombre.push(ramFinal)
+        if (almacenamientoFinal && !nombreIncluyeVariante(base, almacenamientoFinal)) partesNombre.push(almacenamientoFinal)
+        if (colorFinal && !nombreIncluyeVariante(base, colorFinal)) partesNombre.push(colorFinal)
+        const nombreFinal = partesNombre.filter(Boolean).join(' ')
+
+        await api.actualizarProducto(producto.id, {
+          nombre: nombreFinal,
+          modelo: modeloFinal,
+          marca: marcaFinal,
+          ram: ramFinal,
+          almacenamiento: almacenamientoFinal,
+          color: colorFinal,
+        })
+      }
 
       await api.actualizarEquipo(equipo.id, {
         imei1: imei1.trim() || null,
         imei2: imei2.trim() || null,
+        modelo: modeloFinal,
+        marca: marcaFinal,
         ram: ramFinal,
         almacenamiento: almacenamientoFinal,
         color: colorFinal,
         listaBlanca,
-        condicion,
+        condicion: equipo.condicion,
         notas: notas.trim() || null,
       })
       avisos.exito('Equipo actualizado')
@@ -1259,6 +1283,14 @@ function FormularioEdicionEquipo({
         </div>
       </div>
 
+      <CampoTexto
+        etiqueta="Modelo"
+        value={modelo}
+        onChange={(e) => setModelo(e.target.value)}
+        placeholder="Modelo del equipo"
+        autoComplete="off"
+      />
+
       {/* Fila simétrica con los 3 desplegables: RAM, Almacenamiento y Color */}
       <div className="grid grid-cols-3 gap-2 w-full">
         <CampoSelect
@@ -1284,17 +1316,17 @@ function FormularioEdicionEquipo({
         />
       </div>
 
+      <CampoMarcaPredictivo
+        value={marca}
+        onChange={setMarca}
+        placeholder=""
+      />
+
       <SelectorEquipo
         etiqueta="Lista blanca"
         valor={listaBlanca}
         opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]}
         onChange={setListaBlanca}
-      />
-      <SelectorEquipo
-        etiqueta="Condición"
-        valor={condicion}
-        opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]}
-        onChange={setCondicion}
       />
       <CampoTexto
         etiqueta="Nota u observación"

@@ -1076,6 +1076,46 @@ describe('equipos por IMEI', () => {
     expect(ajuste.status).toBe(422)
     expect(await stockEnUbicacion(cookie, productoId, almacenId)).toBe(1)
   })
+
+  test('actualiza modelo y marca de un equipo sincronizando el producto y manteniendo la condicion', async () => {
+    const cookie = await entrar()
+    const { almacenId, productoId } = await escenario(cookie)
+    const alta = await json<{ equipos: Equipo[] }>(await conSesion(cookie, '/api/equipos', {
+      metodo: 'POST',
+      cuerpo: {
+        productoId,
+        ubicacionId: almacenId,
+        equipos: [{ imei1: '356000000000099', listaBlanca: 'registered', condicion: 'new' }],
+      },
+    }))
+    const equipo = alta.equipos[0]
+    expect(equipo).toBeDefined()
+    if (equipo === undefined) throw new Error('Falta el equipo')
+
+    const patchRes = await conSesion(cookie, `/api/equipos/${equipo.id}`, {
+      metodo: 'PATCH',
+      cuerpo: {
+        modelo: 'Redmi Note 13',
+        marca: 'Xiaomi',
+        ram: '8',
+        almacenamiento: '256',
+        color: 'Negro',
+      },
+    })
+    expect(patchRes.status).toBe(200)
+
+    const prodRes = await conSesion(cookie, `/api/productos/${productoId}`)
+    expect(prodRes.status).toBe(200)
+    const prodActualizado = await json<{ producto: import('@compartido/tipos').ProductoConStock }>(prodRes)
+    expect(prodActualizado.producto.modelo).toBe('Redmi Note 13')
+    expect(prodActualizado.producto.marca).toBe('Xiaomi')
+    expect(prodActualizado.producto.ram).toBe('8')
+    expect(prodActualizado.producto.almacenamiento).toBe('256')
+    expect(prodActualizado.producto.color).toBe('Negro')
+
+    const equipoActualizado = (await json<{ equipo: Equipo }>(patchRes)).equipo
+    expect(equipoActualizado.condicion).toBe('new')
+  })
 })
 
 describe('altas idempotentes desde móviles', () => {

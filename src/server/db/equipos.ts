@@ -2,7 +2,7 @@
 
 import type { DatosActualizarEquipo } from '@compartido/esquemas'
 import type { Equipo } from '@compartido/tipos'
-import { actualizarNombreConVariantes } from '@compartido/variantes'
+import { actualizarNombreConVariantes, nombreIncluyeVariante } from '@compartido/variantes'
 import { ErrorApp, noEncontrado } from '../lib/errores'
 import { sentenciasDeStock } from './stock'
 import { aEquipo, type FilaEquipo } from './mapeo'
@@ -134,21 +134,51 @@ export async function actualizarEquipo(
     }
   }
 
-  if (datos.ram !== undefined || datos.almacenamiento !== undefined || datos.color !== undefined) {
+  if (
+    datos.modelo !== undefined ||
+    datos.marca !== undefined ||
+    datos.ram !== undefined ||
+    datos.almacenamiento !== undefined ||
+    datos.color !== undefined
+  ) {
     const prod = await exigirProducto(db, actual.productoId)
-    const nuevoNombre = actualizarNombreConVariantes(prod.nombre, {
-      ramAnterior: prod.ram,
-      ramNueva: datos.ram,
-      almacenamientoAnterior: prod.almacenamiento,
-      almacenamientoNuevo: datos.almacenamiento,
-      colorAnterior: prod.color,
-      colorNuevo: datos.color,
-    })
+    const modeloFinal = datos.modelo !== undefined ? (datos.modelo?.trim() || null) : prod.modelo
+    const marcaFinal = datos.marca !== undefined ? (datos.marca?.trim() || null) : prod.marca
+    const ramFinal = datos.ram !== undefined ? datos.ram : prod.ram
+    const almacenamientoFinal = datos.almacenamiento !== undefined ? datos.almacenamiento : prod.almacenamiento
+    const colorFinal = datos.color !== undefined ? datos.color : prod.color
+
+    let nuevoNombre = prod.nombre
+    if (datos.modelo !== undefined) {
+      const base = modeloFinal ?? ''
+      const partesNombre = [base]
+      if (ramFinal && !nombreIncluyeVariante(base, ramFinal)) {
+        partesNombre.push(ramFinal)
+      }
+      if (almacenamientoFinal && !nombreIncluyeVariante(base, almacenamientoFinal)) {
+        partesNombre.push(almacenamientoFinal)
+      }
+      if (colorFinal && !nombreIncluyeVariante(base, colorFinal)) {
+        partesNombre.push(colorFinal)
+      }
+      nuevoNombre = partesNombre.filter(Boolean).join(' ') || (modeloFinal ?? prod.nombre)
+    } else {
+      nuevoNombre = actualizarNombreConVariantes(prod.nombre, {
+        ramAnterior: prod.ram,
+        ramNueva: datos.ram,
+        almacenamientoAnterior: prod.almacenamiento,
+        almacenamientoNuevo: datos.almacenamiento,
+        colorAnterior: prod.color,
+        colorNuevo: datos.color,
+      })
+    }
+
     await actualizarProducto(db, actual.productoId, {
-      ram: datos.ram,
-      almacenamiento: datos.almacenamiento,
-      color: datos.color,
-      nombre: nuevoNombre,
+      ...(datos.modelo !== undefined ? { modelo: modeloFinal, nombre: nuevoNombre } : { nombre: nuevoNombre }),
+      ...(datos.marca !== undefined ? { marca: marcaFinal } : {}),
+      ...(datos.ram !== undefined ? { ram: datos.ram } : {}),
+      ...(datos.almacenamiento !== undefined ? { almacenamiento: datos.almacenamiento } : {}),
+      ...(datos.color !== undefined ? { color: datos.color } : {}),
     })
   }
 

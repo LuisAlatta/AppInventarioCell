@@ -149,6 +149,8 @@ export const esquemaActualizarEquipo = z
   .object({
     imei1: imeiOpcional.optional(),
     imei2: imeiOpcional.optional(),
+    modelo: textoCorto.nullish(),
+    marca: textoCorto.nullish(),
     ram: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarRam(valor)),
     almacenamiento: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarAlmacenamiento(valor)),
     color: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarColor(valor)),
