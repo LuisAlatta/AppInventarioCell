@@ -306,6 +306,9 @@ export const api = {
     datos: {
       imei1?: string | null
       imei2?: string | null
+      ram?: string | null
+      almacenamiento?: string | null
+      color?: string | null
       listaBlanca?: 'registered' | 'not_registered'
       condicion?: 'new' | 'used'
       notas?: string | null

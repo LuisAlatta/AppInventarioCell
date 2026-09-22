@@ -93,6 +93,9 @@ export interface FilaEquipo {
   id: string
   product_id: string
   product_name: string
+  ram?: string | null
+  product_storage?: string | null
+  product_color?: string | null
   imei1: string | null
   imei2: string | null
   whitelist_status: string
@@ -181,6 +184,9 @@ export function aEquipo(f: FilaEquipo): Equipo {
     id: f.id,
     productoId: f.product_id,
     productoNombre: f.product_name,
+    ram: f.ram ?? null,
+    almacenamiento: f.product_storage ?? null,
+    color: f.product_color ?? null,
     imei1: f.imei1,
     imei2: f.imei2,
     listaBlanca: f.whitelist_status as EstadoListaBlanca,

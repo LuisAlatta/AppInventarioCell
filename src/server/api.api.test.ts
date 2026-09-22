@@ -1680,11 +1680,14 @@ describe('edición y eliminación de equipos individuales y productos', () => {
     expect(equipo).toBeDefined()
     if (!equipo) throw new Error('Falta equipo')
 
-    // Editar equipo
+    // Editar equipo incluyendo variantes
     const resEdit = await conSesion(cookie, `/api/equipos/${equipo.id}`, {
       metodo: 'PATCH',
       cuerpo: {
         imei1: '356000000000072',
+        ram: '8 GB',
+        almacenamiento: '256 GB',
+        color: 'Negro',
         listaBlanca: 'registered',
         condicion: 'used',
         notas: 'Revisado en taller',
@@ -1693,9 +1696,19 @@ describe('edición y eliminación de equipos individuales y productos', () => {
     expect(resEdit.status).toBe(200)
     const { equipo: editado } = await json<{ equipo: Equipo }>(resEdit)
     expect(editado.imei1).toBe('356000000000072')
+    expect(editado.ram).toBe('8 GB')
+    expect(editado.almacenamiento).toBe('256 GB')
+    expect(editado.color).toBe('Negro')
     expect(editado.listaBlanca).toBe('registered')
     expect(editado.condicion).toBe('used')
     expect(editado.notas).toBe('Revisado en taller')
+
+    // Verificar que el producto asociado también actualizó sus variantes
+    const resProd = await conSesion(cookie, `/api/productos/${productoId}`)
+    const { producto: prodActualizado } = await json<{ producto: ProductoConStock }>(resProd)
+    expect(prodActualizado.ram).toBe('8 GB')
+    expect(prodActualizado.almacenamiento).toBe('256 GB')
+    expect(prodActualizado.color).toBe('Negro')
 
     // Se busca por el nuevo IMEI
     const resBuscarNuevo = await conSesion(cookie, '/api/equipos/imei/356000000000072')

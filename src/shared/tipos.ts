@@ -117,6 +117,9 @@ export interface Equipo {
   id: string
   productoId: string
   productoNombre: string
+  ram?: string | null
+  almacenamiento?: string | null
+  color?: string | null
   imei1: string | null
   imei2: string | null
   listaBlanca: EstadoListaBlanca

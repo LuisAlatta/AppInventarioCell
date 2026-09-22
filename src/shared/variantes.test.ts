@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { nombreIncluyeVariante, normalizarAlmacenamiento, normalizarColor, normalizarRam } from './variantes'
+import {
+  actualizarNombreConVariantes,
+  nombreIncluyeVariante,
+  normalizarAlmacenamiento,
+  normalizarColor,
+  normalizarRam,
+} from './variantes'
 
 describe('normalización de variantes', () => {
   test('convierte capacidades escritas sin unidad al formato de catálogo', () => {
@@ -18,4 +24,24 @@ describe('normalización de variantes', () => {
     expect(nombreIncluyeVariante('Galaxy A55 8GB 256GB', '8 GB')).toBe(true)
     expect(nombreIncluyeVariante('Galaxy A55 128GB', '8 GB')).toBe(false)
   })
+
+  test('actualiza el nombre al cambiar variantes conservando el modelo', () => {
+    expect(
+      actualizarNombreConVariantes('Galaxy A55 8 GB 256 GB Azul', {
+        ramAnterior: '8 GB',
+        ramNueva: '12 GB',
+        colorAnterior: 'Azul',
+        colorNuevo: 'Negro',
+      }),
+    ).toBe('Galaxy A55 12 GB 256 GB Negro')
+
+    expect(
+      actualizarNombreConVariantes('Galaxy A55', {
+        ramNueva: '8 GB',
+        almacenamientoNuevo: '256 GB',
+        colorNuevo: 'Azul',
+      }),
+    ).toBe('Galaxy A55 8 GB 256 GB Azul')
+  })
 })
+

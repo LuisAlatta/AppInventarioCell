@@ -149,6 +149,9 @@ export const esquemaActualizarEquipo = z
   .object({
     imei1: imeiOpcional.optional(),
     imei2: imeiOpcional.optional(),
+    ram: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarRam(valor)),
+    almacenamiento: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarAlmacenamiento(valor)),
+    color: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarColor(valor)),
     listaBlanca: z.enum(['registered', 'not_registered']).optional(),
     condicion: z.enum(['new', 'used']).optional(),
     notas: nota.nullish(),

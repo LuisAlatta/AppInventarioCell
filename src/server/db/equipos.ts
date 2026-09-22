@@ -2,12 +2,15 @@
 
 import type { DatosActualizarEquipo } from '@compartido/esquemas'
 import type { Equipo } from '@compartido/tipos'
+import { actualizarNombreConVariantes } from '@compartido/variantes'
 import { ErrorApp, noEncontrado } from '../lib/errores'
 import { sentenciasDeStock } from './stock'
 import { aEquipo, type FilaEquipo } from './mapeo'
+import { actualizarProducto, exigirProducto } from './productos'
 
 const COLUMNAS = `
   d.id, d.product_id, p.name AS product_name,
+  p.ram, p.storage AS product_storage, p.color AS product_color,
   MAX(CASE WHEN di.position = 1 THEN di.imei END) AS imei1,
   MAX(CASE WHEN di.position = 2 THEN di.imei END) AS imei2,
   d.whitelist_status, d.condition, d.location_id, l.name AS location_name,
@@ -22,7 +25,7 @@ const DESDE = `
 `
 
 const AGRUPACION = `
-  GROUP BY d.id, d.product_id, p.name, d.whitelist_status, d.condition,
+  GROUP BY d.id, d.product_id, p.name, p.ram, p.storage, p.color, d.whitelist_status, d.condition,
            d.location_id, l.name, d.notes, d.is_active, d.created_at, d.updated_at
 `
 
@@ -129,6 +132,24 @@ export async function actualizarEquipo(
         campos: { imei1: 'Este IMEI ya está registrado en otro equipo' },
       })
     }
+  }
+
+  if (datos.ram !== undefined || datos.almacenamiento !== undefined || datos.color !== undefined) {
+    const prod = await exigirProducto(db, actual.productoId)
+    const nuevoNombre = actualizarNombreConVariantes(prod.nombre, {
+      ramAnterior: prod.ram,
+      ramNueva: datos.ram,
+      almacenamientoAnterior: prod.almacenamiento,
+      almacenamientoNuevo: datos.almacenamiento,
+      colorAnterior: prod.color,
+      colorNuevo: datos.color,
+    })
+    await actualizarProducto(db, actual.productoId, {
+      ram: datos.ram,
+      almacenamiento: datos.almacenamiento,
+      color: datos.color,
+      nombre: nuevoNombre,
+    })
   }
 
   const sentencias: D1PreparedStatement[] = []

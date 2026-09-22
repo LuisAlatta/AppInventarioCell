@@ -29,6 +29,7 @@ import { NOMBRE_MOVIMIENTO, cuandoFue, dinero, fechaLarga, numero } from '../lib
 import { prepararFoto } from '../lib/imagen'
 import { leerCodigoDeFoto } from '../escaner/lecturaCodigo'
 import { verificarImeiEnBd } from '../lib/validacionImei'
+import { actualizarNombreConVariantes, normalizarAlmacenamiento, normalizarColor, normalizarRam } from '@compartido/variantes'
 import type { Equipo, ProductoConStock } from '@compartido/tipos'
 
 export function Producto() {
@@ -134,6 +135,18 @@ export function Producto() {
                 .filter((x) => x !== null && x !== '')
                 .join(' · ') || 'Sin marca'}
             </p>
+            {(ficha.ram || ficha.almacenamiento || ficha.color) && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                {[ficha.ram, ficha.almacenamiento, ficha.color].filter(Boolean).map((v) => (
+                  <span
+                    key={v}
+                    className="rounded-md border border-borde bg-papel-hundido px-1.5 py-0.5 text-[0.6875rem] font-semibold text-tinta-suave"
+                  >
+                    {v}
+                  </span>
+                ))}
+              </div>
+            )}
             <p className="cifras text-[0.8125rem] text-tinta-tenue">{ficha.codigo}</p>
           </div>
 
@@ -294,6 +307,11 @@ export function Producto() {
                       <p className="text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'}</p>
                       {equipo.imei2 !== null && (
                         <p className="cifras mt-0.5 text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</p>
+                      )}
+                      {(equipo.ram || equipo.almacenamiento || equipo.color || ficha.ram || ficha.almacenamiento || ficha.color) && (
+                        <p className="mt-0.5 text-[0.75rem] font-medium text-tinta-suave">
+                          {[equipo.ram ?? ficha.ram, equipo.almacenamiento ?? ficha.almacenamiento, equipo.color ?? ficha.color].filter(Boolean).join(' · ')}
+                        </p>
                       )}
                       <p className="mt-1 text-[0.75rem] text-tinta-tenue" title={fechaLarga(equipo.creadoEn)}>
                         Agregado {fechaLarga(equipo.creadoEn)}
@@ -462,11 +480,13 @@ export function Producto() {
         {equipoParaEditar !== null && (
           <FormularioEdicionEquipo
             equipo={equipoParaEditar}
+            producto={ficha}
             onListo={() => {
               setEquipoParaEditar(null)
               void cliente.invalidateQueries({ queryKey: ['equipos', id] })
               void cliente.invalidateQueries({ queryKey: ['producto', id] })
               void cliente.invalidateQueries({ queryKey: ['buscar'] })
+              void cliente.invalidateQueries({ queryKey: ['inicio'] })
             }}
           />
         )}
@@ -909,9 +929,11 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
 
 function FormularioEdicionEquipo({
   equipo,
+  producto,
   onListo,
 }: {
   equipo: Equipo
+  producto?: ProductoConStock
   onListo: () => void
 }) {
   const avisos = useAvisos()
@@ -919,6 +941,9 @@ function FormularioEdicionEquipo({
   const [imei2, setImei2] = useState(equipo.imei2 ?? '')
   const [errorImei1, setErrorImei1] = useState<string | undefined>()
   const [errorImei2, setErrorImei2] = useState<string | undefined>()
+  const [ram, setRam] = useState(equipo.ram ?? producto?.ram ?? '')
+  const [almacenamiento, setAlmacenamiento] = useState(equipo.almacenamiento ?? producto?.almacenamiento ?? '')
+  const [color, setColor] = useState(equipo.color ?? producto?.color ?? '')
   const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>(equipo.listaBlanca)
   const [condicion, setCondicion] = useState<'new' | 'used'>(equipo.condicion)
   const [notas, setNotas] = useState(equipo.notas ?? '')
@@ -1020,9 +1045,16 @@ function FormularioEdicionEquipo({
     }
     setEnviando(true)
     try {
+      const ramFinal = ram.trim() === '' ? null : normalizarRam(ram)
+      const almacenamientoFinal = almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
+      const colorFinal = color.trim() === '' ? null : normalizarColor(color)
+
       await api.actualizarEquipo(equipo.id, {
         imei1: imei1.trim() || null,
         imei2: imei2.trim() || null,
+        ram: ramFinal,
+        almacenamiento: almacenamientoFinal,
+        color: colorFinal,
         listaBlanca,
         condicion,
         notas: notas.trim() || null,
@@ -1162,6 +1194,68 @@ function FormularioEdicionEquipo({
           {errorImei2 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei2}</p>}
         </div>
       </div>
+
+      {/* Fila simétrica con los 3 campos: RAM, Almacenamiento y Color */}
+      <div className="grid grid-cols-3 gap-2 w-full">
+        <CampoTexto
+          etiqueta="RAM"
+          value={ram}
+          onChange={(e) => setRam(e.target.value)}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem]"
+          list="opciones-ram-equipo"
+        />
+        <CampoTexto
+          etiqueta="Almacenamiento"
+          value={almacenamiento}
+          onChange={(e) => setAlmacenamiento(e.target.value)}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem] truncate"
+          list="opciones-almacenamiento-equipo"
+        />
+        <CampoTexto
+          etiqueta="Color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem]"
+          list="opciones-color-equipo"
+        />
+      </div>
+
+      <datalist id="opciones-ram-equipo">
+        <option value="4 GB" />
+        <option value="6 GB" />
+        <option value="8 GB" />
+        <option value="12 GB" />
+        <option value="16 GB" />
+      </datalist>
+
+      <datalist id="opciones-almacenamiento-equipo">
+        <option value="64 GB" />
+        <option value="128 GB" />
+        <option value="256 GB" />
+        <option value="512 GB" />
+        <option value="1 TB" />
+      </datalist>
+
+      <datalist id="opciones-color-equipo">
+        <option value="Negro" />
+        <option value="Blanco" />
+        <option value="Azul" />
+        <option value="Plata" />
+        <option value="Dorado" />
+        <option value="Gris" />
+        <option value="Verde" />
+        <option value="Titanio" />
+      </datalist>
+
       <SelectorEquipo
         etiqueta="Lista blanca"
         valor={listaBlanca}
@@ -1200,21 +1294,183 @@ function FormularioEdicionEquipo({
   )
 }
 
-function FormularioEdicionProducto({ producto, onCerrar, onDesactivar, onEliminar, onGuardado }: { producto: ProductoConStock; onCerrar: () => void; onDesactivar: () => void; onEliminar: () => void; onGuardado: () => void }) {
+function FormularioEdicionProducto({
+  producto,
+  onCerrar,
+  onDesactivar,
+  onEliminar,
+  onGuardado,
+}: {
+  producto: ProductoConStock
+  onCerrar: () => void
+  onDesactivar: () => void
+  onEliminar: () => void
+  onGuardado: () => void
+}) {
   const avisos = useAvisos()
   const cliente = useQueryClient()
   const [nombre, setNombre] = useState(producto.nombre)
   const [marca, setMarca] = useState(producto.marca ?? '')
   const [modelo, setModelo] = useState(producto.modelo ?? '')
+  const [ram, setRam] = useState(producto.ram ?? '')
+  const [almacenamiento, setAlmacenamiento] = useState(producto.almacenamiento ?? '')
+  const [color, setColor] = useState(producto.color ?? '')
   const [venta, setVenta] = useState(String(producto.precioVenta || ''))
   const [costo, setCosto] = useState(String(producto.precioCosto || ''))
   const [minimo, setMinimo] = useState(String(producto.stockMinimo || ''))
   const [notas, setNotas] = useState(producto.notas ?? '')
   const [confirmando, setConfirmando] = useState(false)
   const [enviando, setEnviando] = useState(false)
-  const numeroSeguro = (valor: string) => { const numero = Number(valor.replace(',', '.')); return Number.isFinite(numero) && numero >= 0 ? numero : 0 }
-  const guardar = async () => { if (!nombre.trim()) { avisos.error('Escribe el nombre del producto'); return } setEnviando(true); try { await api.actualizarProducto(producto.id, { nombre: nombre.trim(), marca: marca.trim() || null, modelo: modelo.trim() || null, precioVenta: numeroSeguro(venta), precioCosto: numeroSeguro(costo), stockMinimo: Math.trunc(numeroSeguro(minimo)), notas: notas.trim() || null }); avisos.exito(`${nombre.trim()} actualizado`); void cliente.invalidateQueries({ queryKey: ['marcas'] }); onGuardado() } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo actualizar') } finally { setEnviando(false) } }
-  return <div className="flex flex-col gap-3 pb-3"><CampoTexto etiqueta="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus /><div className="grid grid-cols-2 gap-3"><CampoMarcaPredictivo value={marca} onChange={setMarca} /><CampoTexto etiqueta="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} /></div><div className="grid grid-cols-2 gap-3"><CampoTexto etiqueta="Precio venta" value={venta} onChange={(e) => setVenta(e.target.value)} inputMode="decimal" sufijo="S/" /><CampoTexto etiqueta="Costo" value={costo} onChange={(e) => setCosto(e.target.value)} inputMode="decimal" sufijo="S/" /></div><CampoTexto etiqueta="Stock mínimo" value={minimo} onChange={(e) => setMinimo(e.target.value.replace(/\D/g, ''))} inputMode="numeric" /><CampoTexto etiqueta="Notas u observaciones" value={notas} onChange={(e) => setNotas(e.target.value)} /><div className="grid grid-cols-2 gap-2"><Boton tono="contorno" onClick={onCerrar}>Cancelar</Boton><Boton cargando={enviando} onClick={() => setConfirmando(true)}>Guardar cambios</Boton></div><div className="mt-2 border-t border-borde pt-3"><button type="button" onClick={onDesactivar} className="min-h-11 w-full rounded-xl text-[0.9375rem] font-semibold text-alerta active:bg-alerta-tenue">Desactivar producto</button><button type="button" onClick={onEliminar} className="min-h-11 w-full rounded-xl text-[0.9375rem] font-semibold text-falta active:bg-falta-tenue">Eliminar producto</button></div><Confirmacion abierta={confirmando} titulo={`¿Guardar cambios de ${nombre.trim() || producto.nombre}?`} detalle={`Confirma la edición de ${nombre.trim() || producto.nombre}.`} confirmar="Guardar cambios" onCancelar={() => setConfirmando(false)} onConfirmar={() => { setConfirmando(false); void guardar() }} /></div>
+
+  const numeroSeguro = (valor: string) => {
+    const numero = Number(valor.replace(',', '.'))
+    return Number.isFinite(numero) && numero >= 0 ? numero : 0
+  }
+
+  const actualizarVariante = (cambio: { ram?: string; almacenamiento?: string; color?: string }) => {
+    const nuevaRam = cambio.ram !== undefined ? cambio.ram : ram
+    const nuevoAlmacenamiento = cambio.almacenamiento !== undefined ? cambio.almacenamiento : almacenamiento
+    const nuevoColor = cambio.color !== undefined ? cambio.color : color
+
+    if (cambio.ram !== undefined) setRam(cambio.ram)
+    if (cambio.almacenamiento !== undefined) setAlmacenamiento(cambio.almacenamiento)
+    if (cambio.color !== undefined) setColor(cambio.color)
+
+    const rFinal = nuevaRam.trim() === '' ? null : normalizarRam(nuevaRam)
+    const aFinal = nuevoAlmacenamiento.trim() === '' ? null : normalizarAlmacenamiento(nuevoAlmacenamiento)
+    const cFinal = nuevoColor.trim() === '' ? null : normalizarColor(nuevoColor)
+
+    setNombre((prev) =>
+      actualizarNombreConVariantes(prev, {
+        ramAnterior: producto.ram,
+        ramNueva: rFinal,
+        almacenamientoAnterior: producto.almacenamiento,
+        almacenamientoNuevo: aFinal,
+        colorAnterior: producto.color,
+        colorNuevo: cFinal,
+      }),
+    )
+  }
+
+  const guardar = async () => {
+    if (!nombre.trim()) {
+      avisos.error('Escribe el nombre del producto')
+      return
+    }
+    setEnviando(true)
+    try {
+      const ramFinal = ram.trim() === '' ? null : normalizarRam(ram)
+      const almacenamientoFinal = almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
+      const colorFinal = color.trim() === '' ? null : normalizarColor(color)
+
+      await api.actualizarProducto(producto.id, {
+        nombre: nombre.trim(),
+        marca: marca.trim() || null,
+        modelo: modelo.trim() || null,
+        ram: ramFinal,
+        almacenamiento: almacenamientoFinal,
+        color: colorFinal,
+        precioVenta: numeroSeguro(venta),
+        precioCosto: numeroSeguro(costo),
+        stockMinimo: Math.trunc(numeroSeguro(minimo)),
+        notas: notas.trim() || null,
+      })
+      avisos.exito(`${nombre.trim()} actualizado`)
+      void cliente.invalidateQueries({ queryKey: ['marcas'] })
+      onGuardado()
+    } catch (causa) {
+      avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo actualizar')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 pb-3">
+      <CampoTexto etiqueta="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus />
+      <div className="grid grid-cols-2 gap-3">
+        <CampoMarcaPredictivo value={marca} onChange={setMarca} />
+        <CampoTexto etiqueta="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
+      </div>
+
+      {/* Fila simétrica con los 3 campos: RAM, Almacenamiento y Color */}
+      <div className="grid grid-cols-3 gap-2 w-full">
+        <CampoTexto
+          etiqueta="RAM"
+          value={ram}
+          onChange={(e) => actualizarVariante({ ram: e.target.value })}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem]"
+          list="opciones-ram-prod"
+        />
+        <CampoTexto
+          etiqueta="Almacenamiento"
+          value={almacenamiento}
+          onChange={(e) => actualizarVariante({ almacenamiento: e.target.value })}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem] truncate"
+          list="opciones-almacenamiento-prod"
+        />
+        <CampoTexto
+          etiqueta="Color"
+          value={color}
+          onChange={(e) => actualizarVariante({ color: e.target.value })}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem]"
+          list="opciones-color-prod"
+        />
+      </div>
+
+      <datalist id="opciones-ram-prod">
+        <option value="4 GB" />
+        <option value="6 GB" />
+        <option value="8 GB" />
+        <option value="12 GB" />
+        <option value="16 GB" />
+      </datalist>
+
+      <datalist id="opciones-almacenamiento-prod">
+        <option value="64 GB" />
+        <option value="128 GB" />
+        <option value="256 GB" />
+        <option value="512 GB" />
+        <option value="1 TB" />
+      </datalist>
+
+      <datalist id="opciones-color-prod">
+        <option value="Negro" />
+        <option value="Blanco" />
+        <option value="Azul" />
+        <option value="Plata" />
+        <option value="Dorado" />
+        <option value="Gris" />
+        <option value="Verde" />
+        <option value="Titanio" />
+      </datalist>
+
+      <div className="grid grid-cols-2 gap-3">
+        <CampoTexto etiqueta="Precio venta" value={venta} onChange={(e) => setVenta(e.target.value)} inputMode="decimal" sufijo="S/" />
+        <CampoTexto etiqueta="Costo" value={costo} onChange={(e) => setCosto(e.target.value)} inputMode="decimal" sufijo="S/" />
+      </div>
+      <CampoTexto etiqueta="Stock mínimo" value={minimo} onChange={(e) => setMinimo(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
+      <CampoTexto etiqueta="Notas u observaciones" value={notas} onChange={(e) => setNotas(e.target.value)} />
+      <div className="grid grid-cols-2 gap-2">
+        <Boton tono="contorno" onClick={onCerrar}>Cancelar</Boton>
+        <Boton cargando={enviando} onClick={() => setConfirmando(true)}>Guardar cambios</Boton>
+      </div>
+      <div className="mt-2 border-t border-borde pt-3">
+        <button type="button" onClick={onDesactivar} className="min-h-11 w-full rounded-xl text-[0.9375rem] font-semibold text-alerta active:bg-alerta-tenue">Desactivar producto</button>
+        <button type="button" onClick={onEliminar} className="min-h-11 w-full rounded-xl text-[0.9375rem] font-semibold text-falta active:bg-falta-tenue">Eliminar producto</button>
+      </div>
+      <Confirmacion abierta={confirmando} titulo={`¿Guardar cambios de ${nombre.trim() || producto.nombre}?`} detalle={`Confirma la edición de ${nombre.trim() || producto.nombre}.`} confirmar="Guardar cambios" onCancelar={() => setConfirmando(false)} onConfirmar={() => { setConfirmando(false); void guardar() }} />
+    </div>
+  )
 }
 
 function SelectorEquipo<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string])[]; onChange: (valor: T) => void }) {
