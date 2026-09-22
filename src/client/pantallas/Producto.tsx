@@ -257,19 +257,15 @@ export function Producto() {
     margen !== null && tieneCosto ? Math.round((margen / ficha.precioCosto) * 100) : null
 
   // Variantes extraídas inteligentemente para chips
-  const variantesHero = useMemo(
-    () =>
-      extraerVariantesVisuales({
-        nombre: ficha.nombre,
-        ram: ficha.ram,
-        almacenamiento: ficha.almacenamiento,
-        color: ficha.color,
-      }),
-    [ficha.nombre, ficha.ram, ficha.almacenamiento, ficha.color],
-  )
+  const variantesHero = extraerVariantesVisuales({
+    nombre: ficha.nombre,
+    ram: ficha.ram,
+    almacenamiento: ficha.almacenamiento,
+    color: ficha.color,
+  })
 
   // Subtítulo limpio: evitar duplicar el nombre si el modelo es idéntico o está contenido
-  const partesSubtitulo = useMemo(() => {
+  const partesSubtitulo = (() => {
     const partes: string[] = []
     const nombreNorm = ficha.nombre.trim().toLowerCase()
 
@@ -290,7 +286,7 @@ export function Producto() {
     }
 
     return partes.length > 0 ? partes.join(' · ') : 'Dispositivo móvil'
-  }, [ficha.nombre, ficha.marca, ficha.modelo, ficha.categoriaNombre])
+  })()
 
   return (
     <Marco titulo={ficha.nombre} atras>
