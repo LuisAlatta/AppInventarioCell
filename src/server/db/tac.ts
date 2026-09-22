@@ -54,6 +54,14 @@ const TAC_RESPALDO: Record<string, { brand: string; model: string }> = {
   '35009380': { brand: 'Apple', model: 'iPhone 16 Pro' },
   '35699011': { brand: 'Apple', model: 'iPhone 16 Pro Max' },
   '35699111': { brand: 'Apple', model: 'iPhone 16e' },
+  '35007835': { brand: 'Apple', model: 'iPhone 17' },
+  '35013517': { brand: 'Apple', model: 'iPhone 17' },
+  '35029627': { brand: 'Apple', model: 'iPhone 17 Pro' },
+  '35029871': { brand: 'Apple', model: 'iPhone 17 Pro' },
+  '35013246': { brand: 'Apple', model: 'iPhone 17 Pro Max' },
+  '35024715': { brand: 'Apple', model: 'iPhone 17 Pro Max' },
+  '35001019': { brand: 'Apple', model: 'iPhone Air' },
+  '35004582': { brand: 'Apple', model: 'iPhone Air' },
 
   // Samsung
   '35050556': { brand: 'Samsung', model: 'Galaxy S25' },

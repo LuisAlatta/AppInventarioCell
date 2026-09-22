@@ -50,6 +50,19 @@ describe('Catálogo TAC', () => {
 
     const resPixel9ProXL = await buscarTac(mockDb, '35915912')
     expect(resPixel9ProXL).toMatchObject({ brand: 'Google', model: 'Pixel 9 Pro XL' })
+
+    // Serie iPhone 17
+    const resIPhone17 = await buscarTac(mockDb, '35007835')
+    expect(resIPhone17).toMatchObject({ brand: 'Apple', model: 'iPhone 17' })
+
+    const resIPhone17Pro = await buscarTac(mockDb, '35029627')
+    expect(resIPhone17Pro).toMatchObject({ brand: 'Apple', model: 'iPhone 17 Pro' })
+
+    const resIPhone17ProMax = await buscarTac(mockDb, '35013246')
+    expect(resIPhone17ProMax).toMatchObject({ brand: 'Apple', model: 'iPhone 17 Pro Max' })
+
+    const resIPhoneAir = await buscarTac(mockDb, '35001019')
+    expect(resIPhoneAir).toMatchObject({ brand: 'Apple', model: 'iPhone Air' })
   })
 
   it('retorna null para un TAC no existente', async () => {
