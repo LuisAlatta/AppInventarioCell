@@ -987,6 +987,21 @@ function CampoConEscaner({
         {etiqueta}
       </label>
 
+      {error !== undefined && (
+        <div id={idDescripcion} className="flex items-center gap-1.5 flex-wrap text-[0.75rem] font-medium text-falta">
+          <span>{error}</span>
+          {onVerUbicacion !== undefined && (
+            <button
+              type="button"
+              onClick={onVerUbicacion}
+              className="inline-flex items-center font-bold text-accion underline underline-offset-2 hover:text-accion/80 active:scale-95 transition cursor-pointer"
+            >
+              Ver
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <input
           id={id}
@@ -1037,23 +1052,12 @@ function CampoConEscaner({
       {leyendoFoto && (
         <p className="text-[0.75rem] font-medium text-accion">Leyendo códigos de la foto…</p>
       )}
-      {descripcion !== undefined && (
+      {error === undefined && ayuda !== undefined && (
         <div
           id={idDescripcion}
-          className={`flex items-center gap-1.5 flex-wrap text-[0.75rem] ${
-            error === undefined ? 'text-tinta-tenue' : 'font-medium text-falta'
-          }`}
+          className="flex items-center gap-1.5 flex-wrap text-[0.75rem] text-tinta-tenue"
         >
-          <span>{descripcion}</span>
-          {onVerUbicacion !== undefined && (
-            <button
-              type="button"
-              onClick={onVerUbicacion}
-              className="inline-flex items-center font-bold text-accion underline underline-offset-2 hover:text-accion/80 active:scale-95 transition cursor-pointer"
-            >
-              Ver
-            </button>
-          )}
+          <span>{ayuda}</span>
         </div>
       )}
     </div>
