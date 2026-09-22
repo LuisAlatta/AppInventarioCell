@@ -66,6 +66,55 @@ import type { Equipo, ProductoConStock } from '@compartido/tipos'
 
 type PestanaProducto = 'equipos' | 'detalles' | 'historial'
 
+/** Extrae inteligentemente variantes (RAM, Almacenamiento, Color) para visualización */
+export function extraerVariantesVisuales(ficha: {
+  nombre: string
+  ram?: string | null
+  almacenamiento?: string | null
+  color?: string | null
+}) {
+  let ram = ficha.ram?.trim() || null
+  let almacenamiento = ficha.almacenamiento?.trim() || null
+  let color = ficha.color?.trim() || null
+
+  // Si falta ram o almacenamiento, buscar formato 8/512, 8-256 o 12/512GB
+  if (!ram || !almacenamiento) {
+    const patronDiagonal = ficha.nombre.match(
+      /\b(\d{1,2})\s*(?:gb|g)?\s*[\/\-]\s*(\d{2,4})\s*(?:gb|g)?\b/i,
+    )
+    if (patronDiagonal) {
+      if (!ram) ram = patronDiagonal[1] ?? null
+      if (!almacenamiento) almacenamiento = patronDiagonal[2] ?? null
+    }
+  }
+
+  // Si falta almacenamiento, buscar 64GB, 128GB, 256GB, 512GB, 1TB
+  if (!almacenamiento) {
+    const matchAlm =
+      ficha.nombre.match(/\b(16|32|64|128|256|512|1024|2048)\s*(?:gb)?\b/i) ??
+      ficha.nombre.match(/\b(1|2)\s*tb\b/i)
+    if (matchAlm) {
+      almacenamiento = matchAlm[0].toLowerCase().includes('tb')
+        ? matchAlm[1] === '1'
+          ? '1024'
+          : '2048'
+        : matchAlm[1] ?? null
+    }
+  }
+
+  // Si falta color, buscar si algún color de la lista está en el nombre
+  if (!color) {
+    for (const c of OPCIONES_COLOR) {
+      if (new RegExp(`(?:^|\\s)${c}(?:\\s|$)`, 'i').test(ficha.nombre)) {
+        color = c
+        break
+      }
+    }
+  }
+
+  return { ram, almacenamiento, color }
+}
+
 export function Producto() {
   const { id = '' } = useParams()
   const navegar = useNavigate()
@@ -192,9 +241,47 @@ export function Producto() {
 
   const ficha = producto.data.producto
   const bajoMinimo = ficha.stockMinimo > 0 && ficha.stockTotal < ficha.stockMinimo
-  const margen = ficha.precioVenta - ficha.precioCosto
+  const tieneCosto = ficha.precioCosto > 0
+  const tieneVenta = ficha.precioVenta > 0
+  const margen = tieneVenta && tieneCosto ? ficha.precioVenta - ficha.precioCosto : null
   const margenPorcentaje =
-    ficha.precioCosto > 0 ? Math.round((margen / ficha.precioCosto) * 100) : null
+    margen !== null && tieneCosto ? Math.round((margen / ficha.precioCosto) * 100) : null
+
+  // Variantes extraídas inteligentemente para chips
+  const variantesHero = useMemo(
+    () =>
+      extraerVariantesVisuales({
+        nombre: ficha.nombre,
+        ram: ficha.ram,
+        almacenamiento: ficha.almacenamiento,
+        color: ficha.color,
+      }),
+    [ficha.nombre, ficha.ram, ficha.almacenamiento, ficha.color],
+  )
+
+  // Subtítulo limpio: evitar duplicar el nombre si el modelo es idéntico o está contenido
+  const partesSubtitulo = useMemo(() => {
+    const partes: string[] = []
+    const nombreNorm = ficha.nombre.trim().toLowerCase()
+
+    if (ficha.marca && ficha.marca.trim()) {
+      partes.push(ficha.marca.trim())
+    }
+
+    if (ficha.modelo && ficha.modelo.trim()) {
+      const modNorm = ficha.modelo.trim().toLowerCase()
+      // No repetir si el modelo es idéntico al nombre o si el nombre empieza con el modelo
+      if (modNorm !== nombreNorm && !nombreNorm.startsWith(modNorm)) {
+        partes.push(ficha.modelo.trim())
+      }
+    }
+
+    if (ficha.categoriaNombre && ficha.categoriaNombre.trim()) {
+      partes.push(ficha.categoriaNombre.trim())
+    }
+
+    return partes.length > 0 ? partes.join(' · ') : 'Dispositivo móvil'
+  }, [ficha.nombre, ficha.marca, ficha.modelo, ficha.categoriaNombre])
 
   return (
     <Marco titulo={ficha.nombre} atras>
@@ -216,57 +303,57 @@ export function Producto() {
 
             {/* Información principal */}
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <div className="flex items-start justify-between gap-1.5">
+              <div className="flex items-start justify-between gap-2">
                 <h1 className="text-[1.125rem] font-bold leading-snug text-tinta line-clamp-2">
                   {ficha.nombre}
                 </h1>
 
-                {/* Acciones de administración */}
-                <div className="flex items-center gap-1 shrink-0 -mr-1">
+                {/* Acciones de administración en pill discreto */}
+                <div className="flex items-center gap-0.5 rounded-xl border border-borde/70 bg-papel-hundido/70 p-0.5 shrink-0">
                   <button
                     type="button"
                     aria-label={`Editar ficha de ${ficha.nombre}`}
                     title="Editar producto"
                     onClick={() => setAdministrar(true)}
-                    className="inline-flex size-9 items-center justify-center rounded-xl text-tinta-suave hover:bg-papel-hundido hover:text-accion active:scale-95 transition"
+                    className="inline-flex size-7.5 items-center justify-center rounded-lg text-tinta-suave hover:bg-superficie hover:text-accion active:scale-95 transition"
                   >
-                    <Edit3 className="size-4.5" strokeWidth={2} />
+                    <Edit3 className="size-4" strokeWidth={2} />
                   </button>
                   <button
                     type="button"
                     aria-label={`Eliminar ${ficha.nombre}`}
                     title="Eliminar producto"
                     onClick={() => setAccionProducto('eliminar')}
-                    className="inline-flex size-9 items-center justify-center rounded-xl text-tinta-suave hover:bg-falta-tenue hover:text-falta active:scale-95 transition"
+                    className="inline-flex size-7.5 items-center justify-center rounded-lg text-tinta-suave hover:bg-superficie hover:text-falta active:scale-95 transition"
                   >
-                    <Trash2 className="size-4.5" strokeWidth={2} />
+                    <Trash2 className="size-4" strokeWidth={2} />
                   </button>
                 </div>
               </div>
 
-              {/* Marca, modelo y categoría */}
+              {/* Marca, modelo y categoría limpia sin duplicados */}
               <p className="text-[0.8125rem] font-medium text-tinta-suave truncate">
-                {[ficha.marca, ficha.modelo, ficha.categoriaNombre]
-                  .filter(Boolean)
-                  .join(' · ') || 'Sin clasificar'}
+                {partesSubtitulo}
               </p>
 
               {/* Chips de variantes: RAM, Almacenamiento, Color */}
-              {(ficha.ram || ficha.almacenamiento || ficha.color) && (
+              {(variantesHero.ram || variantesHero.almacenamiento || variantesHero.color) && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                  {ficha.ram && (
+                  {variantesHero.ram && (
                     <span className="rounded-lg border border-borde/70 bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta">
-                      {ficha.ram} RAM
+                      {variantesHero.ram} RAM
                     </span>
                   )}
-                  {ficha.almacenamiento && (
+                  {variantesHero.almacenamiento && (
                     <span className="rounded-lg border border-borde/70 bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta">
-                      {ficha.almacenamiento}
+                      {Number(variantesHero.almacenamiento) >= 1024
+                        ? `${Number(variantesHero.almacenamiento) / 1024} TB`
+                        : `${variantesHero.almacenamiento} GB`}
                     </span>
                   )}
-                  {ficha.color && (
+                  {variantesHero.color && (
                     <span className="rounded-lg border border-borde/70 bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta">
-                      {ficha.color}
+                      {variantesHero.color}
                     </span>
                   )}
                 </div>
@@ -296,18 +383,18 @@ export function Producto() {
           </div>
 
           {/* Fila de KPIs Financieros y Stock */}
-          <div className="mt-3.5 grid grid-cols-3 gap-2 border-t border-borde/70 pt-3">
+          <div className="mt-3.5 grid grid-cols-3 divide-x divide-borde/70 rounded-xl border border-borde/70 bg-papel-hundido/50 p-2.5">
             {/* Existencias */}
-            <div className="flex flex-col justify-center rounded-xl bg-papel-hundido p-2.5 text-center">
-              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-tinta-suave">
+            <div className="flex flex-col items-center justify-center text-center px-1">
+              <span className="text-[0.625rem] font-bold uppercase tracking-wider text-tinta-suave">
                 Existencias
               </span>
-              <div className="mt-0.5 flex items-center justify-center gap-1">
+              <div className="mt-1 flex items-center justify-center gap-1">
                 {bajoMinimo && (
-                  <AlertTriangle className="size-4 shrink-0 text-alerta" strokeWidth={2.5} />
+                  <AlertTriangle className="size-3.5 shrink-0 text-alerta" strokeWidth={2.5} />
                 )}
                 <span
-                  className={`cifras text-[1.25rem] font-extrabold leading-none ${
+                  className={`cifras text-[1.1875rem] font-extrabold leading-none ${
                     bajoMinimo ? 'text-alerta' : 'text-tinta'
                   }`}
                 >
@@ -315,36 +402,53 @@ export function Producto() {
                 </span>
               </div>
               <span className="text-[0.625rem] font-medium text-tinta-tenue mt-0.5">
-                {bajoMinimo ? `Mínimo: ${ficha.stockMinimo}` : 'unidades'}
+                {bajoMinimo
+                  ? `Mín: ${ficha.stockMinimo}`
+                  : ficha.stockTotal === 1
+                    ? 'unidad'
+                    : 'unidades'}
               </span>
             </div>
 
             {/* Precio Venta */}
-            <div className="flex flex-col justify-center rounded-xl bg-papel-hundido p-2.5 text-center">
-              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-tinta-suave">
-                Precio Venta
+            <div className="flex flex-col items-center justify-center text-center px-1">
+              <span className="text-[0.625rem] font-bold uppercase tracking-wider text-tinta-suave">
+                Venta
               </span>
-              <span className="cifras mt-0.5 text-[1.125rem] font-extrabold leading-tight text-accion">
-                {dinero(ficha.precioVenta)}
+              <span className="cifras mt-1 text-[1.125rem] font-extrabold leading-none text-accion">
+                {ficha.precioVenta > 0 ? dinero(ficha.precioVenta) : 'S/ 0.00'}
               </span>
               <span className="text-[0.625rem] font-medium text-tinta-tenue mt-0.5">por unidad</span>
             </div>
 
             {/* Margen */}
-            <div className="flex flex-col justify-center rounded-xl bg-papel-hundido p-2.5 text-center">
-              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-tinta-suave">
+            <div className="flex flex-col items-center justify-center text-center px-1">
+              <span className="text-[0.625rem] font-bold uppercase tracking-wider text-tinta-suave">
                 Margen
               </span>
-              <span
-                className={`cifras mt-0.5 text-[1.125rem] font-extrabold leading-tight ${
-                  margen < 0 ? 'text-falta' : 'text-exito'
-                }`}
-              >
-                {dinero(margen)}
-              </span>
-              <span className="text-[0.625rem] font-medium text-tinta-tenue mt-0.5">
-                {margenPorcentaje !== null ? `${margenPorcentaje}% rentabilidad` : 'ganancia'}
-              </span>
+              {ficha.precioCosto > 0 && ficha.precioVenta > 0 ? (
+                <>
+                  <span
+                    className={`cifras mt-1 text-[1.125rem] font-extrabold leading-none ${
+                      margen! < 0 ? 'text-falta' : 'text-exito'
+                    }`}
+                  >
+                    {dinero(margen!)}
+                  </span>
+                  <span className="text-[0.625rem] font-medium text-tinta-tenue mt-0.5">
+                    {margenPorcentaje !== null ? `${margenPorcentaje}% rentab.` : 'ganancia'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="cifras mt-1 text-[1.125rem] font-bold leading-none text-tinta-tenue">
+                    —
+                  </span>
+                  <span className="text-[0.625rem] font-medium text-tinta-tenue mt-0.5">
+                    {ficha.precioCosto === 0 ? 'Sin costo reg.' : 'Sin venta reg.'}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -371,9 +475,9 @@ export function Producto() {
               setModoAcciones('venta')
               setAcciones(true)
             }}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accion px-3 text-[0.875rem] font-bold text-white shadow-xs transition active:scale-[0.98] active:bg-accion-viva"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-accion px-2.5 text-[0.875rem] font-bold text-white shadow-xs transition active:scale-[0.98] active:bg-accion-viva"
           >
-            <ShoppingBag className="size-4.5 shrink-0" strokeWidth={2} />
+            <ShoppingBag className="size-4 shrink-0" strokeWidth={2.2} />
             <span>Vender</span>
           </button>
 
@@ -384,9 +488,9 @@ export function Producto() {
               setModoAcciones('rápido')
               setAcciones(true)
             }}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-borde-fuerte bg-superficie px-3 text-[0.875rem] font-semibold text-tinta transition active:scale-[0.98] active:bg-papel-hundido"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-borde-fuerte bg-superficie px-2.5 text-[0.875rem] font-semibold text-tinta transition active:scale-[0.98] active:bg-papel-hundido"
           >
-            <ArrowLeftRight className="size-4.5 shrink-0 text-tinta-suave" strokeWidth={2} />
+            <ArrowLeftRight className="size-4 shrink-0 text-tinta-suave" strokeWidth={2.2} />
             <span>Mover</span>
           </button>
 
@@ -394,10 +498,10 @@ export function Producto() {
           <button
             type="button"
             onClick={() => setAltaEquipo(true)}
-            className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-accion/40 bg-accion-tenue px-3 text-[0.875rem] font-bold text-accion transition active:scale-[0.98] hover:bg-accion-tenue/80"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-accion/35 bg-accion-tenue px-2.5 text-[0.875rem] font-bold text-accion transition active:scale-[0.98] hover:bg-accion-tenue/80"
           >
-            <Plus className="size-4.5 shrink-0" strokeWidth={2.5} />
-            <span>+ Equipo</span>
+            <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+            <span>Registrar</span>
           </button>
         </div>
 
@@ -457,12 +561,12 @@ export function Producto() {
           <div className="flex flex-col gap-4">
             {/* Desglose por tienda */}
             <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3.5 shadow-2xs">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pb-2 border-b border-borde/50">
                 <span className="flex items-center gap-1.5 text-[0.8125rem] font-bold text-tinta">
                   <MapPin className="size-4 text-accion" strokeWidth={2} />
                   Stock por ubicación
                 </span>
-                <span className="text-[0.75rem] font-medium text-tinta-suave">
+                <span className="rounded-full bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta-suave">
                   {ficha.stock.length} {ficha.stock.length === 1 ? 'sede' : 'sedes'}
                 </span>
               </div>
@@ -472,14 +576,19 @@ export function Producto() {
             {/* Listado de unidades físicas (Equipos por IMEI) */}
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 text-[0.875rem] font-bold text-tinta">
+                <div className="flex items-center gap-1.5">
                   <Smartphone className="size-4 text-accion" strokeWidth={2} />
-                  Unidades físicas con IMEI
-                </span>
+                  <span className="text-[0.875rem] font-bold text-tinta">
+                    Unidades físicas con IMEI
+                  </span>
+                  <span className="rounded-full bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta-suave">
+                    {listaEquipos.length}
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => setAltaEquipo(true)}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-accion-tenue px-3 text-[0.8125rem] font-bold text-accion active:scale-95 transition"
+                  className="inline-flex min-h-8.5 items-center gap-1 rounded-xl bg-accion-tenue px-2.5 text-[0.75rem] font-bold text-accion transition active:scale-95 hover:bg-accion-tenue/80"
                 >
                   <Plus className="size-3.5" strokeWidth={2.5} />
                   <span>Nuevo equipo</span>
@@ -532,149 +641,158 @@ export function Producto() {
                 <ul className="flex flex-col gap-2.5">
                   {equiposFiltrados.map((equipo) => {
                     const imeiPrincipal = equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI'
+                    const variantesEq = extraerVariantesVisuales({
+                      nombre: equipo.productoNombre || ficha.nombre,
+                      ram: equipo.ram || ficha.ram,
+                      almacenamiento: equipo.almacenamiento || ficha.almacenamiento,
+                      color: equipo.color || ficha.color,
+                    })
+                    const partesEq: string[] = []
+                    if (variantesEq.ram) partesEq.push(`${variantesEq.ram} RAM`)
+                    if (variantesEq.almacenamiento) {
+                      const almN = Number(variantesEq.almacenamiento)
+                      partesEq.push(
+                        Number.isFinite(almN) && almN >= 1024
+                          ? `${almN / 1024} TB`
+                          : `${variantesEq.almacenamiento} GB`,
+                      )
+                    }
+                    if (variantesEq.color) partesEq.push(variantesEq.color)
+                    const especificacionesEquipo = partesEq.join(' · ')
+
                     return (
                       <li
                         key={equipo.id}
-                        className={`rounded-2xl border p-3 transition shadow-2xs ${
+                        className={`rounded-2xl border p-3.5 transition shadow-2xs ${
                           equipo.activo
                             ? 'border-borde bg-superficie'
                             : 'border-borde/60 bg-papel-hundido opacity-60'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            {/* IMEI 1 con botón copiar */}
-                            <div className="flex items-center gap-2">
-                              <span className="cifras text-[0.9375rem] font-bold text-tinta tracking-wide">
-                                {imeiPrincipal}
-                              </span>
-                              {equipo.imei1 && (
-                                <button
-                                  type="button"
-                                  title="Copiar IMEI 1"
-                                  onClick={() => copiarTexto(equipo.imei1!, `imei1-${equipo.id}`)}
-                                  className="inline-flex size-6 items-center justify-center rounded-lg text-tinta-tenue hover:bg-papel-hundido hover:text-tinta active:scale-90"
-                                >
-                                  {copiadoImei === `imei1-${equipo.id}` ? (
-                                    <Check className="size-3.5 text-exito" strokeWidth={2.5} />
-                                  ) : (
-                                    <Copy className="size-3.5" strokeWidth={2} />
-                                  )}
-                                </button>
-                              )}
-                            </div>
-
-                            {/* IMEI 2 si existe */}
-                            {equipo.imei2 && (
-                              <div className="flex items-center gap-1.5 mt-0.5 text-[0.75rem] text-tinta-suave">
-                                <span className="font-semibold text-tinta-tenue">IMEI 2:</span>
-                                <span className="cifras">{equipo.imei2}</span>
-                                <button
-                                  type="button"
-                                  title="Copiar IMEI 2"
-                                  onClick={() => copiarTexto(equipo.imei2!, `imei2-${equipo.id}`)}
-                                  className="inline-flex size-5 items-center justify-center text-tinta-tenue hover:text-tinta active:scale-90"
-                                >
-                                  {copiadoImei === `imei2-${equipo.id}` ? (
-                                    <Check className="size-3 text-exito" strokeWidth={2.5} />
-                                  ) : (
-                                    <Copy className="size-3" strokeWidth={2} />
-                                  )}
-                                </button>
-                              </div>
+                        {/* Cabecera del equipo: IMEI y acciones */}
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-borde/50">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="cifras text-[0.9375rem] font-bold tracking-wide text-tinta truncate">
+                              {imeiPrincipal}
+                            </span>
+                            {equipo.imei1 && (
+                              <button
+                                type="button"
+                                title="Copiar IMEI 1"
+                                onClick={() => copiarTexto(equipo.imei1!, `imei1-${equipo.id}`)}
+                                className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-lg text-tinta-tenue hover:bg-papel-hundido hover:text-tinta active:scale-90 transition"
+                              >
+                                {copiadoImei === `imei1-${equipo.id}` ? (
+                                  <Check className="size-3.5 text-exito" strokeWidth={2.5} />
+                                ) : (
+                                  <Copy className="size-3.5" strokeWidth={2} />
+                                )}
+                              </button>
                             )}
-
-                            {/* Variantes específicas del equipo */}
-                            {(equipo.ram ||
-                              equipo.almacenamiento ||
-                              equipo.color ||
-                              ficha.ram ||
-                              ficha.almacenamiento ||
-                              ficha.color) && (
-                              <p className="mt-1 text-[0.75rem] font-medium text-tinta-suave">
-                                {[
-                                  equipo.ram ?? ficha.ram,
-                                  equipo.almacenamiento ?? ficha.almacenamiento,
-                                  equipo.color ?? ficha.color,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')}
-                              </p>
-                            )}
-
-                            {/* Notas del equipo */}
-                            {equipo.notas && (
-                              <p className="mt-1 text-[0.75rem] text-tinta-suave italic">
-                                {equipo.notas}
-                              </p>
-                            )}
-
-                            <p
-                              className="mt-1 text-[0.6875rem] text-tinta-tenue"
-                              title={fechaLarga(equipo.creadoEn)}
-                            >
-                              Ingreso: {fechaLarga(equipo.creadoEn)}
-                            </p>
                           </div>
 
-                          {/* Badges de estado */}
-                          <div className="flex shrink-0 flex-col items-end gap-1">
-                            {!equipo.activo && (
-                              <span className="rounded-md bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta-suave">
-                                Retirado
-                              </span>
-                            )}
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[0.6875rem] font-bold ${
-                                equipo.listaBlanca === 'registered'
-                                  ? 'bg-exito-tenue text-exito'
-                                  : 'bg-falta-tenue text-falta'
-                              }`}
+                          {/* Acciones compactas y simétricas */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setEquipoParaEditar(equipo)}
+                              className="inline-flex size-7.5 items-center justify-center rounded-lg border border-borde bg-papel text-tinta-suave hover:border-accion/40 hover:bg-accion-tenue hover:text-accion active:scale-95 transition"
+                              title="Editar datos de esta unidad"
                             >
-                              {equipo.listaBlanca === 'registered' ? (
-                                <BadgeCheck className="size-3" strokeWidth={2.5} />
-                              ) : (
-                                <ShieldAlert className="size-3" strokeWidth={2.5} />
-                              )}
-                              <span>{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}</span>
-                            </span>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[0.6875rem] font-bold ${
-                                equipo.condicion === 'new'
-                                  ? 'bg-accion-tenue text-accion'
-                                  : 'bg-alerta-tenue text-alerta'
-                              }`}
+                              <Pencil className="size-3.5" strokeWidth={2.2} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEquipoParaEliminar(equipo)}
+                              className="inline-flex size-7.5 items-center justify-center rounded-lg border border-borde bg-papel text-tinta-suave hover:border-falta/40 hover:bg-falta-tenue hover:text-falta active:scale-95 transition"
+                              title="Eliminar esta unidad"
                             >
-                              {equipo.condicion === 'new' ? (
-                                <Sparkles className="size-3" strokeWidth={2.5} />
-                              ) : (
-                                <RefreshCw className="size-3" strokeWidth={2.5} />
-                              )}
-                              <span>{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span>
-                            </span>
+                              <Trash2 className="size-3.5" strokeWidth={2.2} />
+                            </button>
                           </div>
                         </div>
 
-                        {/* Botones de acción del equipo */}
-                        <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-borde/60 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setEquipoParaEditar(equipo)}
-                            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-accion/30 bg-accion-tenue px-2.5 text-[0.75rem] font-bold text-accion transition active:scale-95 hover:bg-accion-tenue/80"
-                            title="Editar datos de esta unidad"
+                        {/* IMEI 2 si existe */}
+                        {equipo.imei2 && (
+                          <div className="flex items-center gap-1.5 pt-2 text-[0.75rem] text-tinta-suave">
+                            <span className="font-semibold text-tinta-tenue">IMEI 2:</span>
+                            <span className="cifras">{equipo.imei2}</span>
+                            <button
+                              type="button"
+                              title="Copiar IMEI 2"
+                              onClick={() => copiarTexto(equipo.imei2!, `imei2-${equipo.id}`)}
+                              className="inline-flex size-5 items-center justify-center text-tinta-tenue hover:text-tinta active:scale-90"
+                            >
+                              {copiadoImei === `imei2-${equipo.id}` ? (
+                                <Check className="size-3 text-exito" strokeWidth={2.5} />
+                              ) : (
+                                <Copy className="size-3" strokeWidth={2} />
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Badges de condición, registro y especificaciones */}
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[0.6875rem] font-bold ${
+                              equipo.listaBlanca === 'registered'
+                                ? 'bg-exito-tenue text-exito'
+                                : 'bg-falta-tenue text-falta'
+                            }`}
                           >
-                            <Pencil className="size-3.5" strokeWidth={2.2} />
-                            <span>Editar</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEquipoParaEliminar(equipo)}
-                            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-falta/30 bg-falta-tenue px-2.5 text-[0.75rem] font-bold text-falta transition active:scale-95 hover:bg-falta-tenue/80"
-                            title="Eliminar esta unidad"
+                            {equipo.listaBlanca === 'registered' ? (
+                              <BadgeCheck className="size-3" strokeWidth={2.5} />
+                            ) : (
+                              <ShieldAlert className="size-3" strokeWidth={2.5} />
+                            )}
+                            <span>{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}</span>
+                          </span>
+
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[0.6875rem] font-bold ${
+                              equipo.condicion === 'new'
+                                ? 'bg-accion-tenue text-accion'
+                                : 'bg-alerta-tenue text-alerta'
+                            }`}
                           >
-                            <Trash2 className="size-3.5" strokeWidth={2.2} />
-                            <span>Eliminar</span>
-                          </button>
+                            {equipo.condicion === 'new' ? (
+                              <Sparkles className="size-3" strokeWidth={2.5} />
+                            ) : (
+                              <RefreshCw className="size-3" strokeWidth={2.5} />
+                            )}
+                            <span>{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span>
+                          </span>
+
+                          {!equipo.activo && (
+                            <span className="rounded-lg bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta-suave">
+                              Retirado
+                            </span>
+                          )}
+
+                          {especificacionesEquipo && (
+                            <span className="rounded-lg border border-borde/70 bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-semibold text-tinta">
+                              {especificacionesEquipo}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Notas del equipo si existen */}
+                        {equipo.notas && (
+                          <p className="mt-2 rounded-lg bg-papel-hundido/60 px-2.5 py-1.5 text-[0.75rem] italic text-tinta-suave">
+                            {equipo.notas}
+                          </p>
+                        )}
+
+                        {/* Pie del equipo: Ubicación y Fecha de ingreso */}
+                        <div className="mt-2.5 flex items-center justify-between border-t border-borde/40 pt-2 text-[0.6875rem] text-tinta-tenue">
+                          <span className="inline-flex items-center gap-1 font-medium text-tinta-suave">
+                            <MapPin className="size-3 text-accion shrink-0" strokeWidth={2} />
+                            {equipo.ubicacionNombre}
+                          </span>
+                          <span title={fechaLarga(equipo.creadoEn)}>
+                            Ingresó {cuandoFue(equipo.creadoEn)}
+                          </span>
                         </div>
                       </li>
                     )
@@ -1157,9 +1275,15 @@ function FormularioAltaEquipo({
   )
   const [imei1, setImei1] = useState('')
   const [imei2, setImei2] = useState('')
-  const [ram, setRam] = useState(producto.ram ?? '')
-  const [almacenamiento, setAlmacenamiento] = useState(producto.almacenamiento ?? '')
-  const [color, setColor] = useState(producto.color ?? '')
+  const variantesDeducidas = useMemo(
+    () => extraerVariantesVisuales(producto),
+    [producto],
+  )
+  const [ram, setRam] = useState(producto.ram ?? variantesDeducidas.ram ?? '')
+  const [almacenamiento, setAlmacenamiento] = useState(
+    producto.almacenamiento ?? variantesDeducidas.almacenamiento ?? '',
+  )
+  const [color, setColor] = useState(producto.color ?? variantesDeducidas.color ?? '')
   const [errorImei1, setErrorImei1] = useState<string | undefined>()
   const [errorImei2, setErrorImei2] = useState<string | undefined>()
   const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>('not_registered')
@@ -1553,11 +1677,22 @@ function FormularioEdicionEquipo({
   const [errorImei2, setErrorImei2] = useState<string | undefined>()
   const [modelo, setModelo] = useState(producto?.modelo ?? producto?.nombre ?? '')
   const [marca, setMarca] = useState(producto?.marca ?? '')
-  const [ram, setRam] = useState(equipo.ram ?? producto?.ram ?? '')
-  const [almacenamiento, setAlmacenamiento] = useState(
-    equipo.almacenamiento ?? producto?.almacenamiento ?? '',
+  const variantesDeducidas = useMemo(
+    () =>
+      producto
+        ? extraerVariantesVisuales(producto)
+        : { ram: null, almacenamiento: null, color: null },
+    [producto],
   )
-  const [color, setColor] = useState(equipo.color ?? producto?.color ?? '')
+  const [ram, setRam] = useState(
+    equipo.ram ?? producto?.ram ?? variantesDeducidas.ram ?? '',
+  )
+  const [almacenamiento, setAlmacenamiento] = useState(
+    equipo.almacenamiento ?? producto?.almacenamiento ?? variantesDeducidas.almacenamiento ?? '',
+  )
+  const [color, setColor] = useState(
+    equipo.color ?? producto?.color ?? variantesDeducidas.color ?? '',
+  )
   const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>(
     equipo.listaBlanca,
   )
@@ -1907,12 +2042,18 @@ function FormularioEdicionProducto({
 }) {
   const avisos = useAvisos()
   const cliente = useQueryClient()
+  const variantesDeducidas = useMemo(
+    () => extraerVariantesVisuales(producto),
+    [producto],
+  )
   const [nombre, setNombre] = useState(producto.nombre)
   const [marca, setMarca] = useState(producto.marca ?? '')
   const [modelo, setModelo] = useState(producto.modelo ?? '')
-  const [ram, setRam] = useState(producto.ram ?? '')
-  const [almacenamiento, setAlmacenamiento] = useState(producto.almacenamiento ?? '')
-  const [color, setColor] = useState(producto.color ?? '')
+  const [ram, setRam] = useState(producto.ram ?? variantesDeducidas.ram ?? '')
+  const [almacenamiento, setAlmacenamiento] = useState(
+    producto.almacenamiento ?? variantesDeducidas.almacenamiento ?? '',
+  )
+  const [color, setColor] = useState(producto.color ?? variantesDeducidas.color ?? '')
   const [venta, setVenta] = useState(String(producto.precioVenta || ''))
   const [costo, setCosto] = useState(String(producto.precioCosto || ''))
   const [minimo, setMinimo] = useState(String(producto.stockMinimo || ''))

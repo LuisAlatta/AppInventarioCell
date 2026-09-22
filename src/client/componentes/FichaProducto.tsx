@@ -195,31 +195,45 @@ export function DesgloseStock({
 }) {
   if (producto.stock.length === 0) {
     return (
-      <p className="rounded-xl bg-papel-hundido px-4 py-3 text-[0.9375rem] text-tinta-tenue">
+      <p className="rounded-xl bg-papel-hundido px-3.5 py-2.5 text-center text-[0.8125rem] text-tinta-tenue">
         Sin existencias en ninguna ubicación.
       </p>
     )
   }
 
   return (
-    <ul className="flex flex-col gap-1.5">
+    <ul className="flex flex-col divide-y divide-borde/50">
       {producto.stock.map((linea) => {
         const esActiva = linea.ubicacionId === ubicacionActivaId
 
         return (
           <li
             key={linea.ubicacionId}
-            className={[
-              'flex items-center justify-between gap-3 rounded-xl border px-4 py-3',
-              esActiva ? 'border-accion/40 bg-accion-tenue' : 'border-borde bg-superficie',
-            ].join(' ')}
+            className="flex items-center justify-between py-2.5 first:pt-1 last:pb-1"
           >
-            <span className="min-w-0 truncate text-[0.9375rem] font-medium">
-              {linea.ubicacionNombre}
-            </span>
-            <span className="cifras shrink-0 text-[1.125rem] font-semibold">
-              {numero(linea.cantidad)}
-            </span>
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className={`size-2 shrink-0 rounded-full ${
+                  linea.cantidad > 0 ? 'bg-exito' : 'bg-falta'
+                }`}
+              />
+              <span className="truncate text-[0.875rem] font-semibold text-tinta">
+                {linea.ubicacionNombre}
+              </span>
+              {esActiva && (
+                <span className="shrink-0 rounded-md bg-accion-tenue px-1.5 py-0.5 text-[0.6875rem] font-bold text-accion">
+                  Actual
+                </span>
+              )}
+            </div>
+            <div className="flex shrink-0 items-baseline gap-1">
+              <span className="cifras text-[1.125rem] font-extrabold text-tinta">
+                {numero(linea.cantidad)}
+              </span>
+              <span className="text-[0.6875rem] font-medium text-tinta-tenue">
+                {linea.cantidad === 1 ? 'ud.' : 'uds.'}
+              </span>
+            </div>
           </li>
         )
       })}
