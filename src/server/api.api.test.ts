@@ -1685,8 +1685,8 @@ describe('edición y eliminación de equipos individuales y productos', () => {
       metodo: 'PATCH',
       cuerpo: {
         imei1: '356000000000072',
-        ram: '8 GB',
-        almacenamiento: '256 GB',
+        ram: '8',
+        almacenamiento: '256',
         color: 'Negro',
         listaBlanca: 'registered',
         condicion: 'used',
@@ -1696,8 +1696,8 @@ describe('edición y eliminación de equipos individuales y productos', () => {
     expect(resEdit.status).toBe(200)
     const { equipo: editado } = await json<{ equipo: Equipo }>(resEdit)
     expect(editado.imei1).toBe('356000000000072')
-    expect(editado.ram).toBe('8 GB')
-    expect(editado.almacenamiento).toBe('256 GB')
+    expect(editado.ram).toBe('8')
+    expect(editado.almacenamiento).toBe('256')
     expect(editado.color).toBe('Negro')
     expect(editado.listaBlanca).toBe('registered')
     expect(editado.condicion).toBe('used')
@@ -1706,8 +1706,8 @@ describe('edición y eliminación de equipos individuales y productos', () => {
     // Verificar que el producto asociado también actualizó sus variantes
     const resProd = await conSesion(cookie, `/api/productos/${productoId}`)
     const { producto: prodActualizado } = await json<{ producto: ProductoConStock }>(resProd)
-    expect(prodActualizado.ram).toBe('8 GB')
-    expect(prodActualizado.almacenamiento).toBe('256 GB')
+    expect(prodActualizado.ram).toBe('8')
+    expect(prodActualizado.almacenamiento).toBe('256')
     expect(prodActualizado.color).toBe('Negro')
 
     // Se busca por el nuevo IMEI

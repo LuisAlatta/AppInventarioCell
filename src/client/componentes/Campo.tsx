@@ -9,7 +9,7 @@
  * global obliga a adivinar cual de los seis campos esta mal.
  */
 
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { useId } from 'react'
 
 interface Comun {
@@ -82,6 +82,103 @@ export function CampoTexto({
             {sufijo}
           </span>
         )}
+      </div>
+
+      {ayuda !== undefined && error === undefined && (
+        <p id={idAyuda} className="text-[0.75rem] text-tinta-tenue">
+          {ayuda}
+        </p>
+      )}
+      {error !== undefined && (
+        <p id={idError} className="text-[0.8125rem] font-medium text-falta">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+type CampoSelectProps = Comun &
+  Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className'> & {
+    opciones: readonly (string | { valor: string; etiqueta: string })[]
+    placeholder?: string
+  }
+
+export function CampoSelect({
+  etiqueta,
+  error,
+  ayuda,
+  opciones,
+  placeholder = 'Selecciona...',
+  claseEtiqueta,
+  claseInput,
+  value,
+  ...resto
+}: CampoSelectProps) {
+  const id = useId()
+  const idError = `${id}-error`
+  const idAyuda = `${id}-ayuda`
+
+  const valorString = value === null || value === undefined ? '' : String(value)
+  const existeEnOpciones = opciones.some((op) =>
+    typeof op === 'string' ? op === valorString : op.valor === valorString,
+  )
+
+  return (
+    <div className="flex flex-col gap-1.5 min-w-0 w-full">
+      <label
+        htmlFor={id}
+        className={`text-[0.8125rem] font-semibold text-tinta-suave truncate ${claseEtiqueta ?? ''}`}
+      >
+        {etiqueta}
+      </label>
+
+      <div className="relative flex items-center w-full">
+        <select
+          id={id}
+          value={valorString}
+          aria-invalid={error !== undefined}
+          aria-describedby={
+            [error !== undefined ? idError : null, ayuda !== undefined ? idAyuda : null]
+              .filter((x) => x !== null)
+              .join(' ') || undefined
+          }
+          className={[
+            CLASES_BASE,
+            'appearance-none pr-7 cursor-pointer truncate text-[0.9375rem] font-medium text-center',
+            error === undefined ? 'border-borde' : 'border-falta',
+            claseInput ?? '',
+          ].join(' ')}
+          {...resto}
+        >
+          {placeholder !== undefined && <option value="">{placeholder}</option>}
+          {!existeEnOpciones && valorString.trim() !== '' && (
+            <option value={valorString}>{valorString}</option>
+          )}
+          {opciones.map((opcion) => {
+            const val = typeof opcion === 'string' ? opcion : opcion.valor
+            const texto = typeof opcion === 'string' ? opcion : opcion.etiqueta
+            return (
+              <option key={val} value={val}>
+                {texto}
+              </option>
+            )
+          })}
+        </select>
+        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-tinta-suave select-none">
+          <svg
+            className="size-4 shrink-0"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m6 8 4 4 4-4" />
+          </svg>
+        </span>
       </div>
 
       {ayuda !== undefined && error === undefined && (

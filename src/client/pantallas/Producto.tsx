@@ -17,7 +17,7 @@ import { Boton } from '../componentes/Boton'
 import { Esqueleto, ErrorEnPantalla, Etiqueta, Vacio } from '../componentes/Estados'
 import { DesgloseStock, Miniatura } from '../componentes/FichaProducto'
 import { HojaInferior } from '../componentes/HojaInferior'
-import { CampoTexto } from '../componentes/Campo'
+import { CampoSelect, CampoTexto } from '../componentes/Campo'
 import { CampoMarcaPredictivo } from '../componentes/CampoMarcaPredictivo'
 import { Confirmacion } from '../componentes/Confirmacion'
 import { Marco } from '../componentes/Marco'
@@ -29,7 +29,15 @@ import { NOMBRE_MOVIMIENTO, cuandoFue, dinero, fechaLarga, numero } from '../lib
 import { prepararFoto } from '../lib/imagen'
 import { leerCodigoDeFoto } from '../escaner/lecturaCodigo'
 import { verificarImeiEnBd } from '../lib/validacionImei'
-import { actualizarNombreConVariantes, normalizarAlmacenamiento, normalizarColor, normalizarRam } from '@compartido/variantes'
+import {
+  OPCIONES_ALMACENAMIENTO,
+  OPCIONES_COLOR,
+  OPCIONES_RAM,
+  actualizarNombreConVariantes,
+  normalizarAlmacenamiento,
+  normalizarColor,
+  normalizarRam,
+} from '@compartido/variantes'
 import type { Equipo, ProductoConStock } from '@compartido/tipos'
 
 export function Producto() {
@@ -920,66 +928,30 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
         </div>
       </div>
 
-      {/* Fila simétrica con los 3 campos: RAM, Almacenamiento y Color */}
+      {/* Fila simétrica con los 3 desplegables: RAM, Almacenamiento y Color */}
       <div className="grid grid-cols-3 gap-2 w-full">
-        <CampoTexto
+        <CampoSelect
           etiqueta="RAM"
           value={ram}
           onChange={(e) => setRam(e.target.value)}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem]"
-          list="opciones-ram-alta"
+          opciones={OPCIONES_RAM}
+          placeholder="-"
         />
-        <CampoTexto
+        <CampoSelect
           etiqueta="Almacenamiento"
           value={almacenamiento}
           onChange={(e) => setAlmacenamiento(e.target.value)}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem] truncate"
-          list="opciones-almacenamiento-alta"
+          opciones={OPCIONES_ALMACENAMIENTO}
+          placeholder="-"
         />
-        <CampoTexto
+        <CampoSelect
           etiqueta="Color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem]"
-          list="opciones-color-alta"
+          opciones={OPCIONES_COLOR}
+          placeholder="-"
         />
       </div>
-
-      <datalist id="opciones-ram-alta">
-        <option value="4 GB" />
-        <option value="6 GB" />
-        <option value="8 GB" />
-        <option value="12 GB" />
-        <option value="16 GB" />
-      </datalist>
-
-      <datalist id="opciones-almacenamiento-alta">
-        <option value="64 GB" />
-        <option value="128 GB" />
-        <option value="256 GB" />
-        <option value="512 GB" />
-        <option value="1 TB" />
-      </datalist>
-
-      <datalist id="opciones-color-alta">
-        <option value="Negro" />
-        <option value="Blanco" />
-        <option value="Azul" />
-        <option value="Plata" />
-        <option value="Dorado" />
-        <option value="Gris" />
-        <option value="Verde" />
-        <option value="Titanio" />
-      </datalist>
 
       <SelectorEquipo
         etiqueta="Lista blanca"
@@ -1287,66 +1259,30 @@ function FormularioEdicionEquipo({
         </div>
       </div>
 
-      {/* Fila simétrica con los 3 campos: RAM, Almacenamiento y Color */}
+      {/* Fila simétrica con los 3 desplegables: RAM, Almacenamiento y Color */}
       <div className="grid grid-cols-3 gap-2 w-full">
-        <CampoTexto
+        <CampoSelect
           etiqueta="RAM"
           value={ram}
           onChange={(e) => setRam(e.target.value)}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem]"
-          list="opciones-ram-equipo"
+          opciones={OPCIONES_RAM}
+          placeholder="-"
         />
-        <CampoTexto
+        <CampoSelect
           etiqueta="Almacenamiento"
           value={almacenamiento}
           onChange={(e) => setAlmacenamiento(e.target.value)}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem] truncate"
-          list="opciones-almacenamiento-equipo"
+          opciones={OPCIONES_ALMACENAMIENTO}
+          placeholder="-"
         />
-        <CampoTexto
+        <CampoSelect
           etiqueta="Color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem]"
-          list="opciones-color-equipo"
+          opciones={OPCIONES_COLOR}
+          placeholder="-"
         />
       </div>
-
-      <datalist id="opciones-ram-equipo">
-        <option value="4 GB" />
-        <option value="6 GB" />
-        <option value="8 GB" />
-        <option value="12 GB" />
-        <option value="16 GB" />
-      </datalist>
-
-      <datalist id="opciones-almacenamiento-equipo">
-        <option value="64 GB" />
-        <option value="128 GB" />
-        <option value="256 GB" />
-        <option value="512 GB" />
-        <option value="1 TB" />
-      </datalist>
-
-      <datalist id="opciones-color-equipo">
-        <option value="Negro" />
-        <option value="Blanco" />
-        <option value="Azul" />
-        <option value="Plata" />
-        <option value="Dorado" />
-        <option value="Gris" />
-        <option value="Verde" />
-        <option value="Titanio" />
-      </datalist>
 
       <SelectorEquipo
         etiqueta="Lista blanca"
@@ -1485,66 +1421,30 @@ function FormularioEdicionProducto({
         <CampoTexto etiqueta="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
       </div>
 
-      {/* Fila simétrica con los 3 campos: RAM, Almacenamiento y Color */}
+      {/* Fila simétrica con los 3 desplegables: RAM, Almacenamiento y Color */}
       <div className="grid grid-cols-3 gap-2 w-full">
-        <CampoTexto
+        <CampoSelect
           etiqueta="RAM"
           value={ram}
           onChange={(e) => actualizarVariante({ ram: e.target.value })}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem]"
-          list="opciones-ram-prod"
+          opciones={OPCIONES_RAM}
+          placeholder="-"
         />
-        <CampoTexto
+        <CampoSelect
           etiqueta="Almacenamiento"
           value={almacenamiento}
           onChange={(e) => actualizarVariante({ almacenamiento: e.target.value })}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem] truncate"
-          list="opciones-almacenamiento-prod"
+          opciones={OPCIONES_ALMACENAMIENTO}
+          placeholder="-"
         />
-        <CampoTexto
+        <CampoSelect
           etiqueta="Color"
           value={color}
           onChange={(e) => actualizarVariante({ color: e.target.value })}
-          autoComplete="off"
-          placeholder=""
-          claseInput="px-2 text-[0.9375rem] text-center"
-          claseEtiqueta="text-[0.8125rem]"
-          list="opciones-color-prod"
+          opciones={OPCIONES_COLOR}
+          placeholder="-"
         />
       </div>
-
-      <datalist id="opciones-ram-prod">
-        <option value="4 GB" />
-        <option value="6 GB" />
-        <option value="8 GB" />
-        <option value="12 GB" />
-        <option value="16 GB" />
-      </datalist>
-
-      <datalist id="opciones-almacenamiento-prod">
-        <option value="64 GB" />
-        <option value="128 GB" />
-        <option value="256 GB" />
-        <option value="512 GB" />
-        <option value="1 TB" />
-      </datalist>
-
-      <datalist id="opciones-color-prod">
-        <option value="Negro" />
-        <option value="Blanco" />
-        <option value="Azul" />
-        <option value="Plata" />
-        <option value="Dorado" />
-        <option value="Gris" />
-        <option value="Verde" />
-        <option value="Titanio" />
-      </datalist>
 
       <div className="grid grid-cols-2 gap-3">
         <CampoTexto etiqueta="Precio venta" value={venta} onChange={(e) => setVenta(e.target.value)} inputMode="decimal" sufijo="S/" />

@@ -1,24 +1,77 @@
+export const OPCIONES_RAM = ['1', '2', '3', '4', '6', '8', '12', '16', '18', '24', '32'] as const
+
+export const OPCIONES_ALMACENAMIENTO = [
+  '8',
+  '16',
+  '32',
+  '64',
+  '128',
+  '256',
+  '512',
+  '1024',
+  '2048',
+] as const
+
+export const OPCIONES_COLOR = [
+  'Negro',
+  'Blanco',
+  'Azul',
+  'Celeste',
+  'Plata',
+  'Dorado',
+  'Gris',
+  'Grafito',
+  'Titanio',
+  'Verde',
+  'Verde oliva',
+  'Verde menta',
+  'Rojo',
+  'Rosa',
+  'Rosado',
+  'Morado',
+  'Púrpura',
+  'Violeta',
+  'Lavanda',
+  'Amarillo',
+  'Naranja',
+  'Bronce',
+  'Marrón',
+  'Beige',
+  'Crema',
+  'Turquesa',
+  'Coral',
+  'Esmeralda',
+  'Zafiro',
+  'Transparente',
+] as const
+
 const COLORES: Record<string, string> = {
-  negro: 'Negro', blanco: 'Blanco', azul: 'Azul', plata: 'Plata', dorado: 'Dorado', gris: 'Gris', verde: 'Verde', titanio: 'Titanio',
+  plateado: 'Plata',
+  oro: 'Dorado',
+  cafe: 'Marrón',
+  café: 'Marrón',
+}
+for (const color of OPCIONES_COLOR) {
+  COLORES[color.toLowerCase()] = color
 }
 
 export function normalizarRam(valor: string): string {
   const limpio = valor.trim()
-  if (/^\d+$/.test(limpio)) return `${limpio} GB`
-  const coincidencia = limpio.match(/^(\d+)\s*gb$/i)
-  return coincidencia === null ? limpio : `${coincidencia[1] ?? ''} GB`
+  const coincidencia = limpio.match(/\d+/)
+  return coincidencia ? coincidencia[0] : limpio
 }
 
 export function normalizarAlmacenamiento(valor: string): string {
   const limpio = valor.trim()
-  if (/^\d+$/.test(limpio)) return Number(limpio) <= 2 ? `${limpio} TB` : `${limpio} GB`
-  const coincidencia = limpio.match(/^(\d+)\s*(gb|tb)$/i)
-  return coincidencia === null ? limpio : `${coincidencia[1] ?? ''} ${(coincidencia[2] ?? '').toUpperCase()}`
+  if (/^1\s*tb$/i.test(limpio)) return '1024'
+  if (/^2\s*tb$/i.test(limpio)) return '2048'
+  const coincidencia = limpio.match(/\d+/)
+  return coincidencia ? coincidencia[0] : limpio
 }
 
 export function normalizarColor(valor: string): string {
   const limpio = valor.trim()
-  return COLORES[limpio.toLocaleLowerCase('es')] ?? limpio
+  return COLORES[limpio.toLowerCase()] ?? (limpio.charAt(0).toUpperCase() + limpio.slice(1))
 }
 
 /** Reconoce una variante como un valor completo, no como parte de 128 GB. */

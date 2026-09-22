@@ -20,6 +20,11 @@ import { IconoUbicacion } from '../componentes/IconoUbicacion'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
 import type { ResultadoBusqueda } from '@compartido/tipos'
+import {
+  OPCIONES_ALMACENAMIENTO,
+  OPCIONES_COLOR,
+  OPCIONES_RAM,
+} from '@compartido/variantes'
 import { guardarBusquedas, guardarVistaBusqueda, leerBusquedas, leerVistaBusqueda, recordarBusqueda, type FiltroEquipoRapido, type PreferenciasVistaBusqueda } from '../lib/inventario'
 
 /** Espera antes de consultar. Corto para que se sienta inmediato. */
@@ -152,19 +157,10 @@ export function Buscar() {
 
         <section aria-label="Filtrar por variante" className="rounded-2xl border border-borde bg-superficie p-2.5">
           <div className="grid grid-cols-3 gap-2">
-            <FiltroVariante etiqueta="RAM" valor={ram} lista="opciones-ram-busqueda" onCambiar={(valor) => cambiarFiltro(setParametros, 'ram', valor || null)} />
-            <FiltroVariante etiqueta="Almacenamiento" valor={almacenamiento} lista="opciones-almacenamiento-busqueda" onCambiar={(valor) => cambiarFiltro(setParametros, 'almacenamiento', valor || null)} />
-            <FiltroVariante etiqueta="Color" valor={color} lista="opciones-color-busqueda" onCambiar={(valor) => cambiarFiltro(setParametros, 'color', valor || null)} />
+            <FiltroVariante etiqueta="RAM" valor={ram} opciones={OPCIONES_RAM} onCambiar={(valor) => cambiarFiltro(setParametros, 'ram', valor || null)} />
+            <FiltroVariante etiqueta="Almacenamiento" valor={almacenamiento} opciones={OPCIONES_ALMACENAMIENTO} onCambiar={(valor) => cambiarFiltro(setParametros, 'almacenamiento', valor || null)} />
+            <FiltroVariante etiqueta="Color" valor={color} opciones={OPCIONES_COLOR} onCambiar={(valor) => cambiarFiltro(setParametros, 'color', valor || null)} />
           </div>
-          <datalist id="opciones-ram-busqueda">
-            <option value="4 GB" /><option value="6 GB" /><option value="8 GB" /><option value="12 GB" /><option value="16 GB" />
-          </datalist>
-          <datalist id="opciones-almacenamiento-busqueda">
-            <option value="64 GB" /><option value="128 GB" /><option value="256 GB" /><option value="512 GB" /><option value="1 TB" />
-          </datalist>
-          <datalist id="opciones-color-busqueda">
-            <option value="Negro" /><option value="Blanco" /><option value="Azul" /><option value="Plata" /><option value="Dorado" /><option value="Gris" /><option value="Verde" /><option value="Titanio" />
-          </datalist>
         </section>
 
         <div className="grid grid-cols-4 gap-2" aria-label="Filtros rápidos de equipos">
@@ -237,20 +233,49 @@ export function Buscar() {
 
 function cambiarFiltro(setParametros: ReturnType<typeof useSearchParams>[1], clave: string, valor: string | null) { setParametros(previos => { const nuevos = new URLSearchParams(previos); if (valor === null) nuevos.delete(clave); else nuevos.set(clave, valor); return nuevos }, { replace: true }) }
 
-function FiltroVariante({ etiqueta, valor, lista, onCambiar }: { etiqueta: string; valor: string; lista: string; onCambiar: (valor: string) => void }) {
+function FiltroVariante({
+  etiqueta,
+  valor,
+  opciones,
+  onCambiar,
+}: {
+  etiqueta: string
+  valor: string
+  opciones: readonly string[]
+  onCambiar: (valor: string) => void
+}) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
       <span className="truncate px-0.5 text-[0.6875rem] font-semibold text-tinta-suave">{etiqueta}</span>
-      <input
-        type="search"
-        value={valor}
-        onChange={(evento) => onCambiar(evento.target.value)}
-        list={lista}
-        placeholder="Todos"
-        aria-label={`Filtrar por ${etiqueta}`}
-        autoComplete="off"
-        className="h-10 min-w-0 rounded-xl border border-borde bg-papel px-2 text-center text-[0.8125rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15"
-      />
+      <div className="relative flex items-center">
+        <select
+          value={valor}
+          onChange={(evento) => onCambiar(evento.target.value)}
+          aria-label={`Filtrar por ${etiqueta}`}
+          className="h-10 min-w-0 w-full appearance-none rounded-xl border border-borde bg-papel px-2 pr-6 text-center text-[0.8125rem] font-medium text-tinta cursor-pointer focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15"
+        >
+          <option value="">Todos</option>
+          {opciones.map((op) => (
+            <option key={op} value={op}>
+              {op}
+            </option>
+          ))}
+        </select>
+        <span className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center text-tinta-tenue select-none">
+          <svg
+            className="size-3.5 shrink-0"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m6 8 4 4 4-4" />
+          </svg>
+        </span>
+      </div>
     </label>
   )
 }

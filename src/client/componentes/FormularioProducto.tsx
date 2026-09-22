@@ -16,7 +16,7 @@ import { Camera, ImageUp, PackageCheck, Trash2 } from 'lucide-react'
 import type { Equipo, ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
-import { CampoTexto } from './Campo'
+import { CampoSelect, CampoTexto } from './Campo'
 import { CampoMarcaPredictivo } from './CampoMarcaPredictivo'
 import { ModalRecorteImagen } from './ModalRecorteImagen'
 import { ModalSelectorCodigos } from './ModalSelectorCodigos'
@@ -25,7 +25,15 @@ import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { avisarDeteccion } from '../lib/retroalimentacion'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
-import { nombreIncluyeVariante, normalizarAlmacenamiento, normalizarColor, normalizarRam } from '@compartido/variantes'
+import {
+  OPCIONES_ALMACENAMIENTO,
+  OPCIONES_COLOR,
+  OPCIONES_RAM,
+  nombreIncluyeVariante,
+  normalizarAlmacenamiento,
+  normalizarColor,
+  normalizarRam,
+} from '@compartido/variantes'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { leerCodigoDeFoto, leerTodosLosCodigosDeFoto, type CodigoDetectado } from '../escaner/lecturaCodigo'
 import { consultarEquipoPorImei, validarDuplicadosLocales, validarFormatoImei } from '../lib/validacionImei'
@@ -704,66 +712,30 @@ export function FormularioProducto({
               autoComplete="off"
             />
 
-            {/* Fila simétrica con los 3 campos: RAM, Almacenamiento y Color */}
+            {/* Fila simétrica con los 3 desplegables: RAM, Almacenamiento y Color */}
             <div className="grid grid-cols-3 gap-2 w-full">
-              <CampoTexto
+              <CampoSelect
                 etiqueta="RAM"
                 value={ram}
                 onChange={(e) => setRam(e.target.value)}
-                autoComplete="off"
-                placeholder=""
-                claseInput="px-2 text-[0.9375rem] text-center"
-                claseEtiqueta="text-[0.8125rem]"
-                list="opciones-ram"
+                opciones={OPCIONES_RAM}
+                placeholder="-"
               />
-              <CampoTexto
+              <CampoSelect
                 etiqueta="Almacenamiento"
                 value={almacenamiento}
                 onChange={(e) => setAlmacenamiento(e.target.value)}
-                autoComplete="off"
-                placeholder=""
-                claseInput="px-2 text-[0.9375rem] text-center"
-                claseEtiqueta="text-[0.8125rem] truncate"
-                list="opciones-almacenamiento"
+                opciones={OPCIONES_ALMACENAMIENTO}
+                placeholder="-"
               />
-              <CampoTexto
+              <CampoSelect
                 etiqueta="Color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                autoComplete="off"
-                placeholder=""
-                claseInput="px-2 text-[0.9375rem] text-center"
-                claseEtiqueta="text-[0.8125rem]"
-                list="opciones-color"
+                opciones={OPCIONES_COLOR}
+                placeholder="-"
               />
             </div>
-
-            <datalist id="opciones-ram">
-              <option value="4 GB" />
-              <option value="6 GB" />
-              <option value="8 GB" />
-              <option value="12 GB" />
-              <option value="16 GB" />
-            </datalist>
-
-            <datalist id="opciones-almacenamiento">
-              <option value="64 GB" />
-              <option value="128 GB" />
-              <option value="256 GB" />
-              <option value="512 GB" />
-              <option value="1 TB" />
-            </datalist>
-
-            <datalist id="opciones-color">
-              <option value="Negro" />
-              <option value="Blanco" />
-              <option value="Azul" />
-              <option value="Plata" />
-              <option value="Dorado" />
-              <option value="Gris" />
-              <option value="Verde" />
-              <option value="Titanio" />
-            </datalist>
 
             <CampoMarcaPredictivo
               value={marca}
