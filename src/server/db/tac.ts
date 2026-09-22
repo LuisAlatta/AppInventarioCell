@@ -124,8 +124,6 @@ const TAC_RESPALDO: Record<string, { brand: string; model: string }> = {
   '35763410': { brand: 'Samsung', model: 'Galaxy A05s' },
   '35293211': { brand: 'Samsung', model: 'Galaxy Z Flip 5' },
   '35298111': { brand: 'Samsung', model: 'Galaxy Z Fold 5' },
-  '35293311': { brand: 'Samsung', model: 'Galaxy Z Flip 6' },
-  '35298211': { brand: 'Samsung', model: 'Galaxy Z Fold 6' },
 
   // Xiaomi / Redmi / Poco
   '86302407': { brand: 'Xiaomi', model: 'Redmi Note 14S' },
