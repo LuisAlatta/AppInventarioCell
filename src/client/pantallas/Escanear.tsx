@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Camera } from 'lucide-react'
+import { Camera, ImageUp } from 'lucide-react'
 import { FormularioProducto, type CampoEscaneable } from '../componentes/FormularioProducto'
 import { HojaInferior } from '../componentes/HojaInferior'
 import { IconoUbicacion } from '../componentes/IconoUbicacion'
@@ -13,6 +13,7 @@ import { useUbicacion } from '../contexto/Ubicacion'
 import { VistaCamara } from '../escaner/VistaCamara'
 import { useEscaner } from '../escaner/useEscaner'
 import { avisarLectura } from '../lib/retroalimentacion'
+import { destinoCapturaDeImagen, type FuenteCaptura } from '../lib/capturaImei'
 
 function nombreCampo(campo: CampoEscaneable): string {
   if (campo === 'codigo') return 'código del equipo'
@@ -44,6 +45,8 @@ export function Escanear() {
     return almacen?.id ?? activa?.id ?? ubicaciones.find((u) => u.activa)?.id ?? ''
   })
   const [campo, setCampo] = useState<CampoEscaneable | null>(null)
+  const [campoParaElegirFoto, setCampoParaElegirFoto] = useState<CampoEscaneable | null>(null)
+  const [campoParaGaleria, setCampoParaGaleria] = useState<CampoEscaneable | null>(null)
   const [lectura, setLectura] = useState<{ campo: CampoEscaneable; valor: string } | null>(null)
   const [fotoParaRecortar, setFotoParaRecortar] = useState<{
     campo: CampoEscaneable
@@ -88,6 +91,15 @@ export function Escanear() {
     return undefined
   }, [campo, escaner.iniciar, escaner.detener])
 
+  const elegirFuenteFoto = (fuente: FuenteCaptura): void => {
+    if (campoParaElegirFoto === null) return
+    const destino = destinoCapturaDeImagen(campoParaElegirFoto, fuente)
+    setCampo(destino.campoCamara)
+    setCampoParaGaleria(destino.campoGaleria)
+    setCampoParaElegirFoto(null)
+    if (fuente === 'galeria') refGaleria.current?.click()
+  }
+
   return (
     <Marco titulo="Registrar" claseMain="pb-28 flex flex-col min-h-0">
       <div className="flex flex-1 flex-col justify-between gap-2.5 min-h-0">
@@ -124,7 +136,7 @@ export function Escanear() {
           onCambiarUbicacion={setUbicacionDestinoId}
           lectura={lectura}
           fotoParaRecortar={fotoParaRecortar}
-          onEscanear={setCampo}
+          onEscanear={setCampoParaElegirFoto}
           onCancelar={() => navegar(-1)}
           onCreado={(producto, ubicacionNombre) => {
             void cliente.invalidateQueries({ queryKey: ['inicio'] })
@@ -145,13 +157,39 @@ export function Escanear() {
         className="sr-only"
         onChange={(evento) => {
           const archivo = evento.target.files?.[0]
-          if (archivo !== undefined && campo !== null) {
-            setFotoParaRecortar({ campo, archivo })
-            setCampo(null)
+          if (archivo !== undefined && campoParaGaleria !== null) {
+            setFotoParaRecortar({ campo: campoParaGaleria, archivo })
+            setCampoParaGaleria(null)
           }
           evento.target.value = ''
         }}
       />
+
+      <HojaInferior
+        abierta={campoParaElegirFoto !== null}
+        onCerrar={() => setCampoParaElegirFoto(null)}
+        titulo={campoParaElegirFoto === null ? 'Añadir foto' : `Añadir foto a ${nombreCampo(campoParaElegirFoto)}`}
+      >
+        <div className="flex flex-col gap-2.5 pb-2">
+          <p className="px-1 text-[0.875rem] text-tinta-suave">Elige de dónde quieres obtener la imagen del código.</p>
+          <button
+            type="button"
+            onClick={() => elegirFuenteFoto('camara')}
+            className="flex min-h-16 items-center gap-3 rounded-2xl border border-accion/30 bg-accion-tenue px-4 text-left text-accion transition active:scale-[0.98]"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accion text-white"><Camera aria-hidden="true" className="size-5" strokeWidth={2.2} /></span>
+            <span><span className="block font-semibold">Tomar foto</span><span className="block text-[0.75rem] text-tinta-suave">Abrir la cámara para fotografiar el IMEI.</span></span>
+          </button>
+          <button
+            type="button"
+            onClick={() => elegirFuenteFoto('galeria')}
+            className="flex min-h-16 items-center gap-3 rounded-2xl border border-borde bg-superficie px-4 text-left transition active:scale-[0.98] active:bg-papel-hundido"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-papel-hundido text-tinta"><ImageUp aria-hidden="true" className="size-5" strokeWidth={2.2} /></span>
+            <span><span className="block font-semibold">Subir foto</span><span className="block text-[0.75rem] text-tinta-suave">Elegir una imagen que ya tienes en la galería.</span></span>
+          </button>
+        </div>
+      </HojaInferior>
 
       <HojaInferior abierta={campo !== null} onCerrar={() => setCampo(null)} titulo={campo === null ? 'Escanear' : `Escanear ${nombreCampo(campo)}`}>
         <div className="-mx-5 flex h-[82vh] flex-col overflow-hidden bg-tinta">

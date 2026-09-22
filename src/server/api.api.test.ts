@@ -629,6 +629,21 @@ describe('busqueda', () => {
     expect(await buscar('7501234567890')).toEqual(['Audifonos Bluetooth'])
   })
 
+  test('encuentra una variante aunque la capacidad se escriba con espacio', async () => {
+    const alta = await conSesion(cookie, '/api/productos', {
+      metodo: 'POST',
+      cuerpo: {
+        codigo: '7508888888888',
+        nombre: 'Galaxy A55 8GB 256GB Azul',
+        marca: 'Samsung',
+      },
+    })
+    expect(alta.status).toBe(201)
+
+    expect(await buscar('Galaxy A55 8 GB 256 GB Azul'))
+      .toContain('Galaxy A55 8GB 256GB Azul')
+  })
+
   test('no devuelve nada ante algo sin relacion', async () => {
     expect(await buscar('refrigerador industrial')).toEqual([])
   })
@@ -1699,4 +1714,3 @@ describe('edición y eliminación de equipos individuales y productos', () => {
     expect(resGet.status).toBe(404)
   })
 })
-

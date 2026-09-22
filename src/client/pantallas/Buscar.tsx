@@ -20,6 +20,7 @@ import { IconoUbicacion } from '../componentes/IconoUbicacion'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
 import type { ResultadoBusqueda } from '@compartido/tipos'
+import { construirConsultaBusqueda } from '../lib/busquedaVariantes'
 import { guardarBusquedas, guardarVistaBusqueda, leerBusquedas, leerVistaBusqueda, recordarBusqueda, type FiltroEquipoRapido, type PreferenciasVistaBusqueda } from '../lib/inventario'
 
 /** Espera antes de consultar. Corto para que se sienta inmediato. */
@@ -35,6 +36,9 @@ export function Buscar() {
   const valorCondicion = parametros.get('condicion')
   const condicion: 'new' | 'used' | undefined = valorCondicion === 'new' || valorCondicion === 'used' ? valorCondicion : undefined
   const vendidos = parametros.get('vendidos') === '1'
+  const ram = parametros.get('ram') ?? ''
+  const almacenamiento = parametros.get('almacenamiento') ?? ''
+  const color = parametros.get('color') ?? ''
   const ubicacionElegida = ubicaciones.find((ubicacion) => ubicacion.id === parametros.get('ubicacion')) ?? activa
   // Al abrir Vendidos se revisa todo el historial. Si luego se toca un local,
   // se limita a las ventas registradas desde ese local.
@@ -49,6 +53,7 @@ export function Buscar() {
   const [texto, setTexto] = useState(q)
   const [consulta, setConsulta] = useState(q)
   const refCampo = useRef<HTMLInputElement | null>(null)
+  const consultaConVariantes = construirConsultaBusqueda(consulta, ram, almacenamiento, color)
 
   // El teclado se abre solo: quien entra a "Buscar" viene a escribir.
   useEffect(() => {
@@ -70,15 +75,15 @@ export function Buscar() {
   }, [texto, q, setParametros])
 
   const resultados = useQuery({
-    queryKey: ['buscar', consulta, ubicacionIdFiltro, filtroStock, listaBlanca, condicion, vendidos],
-    queryFn: ({ signal }) => api.buscar(consulta, signal, { ubicacionId: ubicacionIdFiltro, filtro: filtroStock, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined, vendidos }),
+    queryKey: ['buscar', consultaConVariantes, ubicacionIdFiltro, filtroStock, listaBlanca, condicion, vendidos],
+    queryFn: ({ signal }) => api.buscar(consultaConVariantes, signal, { ubicacionId: ubicacionIdFiltro, filtro: filtroStock, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined, vendidos }),
     // Conserva la lista anterior mientras llega la nueva, para que no parpadee.
     placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === ubicacionIdFiltro && anterior.queryKey[3] === filtroStock && anterior.queryKey[4] === listaBlanca && anterior.queryKey[5] === condicion && anterior.queryKey[6] === vendidos ? keepPreviousData(previas) : undefined,
   })
 
   const productos = resultados.data?.productos ?? []
-  const buscando = consulta.trim().length > 0
-  const hayFiltros = listaBlanca !== undefined || condicion !== undefined || vendidos
+  const buscando = consultaConVariantes.length > 0
+  const hayFiltros = listaBlanca !== undefined || condicion !== undefined || vendidos || ram !== '' || almacenamiento !== '' || color !== ''
   const etiquetaResultados = resultados.isFetching || texto !== consulta ? 'Buscando…' : resultados.isSuccess ? `${productos.length}${productos.length === 50 ? ' primeros' : ''} resultados` : ''
   const usarFiltro = (filtroRapido: FiltroEquipoRapido): void => {
     if (filtroRapido === 'registered' || filtroRapido === 'not_registered') {
@@ -115,7 +120,7 @@ export function Buscar() {
               }
             }}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Nombre, marca o código"
+            placeholder="Modelo, marca o código"
             aria-label="Buscar productos"
             enterKeyHint="search"
             autoComplete="off"
@@ -146,6 +151,23 @@ export function Buscar() {
             </button>
           )}
         </div>
+
+        <section aria-label="Filtrar por variante" className="rounded-2xl border border-borde bg-superficie p-2.5">
+          <div className="grid grid-cols-3 gap-2">
+            <FiltroVariante etiqueta="RAM" valor={ram} lista="opciones-ram-busqueda" onCambiar={(valor) => cambiarFiltro(setParametros, 'ram', valor || null)} />
+            <FiltroVariante etiqueta="Almacenamiento" valor={almacenamiento} lista="opciones-almacenamiento-busqueda" onCambiar={(valor) => cambiarFiltro(setParametros, 'almacenamiento', valor || null)} />
+            <FiltroVariante etiqueta="Color" valor={color} lista="opciones-color-busqueda" onCambiar={(valor) => cambiarFiltro(setParametros, 'color', valor || null)} />
+          </div>
+          <datalist id="opciones-ram-busqueda">
+            <option value="4 GB" /><option value="6 GB" /><option value="8 GB" /><option value="12 GB" /><option value="16 GB" />
+          </datalist>
+          <datalist id="opciones-almacenamiento-busqueda">
+            <option value="64 GB" /><option value="128 GB" /><option value="256 GB" /><option value="512 GB" /><option value="1 TB" />
+          </datalist>
+          <datalist id="opciones-color-busqueda">
+            <option value="Negro" /><option value="Blanco" /><option value="Azul" /><option value="Plata" /><option value="Dorado" /><option value="Gris" /><option value="Verde" /><option value="Titanio" />
+          </datalist>
+        </section>
 
         <div className="grid grid-cols-4 gap-2" aria-label="Filtros rápidos de equipos">
           {FILTROS_EQUIPO.map((filtroRapido) => <FiltroRapido key={filtroRapido} activo={filtroRapido === listaBlanca || filtroRapido === condicion} texto={NOMBRE_FILTRO[filtroRapido]} icono={ICONO_FILTRO[filtroRapido]} onClick={() => usarFiltro(filtroRapido)} tono={TONO_FILTRO[filtroRapido]} />)}
@@ -216,6 +238,24 @@ export function Buscar() {
 }
 
 function cambiarFiltro(setParametros: ReturnType<typeof useSearchParams>[1], clave: string, valor: string | null) { setParametros(previos => { const nuevos = new URLSearchParams(previos); if (valor === null) nuevos.delete(clave); else nuevos.set(clave, valor); return nuevos }, { replace: true }) }
+
+function FiltroVariante({ etiqueta, valor, lista, onCambiar }: { etiqueta: string; valor: string; lista: string; onCambiar: (valor: string) => void }) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="truncate px-0.5 text-[0.6875rem] font-semibold text-tinta-suave">{etiqueta}</span>
+      <input
+        type="search"
+        value={valor}
+        onChange={(evento) => onCambiar(evento.target.value)}
+        list={lista}
+        placeholder="Todos"
+        aria-label={`Filtrar por ${etiqueta}`}
+        autoComplete="off"
+        className="h-10 min-w-0 rounded-xl border border-borde bg-papel px-2 text-center text-[0.8125rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:outline-none focus:ring-2 focus:ring-accion/15"
+      />
+    </label>
+  )
+}
 
 function abrirProducto(id: string, ubicacionId: string | undefined, _esHistorico: boolean, pendiente: boolean, texto: string, consulta: string, recientes: string[], navegar: ReturnType<typeof useNavigate>, setRecientes: (v: string[]) => void) {
   if (pendiente || texto !== consulta) return
