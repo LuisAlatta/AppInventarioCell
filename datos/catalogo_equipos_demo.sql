@@ -51,6 +51,18 @@ SELECT
   'Equipo de demostración con IMEI y estado de lista blanca.'
 FROM modelos;
 
+-- Este catálogo se puede cargar después de las migraciones; conservar sus
+-- variantes independientes permite probar los filtros de búsqueda.
+UPDATE products
+SET storage = CASE
+  WHEN lower(name) LIKE '% 512 gb%' THEN '512 GB'
+  WHEN lower(name) LIKE '% 256 gb%' THEN '256 GB'
+  WHEN lower(name) LIKE '% 128 gb%' THEN '128 GB'
+  WHEN lower(name) LIKE '% 64 gb%' THEN '64 GB'
+  ELSE NULL
+END
+WHERE id LIKE 'prod_demo_%' AND storage IS NULL;
+
 WITH modelos(posicion) AS (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15),(16),(17),(18),(19),(20)),
 combinaciones(posicion, lista_blanca, condicion) AS (
   VALUES (1, 'registered', 'new'), (2, 'registered', 'used'),

@@ -630,18 +630,65 @@ describe('busqueda', () => {
   })
 
   test('encuentra una variante aunque la capacidad se escriba con espacio', async () => {
-    const alta = await conSesion(cookie, '/api/productos', {
+    const altaAzul = await conSesion(cookie, '/api/productos', {
       metodo: 'POST',
       cuerpo: {
         codigo: '7508888888888',
         nombre: 'Galaxy A55 8GB 256GB Azul',
         marca: 'Samsung',
+        ram: '8 GB',
+        almacenamiento: '256 GB',
+        color: 'Azul',
       },
     })
-    expect(alta.status).toBe(201)
+    const altaNegro = await conSesion(cookie, '/api/productos', {
+      metodo: 'POST',
+      cuerpo: {
+        codigo: '7507777777777',
+        nombre: 'Galaxy A55 12GB 256GB Negro',
+        marca: 'Samsung',
+        ram: '12 GB',
+        almacenamiento: '256 GB',
+        color: 'Negro',
+      },
+    })
+    const altaAlmacenamiento = await conSesion(cookie, '/api/productos', {
+      metodo: 'POST',
+      cuerpo: {
+        codigo: '7506666666666',
+        nombre: 'Galaxy A55 128GB Azul',
+        marca: 'Samsung',
+        almacenamiento: '128 GB',
+        color: 'Azul',
+      },
+    })
+    expect(altaAzul.status).toBe(201)
+    expect(altaNegro.status).toBe(201)
+    expect(altaAlmacenamiento.status).toBe(201)
 
-    expect(await buscar('Galaxy A55 8 GB 256 GB Azul'))
-      .toContain('Galaxy A55 8GB 256GB Azul')
+    const parametros = new URLSearchParams({
+      q: 'Galaxy A55',
+      ram: '8 GB',
+      almacenamiento: '256 GB',
+      color: 'Azul',
+    })
+    const { productos } = await json<{ productos: { nombre: string }[] }>(
+      await conSesion(cookie, `/api/productos?${parametros}`),
+    )
+
+    expect(productos.map((producto) => producto.nombre)).toEqual(['Galaxy A55 8GB 256GB Azul'])
+
+    const soloRam = new URLSearchParams({ q: 'Galaxy A55', ram: '8 GB' })
+    const resultadoRam = await json<{ productos: { nombre: string }[] }>(
+      await conSesion(cookie, `/api/productos?${soloRam}`),
+    )
+    expect(resultadoRam.productos.map((producto) => producto.nombre)).toEqual(['Galaxy A55 8GB 256GB Azul'])
+
+    const formatoFlexible = new URLSearchParams({ q: 'Galaxy A55', ram: '8GB', color: 'azul' })
+    const resultadoFlexible = await json<{ productos: { nombre: string }[] }>(
+      await conSesion(cookie, `/api/productos?${formatoFlexible}`),
+    )
+    expect(resultadoFlexible.productos.map((producto) => producto.nombre)).toEqual(['Galaxy A55 8GB 256GB Azul'])
   })
 
   test('no devuelve nada ante algo sin relacion', async () => {

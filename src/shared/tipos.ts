@@ -58,6 +58,9 @@ export interface Producto {
   nombre: string
   marca: string | null
   modelo: string | null
+  ram?: string | null
+  almacenamiento?: string | null
+  color?: string | null
   categoriaId: string | null
   categoriaNombre: string | null
   unidad: string

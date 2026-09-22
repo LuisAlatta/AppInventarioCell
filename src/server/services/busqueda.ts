@@ -29,18 +29,43 @@ import {
 const RESULTADOS_SUFICIENTES = 3
 
 const COLUMNAS = `
-  p.id, p.barcode, p.name, p.brand, p.model, p.category_id,
+  p.id, p.barcode, p.name, p.brand, p.model, p.ram, p.storage, p.color, p.category_id,
   c.name AS category_name,
   p.unit, p.cost_price, p.sale_price, p.image_key, p.min_stock, p.notes, p.is_active
 `
 
 const DESDE = 'FROM products p LEFT JOIN categories c ON c.id = p.category_id'
 
+export interface FiltroBusqueda extends FiltroInventario {
+  ram?: string | undefined
+  almacenamiento?: string | undefined
+  color?: string | undefined
+}
+
+/** Cada variante es una columna indexada: no se confunde 8 GB con 128 GB. */
+function condicionVariantes(opciones: FiltroBusqueda) {
+  const condiciones: string[] = []
+  const valores: string[] = []
+  const agregar = (condicion: string, valor: string | undefined): void => {
+    if (valor === undefined || valor.trim() === '') return
+    condiciones.push(condicion)
+    valores.push(valor.trim())
+  }
+  agregar('p.ram = ?', opciones.ram)
+  agregar('p.storage = ?', opciones.almacenamiento)
+  agregar('p.color = ? COLLATE NOCASE', opciones.color)
+
+  return {
+    sql: condiciones.length === 0 ? '1 = 1' : condiciones.join(' AND '),
+    valores,
+  }
+}
+
 /** Cuenta las unidades físicas que realmente hicieron aparecer cada modelo. */
 async function conConteoEquiposCoincidentes(
   db: D1Database,
   resultados: ResultadoBusqueda[],
-  opciones: FiltroInventario,
+  opciones: FiltroBusqueda,
 ): Promise<ResultadoBusqueda[]> {
   if (resultados.length === 0 || (opciones.listaBlanca === undefined && opciones.condicion === undefined && !opciones.vendidos)) {
     return resultados
@@ -107,9 +132,10 @@ async function porPrefijo(
   db: D1Database,
   consulta: string,
   limite: number,
-  opciones: FiltroInventario,
+  opciones: FiltroBusqueda,
 ): Promise<ProductoConStock[]> {
   const filtro = condicionStock(opciones)
+  const variantes = condicionVariantes(opciones)
   const expresion = consultaPrefijo(consulta)
   if (expresion === '') return []
 
@@ -118,11 +144,11 @@ async function porPrefijo(
       `SELECT ${COLUMNAS}
        ${DESDE}
        JOIN products_fts f ON f.product_id = p.id
-       WHERE products_fts MATCH ? AND p.is_active = 1 AND ${filtro.sql}
+       WHERE products_fts MATCH ? AND p.is_active = 1 AND ${filtro.sql} AND ${variantes.sql}
        ORDER BY rank
        LIMIT ?`,
     )
-    .bind(expresion, ...filtro.valores, limite)
+    .bind(expresion, ...filtro.valores, ...variantes.valores, limite)
     .all<FilaProducto>()
 
   return conStock(db, results.map(aProducto))
@@ -140,9 +166,10 @@ async function porAproximacion(
   consulta: string,
   limite: number,
   yaVistos: ReadonlySet<string>,
-  opciones: FiltroInventario,
+  opciones: FiltroBusqueda,
 ): Promise<ProductoConStock[]> {
   const filtro = condicionStock(opciones)
+  const variantes = condicionVariantes(opciones)
   const trigramas = generarTrigramas(consulta)
   if (trigramas.length === 0) return []
 
@@ -151,12 +178,12 @@ async function porAproximacion(
       `SELECT ${COLUMNAS}
        ${DESDE}
        JOIN products_trg t ON t.product_id = p.id
-       WHERE products_trg MATCH ? AND p.is_active = 1 AND ${filtro.sql}
+       WHERE products_trg MATCH ? AND p.is_active = 1 AND ${filtro.sql} AND ${variantes.sql}
        LIMIT ?`,
     )
     // Se piden mas candidatos de los que se van a devolver porque muchos
     // caeran debajo del umbral al puntuarlos.
-    .bind(consultaFts5(trigramas), ...filtro.valores, limite * 5)
+    .bind(consultaFts5(trigramas), ...filtro.valores, ...variantes.valores, limite * 5)
     .all<FilaProducto>()
 
   const puntuados = results
@@ -180,16 +207,17 @@ async function porAproximacion(
 }
 
 /** Los mas recientes, para cuando el buscador esta vacio. */
-async function recientes(db: D1Database, limite: number, opciones: FiltroInventario): Promise<ProductoConStock[]> {
+async function recientes(db: D1Database, limite: number, opciones: FiltroBusqueda): Promise<ProductoConStock[]> {
   const filtro = condicionStock(opciones)
+  const variantes = condicionVariantes(opciones)
   const { results } = await db
     .prepare(
       `SELECT ${COLUMNAS} ${DESDE}
-       WHERE p.is_active = 1 AND ${filtro.sql}
+       WHERE p.is_active = 1 AND ${filtro.sql} AND ${variantes.sql}
        ORDER BY p.updated_at DESC, p.id
        LIMIT ?`,
     )
-    .bind(...filtro.valores, limite)
+    .bind(...filtro.valores, ...variantes.valores, limite)
     .all<FilaProducto>()
 
   return conStock(db, results.map(aProducto))
@@ -199,7 +227,7 @@ export async function buscarProductos(
   db: D1Database,
   consulta: string,
   limite: number,
-  opciones: FiltroInventario = {},
+  opciones: FiltroBusqueda = {},
 ): Promise<ResultadoBusqueda[]> {
   const texto = consulta.trim()
 
@@ -211,8 +239,9 @@ export async function buscarProductos(
     const producto = await buscarPorCodigo(db, texto)
     if (producto !== null) {
       const filtro = condicionStock(opciones)
-      const permitido = await db.prepare(`SELECT p.id FROM products p WHERE p.id = ? AND p.is_active = 1 AND ${filtro.sql}`)
-        .bind(producto.id, ...filtro.valores).first()
+      const variantes = condicionVariantes(opciones)
+      const permitido = await db.prepare(`SELECT p.id FROM products p WHERE p.id = ? AND p.is_active = 1 AND ${filtro.sql} AND ${variantes.sql}`)
+        .bind(producto.id, ...filtro.valores, ...variantes.valores).first()
       if (permitido === null) return []
       const [conjunto] = await conStock(db, [producto])
       if (conjunto !== undefined) return conConteoEquiposCoincidentes(db, [{ ...conjunto, coincidencia: 'codigo' }], opciones)

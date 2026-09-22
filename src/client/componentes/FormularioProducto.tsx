@@ -25,6 +25,7 @@ import { useAvisos } from '../contexto/Avisos'
 import { liberarVista, prepararFoto } from '../lib/imagen'
 import { avisarDeteccion } from '../lib/retroalimentacion'
 import { registrarEquiposConRecuperacion, resolverProductoGuardado } from '../lib/registro'
+import { nombreIncluyeVariante, normalizarAlmacenamiento, normalizarColor, normalizarRam } from '@compartido/variantes'
 import { useUbicacion } from '../contexto/Ubicacion'
 import { leerCodigoDeFoto, leerTodosLosCodigosDeFoto, type CodigoDetectado } from '../escaner/lecturaCodigo'
 import { consultarEquipoPorImei, validarDuplicadosLocales, validarFormatoImei } from '../lib/validacionImei'
@@ -455,24 +456,6 @@ export function FormularioProducto({
     return Number.isFinite(valor) && valor >= 0 ? valor : 0
   }
 
-  const formatearAlmacenamiento = (val: string): string => {
-    const v = val.trim()
-    if (/^\d+$/.test(v)) {
-      const num = Number(v)
-      if (num <= 2) return `${num}TB`
-      return `${num}GB`
-    }
-    return v
-  }
-
-  const formatearRam = (val: string): string => {
-    const v = val.trim()
-    if (/^\d+$/.test(v)) {
-      return `${v}GB`
-    }
-    return v
-  }
-
   const guardar = async (): Promise<void> => {
     const imei1Limpio = (equipos[0]?.imei1 ?? '').trim()
     if (imei1Limpio.length === 0) {
@@ -550,20 +533,19 @@ export function FormularioProducto({
         // Continuar si falla la obtención o creación de categoría
       }
 
+      const ramFinal = ram.trim() === '' ? null : normalizarRam(ram)
+      const almacenamientoFinal = almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
+      const colorFinal = color.trim() === '' ? null : normalizarColor(color)
       const partesNombre = [nombre.trim()]
-      const nombreLower = nombre.toLowerCase()
 
-      if (ram.trim()) {
-        const r = formatearRam(ram.trim())
-        if (!nombreLower.includes(r.toLowerCase())) partesNombre.push(r)
+      if (ramFinal !== null) {
+        if (!nombreIncluyeVariante(nombre, ramFinal)) partesNombre.push(ramFinal)
       }
-      if (almacenamiento.trim()) {
-        const a = formatearAlmacenamiento(almacenamiento.trim())
-        if (!nombreLower.includes(a.toLowerCase())) partesNombre.push(a)
+      if (almacenamientoFinal !== null) {
+        if (!nombreIncluyeVariante(nombre, almacenamientoFinal)) partesNombre.push(almacenamientoFinal)
       }
-      if (color.trim()) {
-        const c = color.trim()
-        if (!nombreLower.includes(c.toLowerCase())) partesNombre.push(c)
+      if (colorFinal !== null) {
+        if (!nombreIncluyeVariante(nombre, colorFinal)) partesNombre.push(colorFinal)
       }
       const nombreFinal = partesNombre.filter(Boolean).join(' ')
 
@@ -573,6 +555,9 @@ export function FormularioProducto({
           nombre: nombreFinal,
           marca: marca.trim() === '' ? null : marca.trim(),
           modelo: nombre.trim() === '' ? null : nombre.trim(),
+          ram: ramFinal,
+          almacenamiento: almacenamientoFinal,
+          color: colorFinal,
           categoriaId: catCelularesId,
           precioVenta: aNumero(precioVenta),
           precioCosto: aNumero(precioCosto),
@@ -754,19 +739,19 @@ export function FormularioProducto({
             </div>
 
             <datalist id="opciones-ram">
-              <option value="4GB" />
-              <option value="6GB" />
-              <option value="8GB" />
-              <option value="12GB" />
-              <option value="16GB" />
+              <option value="4 GB" />
+              <option value="6 GB" />
+              <option value="8 GB" />
+              <option value="12 GB" />
+              <option value="16 GB" />
             </datalist>
 
             <datalist id="opciones-almacenamiento">
-              <option value="64GB" />
-              <option value="128GB" />
-              <option value="256GB" />
-              <option value="512GB" />
-              <option value="1TB" />
+              <option value="64 GB" />
+              <option value="128 GB" />
+              <option value="256 GB" />
+              <option value="512 GB" />
+              <option value="1 TB" />
             </datalist>
 
             <datalist id="opciones-color">

@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod'
+import { normalizarAlmacenamiento, normalizarColor, normalizarRam } from './variantes'
 
 /** Código de barras de fábrica o identificador: sin restricción de caracteres, hasta 50 de longitud. */
 export const esquemaCodigo = z
@@ -96,6 +97,9 @@ export const esquemaProducto = z.object({
   nombre: textoCorto.min(1, 'Ponle un nombre al producto'),
   marca: textoCorto.nullish(),
   modelo: textoCorto.nullish(),
+  ram: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarRam(valor)),
+  almacenamiento: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarAlmacenamiento(valor)),
+  color: textoCorto.nullish().transform((valor) => valor === null || valor === undefined ? valor : normalizarColor(valor)),
   categoriaId: id.nullish(),
   unidad: textoCorto.default('pza'),
   precioCosto: dinero.default(0),
@@ -267,6 +271,9 @@ export const esquemaCerrarConteo = z.object({
 
 export const esquemaBusqueda = z.object({
   q: z.string().trim().max(120).default(''),
+  ram: textoCorto.optional().transform((valor) => valor === undefined ? valor : normalizarRam(valor)),
+  almacenamiento: textoCorto.optional().transform((valor) => valor === undefined ? valor : normalizarAlmacenamiento(valor)),
+  color: textoCorto.optional().transform((valor) => valor === undefined ? valor : normalizarColor(valor)),
   ubicacionId: id.optional(),
   filtro: z.enum(['todos', 'disponibles', 'agotados', 'bajo']).default('todos'),
   listaBlanca: z.enum(['registered', 'not_registered']).optional(),

@@ -47,6 +47,9 @@ export interface FilaProducto {
   name: string
   brand: string | null
   model: string | null
+  ram: string | null
+  storage: string | null
+  color: string | null
   category_id: string | null
   category_name: string | null
   unit: string
@@ -130,6 +133,9 @@ export function aProducto(f: FilaProducto): Producto {
     nombre: f.name,
     marca: f.brand,
     modelo: f.model,
+    ram: f.ram,
+    almacenamiento: f.storage,
+    color: f.color,
     categoriaId: f.category_id,
     categoriaNombre: f.category_name,
     unidad: f.unit,

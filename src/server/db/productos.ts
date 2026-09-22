@@ -13,7 +13,7 @@ import { sentenciaGuardarMarca } from './marcas'
 import { resultadoOperacion, sentenciaGuardarOperacion } from './operaciones'
 
 const COLUMNAS = `
-  p.id, p.barcode, p.name, p.brand, p.model, p.category_id,
+  p.id, p.barcode, p.name, p.brand, p.model, p.ram, p.storage, p.color, p.category_id,
   c.name AS category_name,
   p.unit, p.cost_price, p.sale_price, p.image_key, p.min_stock, p.notes, p.is_active
 `
@@ -122,9 +122,9 @@ export async function crearProducto(
   const producto = db
     .prepare(
       `INSERT INTO products
-         (id, barcode, name, brand, model, category_id, unit,
+         (id, barcode, name, brand, model, ram, storage, color, category_id, unit,
           cost_price, sale_price, min_stock, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -132,6 +132,9 @@ export async function crearProducto(
       datos.nombre,
       datos.marca ?? null,
       datos.modelo ?? null,
+      datos.ram ?? null,
+      datos.almacenamiento ?? null,
+      datos.color ?? null,
       datos.categoriaId ?? null,
       datos.unidad,
       datos.precioCosto,
@@ -165,6 +168,9 @@ export async function actualizarProducto(
   if (datos.nombre !== undefined) agregar('name', datos.nombre)
   if (datos.marca !== undefined) agregar('brand', datos.marca ?? null)
   if (datos.modelo !== undefined) agregar('model', datos.modelo ?? null)
+  if (datos.ram !== undefined) agregar('ram', datos.ram ?? null)
+  if (datos.almacenamiento !== undefined) agregar('storage', datos.almacenamiento ?? null)
+  if (datos.color !== undefined) agregar('color', datos.color ?? null)
   if (datos.categoriaId !== undefined) agregar('category_id', datos.categoriaId ?? null)
   if (datos.unidad !== undefined) agregar('unit', datos.unidad)
   if (datos.precioCosto !== undefined) agregar('cost_price', datos.precioCosto)

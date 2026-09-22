@@ -143,9 +143,9 @@ rutasCatalogo.get('/tac/:tac', async (c) => {
  * Busqueda de productos. Es la ruta mas usada de la aplicacion.
  */
 rutasCatalogo.get('/productos', validador('query', esquemaBusqueda), async (c) => {
-  const { q, limite, ubicacionId, filtro, listaBlanca, condicion, vendidos } = c.req.valid('query')
+  const { q, ram, almacenamiento, color, limite, ubicacionId, filtro, listaBlanca, condicion, vendidos } = c.req.valid('query')
   if (ubicacionId) await exigirUbicacion(c.env.DB, ubicacionId)
-  return c.json({ productos: await buscarProductos(c.env.DB, q, limite, { ubicacionId, filtro, listaBlanca, condicion, vendidos: vendidos === '1' }) })
+  return c.json({ productos: await buscarProductos(c.env.DB, q, limite, { ram, almacenamiento, color, ubicacionId, filtro, listaBlanca, condicion, vendidos: vendidos === '1' }) })
 })
 
 /**

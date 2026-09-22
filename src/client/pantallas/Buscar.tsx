@@ -20,7 +20,6 @@ import { IconoUbicacion } from '../componentes/IconoUbicacion'
 import { Marco } from '../componentes/Marco'
 import { useUbicacion } from '../contexto/Ubicacion'
 import type { ResultadoBusqueda } from '@compartido/tipos'
-import { construirConsultaBusqueda } from '../lib/busquedaVariantes'
 import { guardarBusquedas, guardarVistaBusqueda, leerBusquedas, leerVistaBusqueda, recordarBusqueda, type FiltroEquipoRapido, type PreferenciasVistaBusqueda } from '../lib/inventario'
 
 /** Espera antes de consultar. Corto para que se sienta inmediato. */
@@ -53,7 +52,6 @@ export function Buscar() {
   const [texto, setTexto] = useState(q)
   const [consulta, setConsulta] = useState(q)
   const refCampo = useRef<HTMLInputElement | null>(null)
-  const consultaConVariantes = construirConsultaBusqueda(consulta, ram, almacenamiento, color)
 
   // El teclado se abre solo: quien entra a "Buscar" viene a escribir.
   useEffect(() => {
@@ -75,14 +73,14 @@ export function Buscar() {
   }, [texto, q, setParametros])
 
   const resultados = useQuery({
-    queryKey: ['buscar', consultaConVariantes, ubicacionIdFiltro, filtroStock, listaBlanca, condicion, vendidos],
-    queryFn: ({ signal }) => api.buscar(consultaConVariantes, signal, { ubicacionId: ubicacionIdFiltro, filtro: filtroStock, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined, vendidos }),
+    queryKey: ['buscar', consulta, ram, almacenamiento, color, ubicacionIdFiltro, filtroStock, listaBlanca, condicion, vendidos],
+    queryFn: ({ signal }) => api.buscar(consulta, signal, { ram, almacenamiento, color, ubicacionId: ubicacionIdFiltro, filtro: filtroStock, listaBlanca: listaBlanca ?? undefined, condicion: condicion ?? undefined, vendidos }),
     // Conserva la lista anterior mientras llega la nueva, para que no parpadee.
-    placeholderData: (previas, anterior) => anterior && anterior.queryKey[2] === ubicacionIdFiltro && anterior.queryKey[3] === filtroStock && anterior.queryKey[4] === listaBlanca && anterior.queryKey[5] === condicion && anterior.queryKey[6] === vendidos ? keepPreviousData(previas) : undefined,
+    placeholderData: (previas, anterior) => anterior && anterior.queryKey[5] === ubicacionIdFiltro && anterior.queryKey[6] === filtroStock && anterior.queryKey[7] === listaBlanca && anterior.queryKey[8] === condicion && anterior.queryKey[9] === vendidos ? keepPreviousData(previas) : undefined,
   })
 
   const productos = resultados.data?.productos ?? []
-  const buscando = consultaConVariantes.length > 0
+  const buscando = consulta.trim().length > 0 || ram !== '' || almacenamiento !== '' || color !== ''
   const hayFiltros = listaBlanca !== undefined || condicion !== undefined || vendidos || ram !== '' || almacenamiento !== '' || color !== ''
   const etiquetaResultados = resultados.isFetching || texto !== consulta ? 'Buscando…' : resultados.isSuccess ? `${productos.length}${productos.length === 50 ? ' primeros' : ''} resultados` : ''
   const usarFiltro = (filtroRapido: FiltroEquipoRapido): void => {
