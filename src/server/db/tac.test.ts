@@ -34,6 +34,22 @@ describe('Catálogo TAC', () => {
     expect(resXiaomi).not.toBeNull()
     expect(resXiaomi?.brand).toBe('Xiaomi')
     expect(resXiaomi?.model).toBe('Redmi Note 11')
+
+    // Modelos 2025 y 2026
+    const resS25Ultra = await buscarTac(mockDb, '35020746')
+    expect(resS25Ultra).toMatchObject({ brand: 'Samsung', model: 'Galaxy S25 Ultra' })
+
+    const resIPhone16ProMax = await buscarTac(mockDb, '35699011')
+    expect(resIPhone16ProMax).toMatchObject({ brand: 'Apple', model: 'iPhone 16 Pro Max' })
+
+    const resRedmiNote14S = await buscarTac(mockDb, '86302407')
+    expect(resRedmiNote14S).toMatchObject({ brand: 'Xiaomi', model: 'Redmi Note 14S' })
+
+    const resPocoX7Pro = await buscarTac(mockDb, '86472608')
+    expect(resPocoX7Pro).toMatchObject({ brand: 'Xiaomi', model: 'Poco X7 Pro' })
+
+    const resPixel9ProXL = await buscarTac(mockDb, '35915912')
+    expect(resPixel9ProXL).toMatchObject({ brand: 'Google', model: 'Pixel 9 Pro XL' })
   })
 
   it('retorna null para un TAC no existente', async () => {
