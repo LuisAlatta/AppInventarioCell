@@ -983,24 +983,26 @@ function CampoConEscaner({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[0.875rem] font-semibold text-tinta">
-        {etiqueta}
-      </label>
+      <div className="flex items-center gap-2 min-w-0">
+        <label htmlFor={id} className="shrink-0 text-[0.875rem] font-semibold text-tinta">
+          {etiqueta}
+        </label>
 
-      {error !== undefined && (
-        <div id={idDescripcion} className="flex items-center gap-1.5 flex-wrap text-[0.75rem] font-medium text-falta">
-          <span>{error}</span>
-          {onVerUbicacion !== undefined && (
-            <button
-              type="button"
-              onClick={onVerUbicacion}
-              className="inline-flex items-center font-bold text-accion underline underline-offset-2 hover:text-accion/80 active:scale-95 transition cursor-pointer"
-            >
-              Ver
-            </button>
-          )}
-        </div>
-      )}
+        {error !== undefined && (
+          <div id={idDescripcion} className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.75rem] font-medium text-falta">
+            <span>{error}</span>
+            {onVerUbicacion !== undefined && (
+              <button
+                type="button"
+                onClick={onVerUbicacion}
+                className="inline-flex shrink-0 items-center font-bold text-accion underline underline-offset-2 hover:text-accion/80 active:scale-95 transition cursor-pointer"
+              >
+                Ver
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-2">
         <input
