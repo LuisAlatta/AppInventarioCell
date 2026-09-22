@@ -43,6 +43,16 @@ export class ErrorBoundary extends Component<Props, State> {
                 Ocurrió un problema inesperado al mostrar esta sección. Pulsa el botón para continuar.
               </p>
             </div>
+            {this.state.error && (
+              <details className="w-full text-left rounded-xl bg-papel-hundido p-2.5 text-[0.75rem] text-tinta-suave border border-borde">
+                <summary className="cursor-pointer font-bold select-none text-tinta">
+                  Detalle del problema
+                </summary>
+                <p className="mt-1 font-mono text-[0.6875rem] text-falta break-all">
+                  {this.state.error.message}
+                </p>
+              </details>
+            )}
             <button
               type="button"
               onClick={this.reintentar}

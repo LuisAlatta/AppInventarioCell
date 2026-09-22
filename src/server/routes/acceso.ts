@@ -139,14 +139,18 @@ rutasAcceso.post('/', validador('json', esquemaAcceso), async (c) => {
     const intentos = usuario.failed_attempts + 1
     const bloquear = intentos >= INTENTOS_MAXIMOS
 
-    await c.env.DB.prepare(
-      `UPDATE users
-       SET failed_attempts = ?,
-           locked_until = CASE WHEN ? THEN datetime('now', ?) ELSE NULL END
-       WHERE id = ?`,
-    )
-      .bind(bloquear ? 0 : intentos, bloquear ? 1 : 0, `+${MINUTOS_DE_BLOQUEO} minutes`, usuario.id)
-      .run()
+    try {
+      await c.env.DB.prepare(
+        `UPDATE users
+         SET failed_attempts = ?,
+             locked_until = CASE WHEN ? THEN datetime('now', ?) ELSE NULL END
+         WHERE id = ?`,
+      )
+        .bind(bloquear ? 0 : intentos, bloquear ? 1 : 0, `+${MINUTOS_DE_BLOQUEO} minutes`, usuario.id)
+        .run()
+    } catch (errDb) {
+      console.warn('No se pudo actualizar failed_attempts en users:', errDb)
+    }
 
     if (bloquear) {
       throw new ErrorApp(
@@ -157,15 +161,22 @@ rutasAcceso.post('/', validador('json', esquemaAcceso), async (c) => {
 
     // Se dice cuantos intentos quedan: quien se equivoca es la dueña, y una
     // negativa sin explicacion se siente como que la app esta fallando.
-    throw new ErrorApp('pin_incorrecto', `PIN incorrecto. Te quedan ${INTENTOS_MAXIMOS - intentos} intentos.`)
+    throw new ErrorApp(
+      'pin_incorrecto',
+      `PIN incorrecto. Te quedan ${INTENTOS_MAXIMOS - intentos} intentos.`,
+    )
   }
 
-  await c.env.DB.prepare(
-    `UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = datetime('now')
-     WHERE id = ?`,
-  )
-    .bind(usuario.id)
-    .run()
+  try {
+    await c.env.DB.prepare(
+      `UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = datetime('now')
+       WHERE id = ?`,
+    )
+      .bind(usuario.id)
+      .run()
+  } catch (errDb) {
+    console.warn('No se pudo actualizar last_login_at en users (modo solo lectura D1):', errDb)
+  }
 
   const token = await crearToken(usuario.id, secreto)
   c.header('Set-Cookie', cookieDeSesion(token, esSeguro(c.req.url)))

@@ -68,18 +68,19 @@ type PestanaProducto = 'equipos' | 'detalles' | 'historial'
 
 /** Extrae inteligentemente variantes (RAM, Almacenamiento, Color) para visualización */
 export function extraerVariantesVisuales(ficha: {
-  nombre: string
+  nombre?: string | null
   ram?: string | null
   almacenamiento?: string | null
   color?: string | null
 }) {
+  const nombre = (ficha.nombre ?? '').trim()
   let ram = ficha.ram?.trim() || null
   let almacenamiento = ficha.almacenamiento?.trim() || null
   let color = ficha.color?.trim() || null
 
   // Si falta ram o almacenamiento, buscar formato 8/512, 8-256 o 12/512GB
-  if (!ram || !almacenamiento) {
-    const patronDiagonal = ficha.nombre.match(
+  if ((!ram || !almacenamiento) && nombre) {
+    const patronDiagonal = nombre.match(
       /\b(\d{1,2})\s*(?:gb|g)?\s*[\/\-]\s*(\d{2,4})\s*(?:gb|g)?\b/i,
     )
     if (patronDiagonal) {
@@ -89,10 +90,10 @@ export function extraerVariantesVisuales(ficha: {
   }
 
   // Si falta almacenamiento, buscar 64GB, 128GB, 256GB, 512GB, 1TB
-  if (!almacenamiento) {
+  if (!almacenamiento && nombre) {
     const matchAlm =
-      ficha.nombre.match(/\b(16|32|64|128|256|512|1024|2048)\s*(?:gb)?\b/i) ??
-      ficha.nombre.match(/\b(1|2)\s*tb\b/i)
+      nombre.match(/\b(16|32|64|128|256|512|1024|2048)\s*(?:gb)?\b/i) ??
+      nombre.match(/\b(1|2)\s*tb\b/i)
     if (matchAlm) {
       almacenamiento = matchAlm[0].toLowerCase().includes('tb')
         ? matchAlm[1] === '1'
@@ -103,9 +104,9 @@ export function extraerVariantesVisuales(ficha: {
   }
 
   // Si falta color, buscar si algún color de la lista está en el nombre
-  if (!color) {
+  if (!color && nombre) {
     for (const c of OPCIONES_COLOR) {
-      if (new RegExp(`(?:^|\\s)${c}(?:\\s|$)`, 'i').test(ficha.nombre)) {
+      if (new RegExp(`(?:^|\\s)${c}(?:\\s|$)`, 'i').test(nombre)) {
         color = c
         break
       }
@@ -113,6 +114,14 @@ export function extraerVariantesVisuales(ficha: {
   }
 
   return { ram, almacenamiento, color }
+}
+
+export function formatearAlmacenamiento(alm: string): string {
+  const limpio = alm.trim()
+  if (/tb$/i.test(limpio) || /gb$/i.test(limpio)) return limpio.toUpperCase()
+  const n = Number(limpio)
+  if (Number.isFinite(n) && n >= 1024) return `${n / 1024} TB`
+  return `${limpio} GB`
 }
 
 export function Producto() {
@@ -346,9 +355,7 @@ export function Producto() {
                   )}
                   {variantesHero.almacenamiento && (
                     <span className="rounded-lg border border-borde/70 bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta">
-                      {Number(variantesHero.almacenamiento) >= 1024
-                        ? `${Number(variantesHero.almacenamiento) / 1024} TB`
-                        : `${variantesHero.almacenamiento} GB`}
+                      {formatearAlmacenamiento(variantesHero.almacenamiento)}
                     </span>
                   )}
                   {variantesHero.color && (
@@ -650,12 +657,7 @@ export function Producto() {
                     const partesEq: string[] = []
                     if (variantesEq.ram) partesEq.push(`${variantesEq.ram} RAM`)
                     if (variantesEq.almacenamiento) {
-                      const almN = Number(variantesEq.almacenamiento)
-                      partesEq.push(
-                        Number.isFinite(almN) && almN >= 1024
-                          ? `${almN / 1024} TB`
-                          : `${variantesEq.almacenamiento} GB`,
-                      )
+                      partesEq.push(formatearAlmacenamiento(variantesEq.almacenamiento))
                     }
                     if (variantesEq.color) partesEq.push(variantesEq.color)
                     const especificacionesEquipo = partesEq.join(' · ')
