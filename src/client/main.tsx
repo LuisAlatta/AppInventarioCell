@@ -35,14 +35,27 @@ const raiz = document.getElementById('raiz')
 if (raiz === null) throw new Error('Falta el elemento #raiz en index.html')
 
 // Al abrir la app instalada se consulta enseguida si hay una version nueva.
-// Asi una pantalla que quede abierta en iOS no conserva indefinidamente el
+// Asi una pantalla que quede abierta en iOS o Android no conserva indefinidamente el
 // JavaScript precargado por la PWA.
-registerSW({
+const recargarSW = registerSW({
   immediate: true,
+  onNeedRefresh() {
+    void recargarSW(true)
+  },
   onRegisteredSW: (_urlDelWorker, registro) => {
     void registro?.update()
   },
 })
+
+if ('serviceWorker' in navigator) {
+  let recargando = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!recargando) {
+      recargando = true
+      window.location.reload()
+    }
+  })
+}
 
 createRoot(raiz).render(
   <StrictMode>

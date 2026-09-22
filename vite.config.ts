@@ -11,7 +11,7 @@ export default defineConfig({
     tailwindcss(),
     cloudflare(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       // Los iconos ya estan en `public/` y los copia Vite; aqui solo se
       // declaran para el manifiesto.
       includeAssets: ['apple-touch-icon.png', 'favicon-32.png', 'icono.svg'],
@@ -39,6 +39,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         // El decodificador WASM pesa mas de un mega y el limite por omision lo
         // dejaria fuera del cache. Sin cachearlo, cada sesion de escaneo
         // volveria a descargarlo.

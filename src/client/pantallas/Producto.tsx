@@ -473,7 +473,7 @@ export function Producto() {
       </HojaInferior>
 
       <HojaInferior abierta={altaEquipo} onCerrar={() => setAltaEquipo(false)} titulo={`Registrar equipo · ${ficha.nombre}`}>
-        <FormularioAltaEquipo productoId={ficha.id} productoNombre={ficha.nombre} onListo={() => { setAltaEquipo(false); void cliente.invalidateQueries({ queryKey: ['equipos', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
+        <FormularioAltaEquipo producto={ficha} onListo={() => { setAltaEquipo(false); void cliente.invalidateQueries({ queryKey: ['equipos', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
       </HojaInferior>
 
       <HojaInferior abierta={equipoParaEditar !== null} onCerrar={() => setEquipoParaEditar(null)} titulo={`Editar equipo · ${ficha.nombre}`}>
@@ -604,7 +604,7 @@ export function Producto() {
   )
 }
 
-function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { productoId: string; productoNombre: string; onListo: () => void }) {
+function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStock; onListo: () => void }) {
   const avisos = useAvisos()
   const { activa, ubicaciones } = useUbicacion()
   const [ubicacionId, setUbicacionId] = useState<string>(
@@ -612,6 +612,9 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
   )
   const [imei1, setImei1] = useState('')
   const [imei2, setImei2] = useState('')
+  const [ram, setRam] = useState(producto.ram ?? '')
+  const [almacenamiento, setAlmacenamiento] = useState(producto.almacenamiento ?? '')
+  const [color, setColor] = useState(producto.color ?? '')
   const [errorImei1, setErrorImei1] = useState<string | undefined>()
   const [errorImei2, setErrorImei2] = useState<string | undefined>()
   const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>('not_registered')
@@ -691,7 +694,10 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
   }
 
   const guardar = async (): Promise<void> => {
-    if (ubi === null) { avisos.error('Elige una ubicación antes de registrar el equipo'); return }
+    if (ubi === null) {
+      avisos.error('Elige una ubicación antes de registrar el equipo')
+      return
+    }
     if (errorImei1 || errorImei2) {
       avisos.error(errorImei1 ?? errorImei2 ?? 'Revisa los IMEI ingresados')
       return
@@ -713,10 +719,34 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
     }
     setEnviando(true)
     try {
-      await api.registrarEquipos({ productoId, ubicacionId: ubi.id, equipos: [{ imei1: imei1.trim() || null, imei2: imei2.trim() || null, listaBlanca, condicion, notas: notas.trim() || null }] })
-      avisos.exito(`${productoNombre} registrado en ${ubi.nombre}`)
+      const ramFinal = ram.trim() === '' ? null : normalizarRam(ram)
+      const almacenamientoFinal = almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
+      const colorFinal = color.trim() === '' ? null : normalizarColor(color)
+
+      if (
+        ramFinal !== (producto.ram ?? null) ||
+        almacenamientoFinal !== (producto.almacenamiento ?? null) ||
+        colorFinal !== (producto.color ?? null)
+      ) {
+        await api.actualizarProducto(producto.id, {
+          ram: ramFinal,
+          almacenamiento: almacenamientoFinal,
+          color: colorFinal,
+        })
+      }
+
+      await api.registrarEquipos({
+        productoId: producto.id,
+        ubicacionId: ubi.id,
+        equipos: [{ imei1: imei1.trim() || null, imei2: imei2.trim() || null, listaBlanca, condicion, notas: notas.trim() || null }],
+      })
+      avisos.exito(`${producto.nombre} registrado en ${ubi.nombre}`)
       onListo()
-    } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo registrar el equipo') } finally { setEnviando(false) }
+    } catch (causa) {
+      avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo registrar el equipo')
+    } finally {
+      setEnviando(false)
+    }
   }
   return (
     <div className="flex flex-col gap-4 pb-3">
@@ -889,6 +919,68 @@ function FormularioAltaEquipo({ productoId, productoNombre, onListo }: { product
           )}
         </div>
       </div>
+
+      {/* Fila simétrica con los 3 campos: RAM, Almacenamiento y Color */}
+      <div className="grid grid-cols-3 gap-2 w-full">
+        <CampoTexto
+          etiqueta="RAM"
+          value={ram}
+          onChange={(e) => setRam(e.target.value)}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem]"
+          list="opciones-ram-alta"
+        />
+        <CampoTexto
+          etiqueta="Almacenamiento"
+          value={almacenamiento}
+          onChange={(e) => setAlmacenamiento(e.target.value)}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem] truncate"
+          list="opciones-almacenamiento-alta"
+        />
+        <CampoTexto
+          etiqueta="Color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          autoComplete="off"
+          placeholder=""
+          claseInput="px-2 text-[0.9375rem] text-center"
+          claseEtiqueta="text-[0.8125rem]"
+          list="opciones-color-alta"
+        />
+      </div>
+
+      <datalist id="opciones-ram-alta">
+        <option value="4 GB" />
+        <option value="6 GB" />
+        <option value="8 GB" />
+        <option value="12 GB" />
+        <option value="16 GB" />
+      </datalist>
+
+      <datalist id="opciones-almacenamiento-alta">
+        <option value="64 GB" />
+        <option value="128 GB" />
+        <option value="256 GB" />
+        <option value="512 GB" />
+        <option value="1 TB" />
+      </datalist>
+
+      <datalist id="opciones-color-alta">
+        <option value="Negro" />
+        <option value="Blanco" />
+        <option value="Azul" />
+        <option value="Plata" />
+        <option value="Dorado" />
+        <option value="Gris" />
+        <option value="Verde" />
+        <option value="Titanio" />
+      </datalist>
+
       <SelectorEquipo
         etiqueta="Lista blanca"
         valor={listaBlanca}
@@ -1473,8 +1565,42 @@ function FormularioEdicionProducto({
   )
 }
 
-function SelectorEquipo<T extends string>({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: T; opciones: readonly (readonly [T, string])[]; onChange: (valor: T) => void }) {
-  return <fieldset><legend className="mb-1.5 text-[0.8125rem] font-semibold text-tinta-suave">{etiqueta}</legend><div className="grid grid-cols-2 gap-2">{opciones.map(([id, texto]) => <button key={id} type="button" aria-pressed={valor === id} onClick={() => onChange(id)} className={`min-h-11 rounded-xl border px-3 text-[0.875rem] font-semibold ${valor === id ? 'border-accion bg-accion-tenue text-accion' : 'border-borde bg-superficie text-tinta-suave'}`}>{texto}</button>)}</div></fieldset>
+function SelectorEquipo<T extends string>({
+  etiqueta,
+  valor,
+  opciones,
+  onChange,
+}: {
+  etiqueta: string
+  valor: T
+  opciones: readonly (readonly [T, string])[]
+  onChange: (valor: T) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5 w-full">
+      <span className="text-[0.8125rem] font-medium text-tinta-suave">{etiqueta}</span>
+      <div className="grid grid-cols-2 gap-2 w-full">
+        {opciones.map(([id, texto]) => {
+          const seleccionado = valor === id
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={seleccionado}
+              onClick={() => onChange(id)}
+              className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-3 py-2 text-[1rem] font-bold tracking-wide transition leading-none active:scale-[0.98] ${
+                seleccionado
+                  ? 'border-accion bg-accion text-white shadow-xs'
+                  : 'border-borde bg-white text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+              }`}
+            >
+              <span>{texto}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function Dato({
