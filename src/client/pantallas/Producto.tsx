@@ -1,20 +1,44 @@
 /**
- * Ficha de un producto: existencias, acciones e historial.
+ * Ficha de Producto rediseñada desde cero.
  *
- * El historial esta en la misma pantalla y no detras de una pestana porque es
- * donde se responde la pregunta que trae a la dueña aquí: "por que hay menos
- * de lo que debería".
+ * Estructura limpia, ágil y simétrica:
+ * 1. Tarjeta principal (Hero) con miniatura grande, datos esenciales y KPIs financieros/stock.
+ * 2. Barra de acciones rápidas (Vender, Mover/Ajustar, + Registrar IMEI).
+ * 3. Navegación por pestañas (Existencias y Equipos, Detalles y Fotos, Historial).
+ * 4. Gestión integral de unidades físicas con búsqueda interna de IMEI.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, ImageUp, Pencil, Trash2, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  BadgeCheck,
+  Camera,
+  Check,
+  Copy,
+  Edit3,
+  History,
+  ImageUp,
+  Info,
+  MapPin,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { ErrorDeApi, api, urlDeImagen } from '../api/cliente'
 import { AccionesProducto } from '../componentes/AccionesProducto'
 import { SugerenciaReposicion } from '../componentes/SugerenciaReposicion'
 import { Boton } from '../componentes/Boton'
-import { Esqueleto, ErrorEnPantalla, Etiqueta, Vacio } from '../componentes/Estados'
+import { ErrorEnPantalla, Esqueleto, Vacio } from '../componentes/Estados'
 import { DesgloseStock, Miniatura } from '../componentes/FichaProducto'
 import { HojaInferior } from '../componentes/HojaInferior'
 import { CampoSelect, CampoTexto } from '../componentes/Campo'
@@ -34,12 +58,13 @@ import {
   OPCIONES_COLOR,
   OPCIONES_RAM,
   actualizarNombreConVariantes,
-  nombreIncluyeVariante,
   normalizarAlmacenamiento,
   normalizarColor,
   normalizarRam,
 } from '@compartido/variantes'
 import type { Equipo, ProductoConStock } from '@compartido/tipos'
+
+type PestanaProducto = 'equipos' | 'detalles' | 'historial'
 
 export function Producto() {
   const { id = '' } = useParams()
@@ -48,11 +73,17 @@ export function Producto() {
   const avisos = useAvisos()
   const cliente = useQueryClient()
   const { activa, ubicaciones } = useUbicacion()
-  const ubicacionDeVenta = ubicaciones.find((ubicacion) => ubicacion.id === parametros.get('ubicacion')) ?? activa
+
+  const ubicacionDeVenta =
+    ubicaciones.find((u) => u.id === parametros.get('ubicacion')) ?? activa
   const abrirVenta = parametros.get('accion') === 'venta'
 
+  // Estados de navegación y hojas inferiores
+  const [pestanaActiva, setPestanaActiva] = useState<PestanaProducto>('equipos')
   const [acciones, setAcciones] = useState(abrirVenta)
-  const [modoAcciones, setModoAcciones] = useState<'rápido' | 'venta'>(abrirVenta ? 'venta' : 'rápido')
+  const [modoAcciones, setModoAcciones] = useState<'rápido' | 'venta'>(
+    abrirVenta ? 'venta' : 'rápido',
+  )
   const [altaEquipo, setAltaEquipo] = useState(false)
   const [equipoParaEditar, setEquipoParaEditar] = useState<Equipo | null>(null)
   const [equipoParaEliminar, setEquipoParaEliminar] = useState<Equipo | null>(null)
@@ -61,6 +92,9 @@ export function Producto() {
   const [imagenPorQuitar, setImagenPorQuitar] = useState<{ id: string; clave: string } | null>(null)
   const [subiendoImagen, setSubiendoImagen] = useState(false)
   const [fotoParaRecortar, setFotoParaRecortar] = useState<File | null>(null)
+  const [filtroImei, setFiltroImei] = useState('')
+  const [copiadoImei, setCopiadoImei] = useState<string | null>(null)
+
   const refFotos = useRef<HTMLInputElement>(null)
   const refCamara = useRef<HTMLInputElement>(null)
 
@@ -89,7 +123,22 @@ export function Producto() {
     enabled: id !== '',
   })
 
-  const galeria = useQuery({ queryKey: ['imagenes', id], queryFn: () => api.imagenesDeProducto(id), enabled: id !== '' })
+  const galeria = useQuery({
+    queryKey: ['imagenes', id],
+    queryFn: () => api.imagenesDeProducto(id),
+    enabled: id !== '',
+  })
+
+  const copiarTexto = async (texto: string, clave: string) => {
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiadoImei(clave)
+      avisos.exito('Copiado al portapapeles')
+      setTimeout(() => setCopiadoImei(null), 1800)
+    } catch {
+      avisos.error('No se pudo copiar')
+    }
+  }
 
   const deshacer = async (movimientoId: string): Promise<void> => {
     try {
@@ -104,10 +153,24 @@ export function Producto() {
     }
   }
 
+  const listaEquipos = equipos.data?.equipos ?? []
+
+  // Equipos filtrados por el buscador interno de IMEI
+  const equiposFiltrados = useMemo(() => {
+    const q = filtroImei.trim().toLowerCase()
+    if (!q) return listaEquipos
+    return listaEquipos.filter((eq) => {
+      const imei1 = (eq.imei1 ?? '').toLowerCase()
+      const imei2 = (eq.imei2 ?? '').toLowerCase()
+      const color = (eq.color ?? '').toLowerCase()
+      return imei1.includes(q) || imei2.includes(q) || color.includes(q)
+    })
+  }, [listaEquipos, filtroImei])
+
   if (producto.isPending) {
     return (
       <Marco titulo="Producto" atras>
-        <Esqueleto filas={4} />
+        <Esqueleto filas={5} />
       </Marco>
     )
   }
@@ -130,344 +193,754 @@ export function Producto() {
   const ficha = producto.data.producto
   const bajoMinimo = ficha.stockMinimo > 0 && ficha.stockTotal < ficha.stockMinimo
   const margen = ficha.precioVenta - ficha.precioCosto
+  const margenPorcentaje =
+    ficha.precioCosto > 0 ? Math.round((margen / ficha.precioCosto) * 100) : null
 
   return (
     <Marco titulo={ficha.nombre} atras>
-      <div className="flex flex-col gap-6">
-        <section className="flex items-start gap-3.5">
-          <Miniatura nombre={ficha.nombre} claveImagen={ficha.claveImagen} tamano="grande" />
-
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h2 className="text-[1.125rem] leading-snug font-semibold">{ficha.nombre}</h2>
-            <p className="text-[0.875rem] text-tinta-tenue">
-              {[ficha.marca, ficha.modelo, ficha.categoriaNombre]
-                .filter((x) => x !== null && x !== '')
-                .join(' · ') || 'Sin marca'}
-            </p>
-            {(ficha.ram || ficha.almacenamiento || ficha.color) && (
-              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                {[ficha.ram, ficha.almacenamiento, ficha.color].filter(Boolean).map((v) => (
-                  <span
-                    key={v}
-                    className="rounded-md border border-borde bg-papel-hundido px-1.5 py-0.5 text-[0.6875rem] font-semibold text-tinta-suave"
-                  >
-                    {v}
-                  </span>
-                ))}
-              </div>
-            )}
-            <p className="cifras text-[0.8125rem] text-tinta-tenue">{ficha.codigo}</p>
-          </div>
-
-          <div className="flex shrink-0 flex-col items-end">
-            <span
-              className={[
-                'cifras text-cifra',
-                bajoMinimo ? 'text-alerta' : 'text-tinta',
-              ].join(' ')}
-            >
-              {numero(ficha.stockTotal)}
-            </span>
-            <span className="text-[0.6875rem] text-tinta-tenue">en total</span>
-          </div>
-          <div className="-mt-1 flex shrink-0 flex-col items-center gap-1.5">
-            <button
-              type="button"
-              aria-label={`Administrar ${ficha.nombre}`}
-              title="Administrar producto"
-              onClick={() => setAdministrar(true)}
-              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-borde bg-superficie text-accion active:bg-accion-tenue"
-            >
-              <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
-                <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </button>
-            <button
-              type="button"
-              aria-label={`Eliminar ${ficha.nombre}`}
-              title="Eliminar producto"
-              onClick={() => setAccionProducto('eliminar')}
-              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-falta/30 bg-falta-tenue text-falta transition active:scale-95 active:bg-falta/20"
-            >
-              <Trash2 className="size-5" strokeWidth={2} aria-hidden="true" />
-            </button>
-          </div>
-        </section>
-
-        {bajoMinimo && (
-          <p className="rounded-xl border border-alerta/30 bg-alerta-tenue px-4 py-3 text-[0.9375rem] text-tinta">
-            Por debajo del mínimo de {numero(ficha.stockMinimo)} piezas.
-          </p>
-        )}
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <Boton tono="contorno" onClick={() => { setModoAcciones('rápido'); setAcciones(true) }}>
-            Registrar movimiento
-          </Boton>
-          <Boton tono="peligro" onClick={() => { setModoAcciones('venta'); setAcciones(true) }}>
-            Registrar venta
-          </Boton>
-        </div>
-
-        <SugerenciaReposicion producto={ficha} />
-
-        <section className="flex flex-col gap-2">
-          <Etiqueta>Existencias</Etiqueta>
-          <DesgloseStock producto={ficha} ubicacionActivaId={ubicacionDeVenta?.id} />
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <div className="flex items-center justify-between"><Etiqueta>Fotos del producto</Etiqueta><span className="text-[0.75rem] text-tinta-tenue">{galeria.data?.imagenes.length ?? 0}/5</span></div>
-          <div className="grid grid-cols-3 gap-2">
-            {(galeria.data?.imagenes ?? []).map((imagen) => <div key={imagen.id} className="relative aspect-square overflow-hidden rounded-2xl border border-borde bg-papel-hundido"><img src={urlDeImagen(imagen.clave) ?? ''} alt={`Foto ${imagen.posicion + 1} de ${ficha.nombre}`} className="size-full object-cover" /><button type="button" aria-label={`Quitar foto ${imagen.posicion + 1}`} onClick={() => setImagenPorQuitar(imagen)} className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-tinta/70 text-white"><X aria-hidden="true" className="size-4" strokeWidth={2.5} /></button></div>)}
-            {(galeria.data?.imagenes.length ?? 0) < 5 && (
-              <>
-                <button
-                  type="button"
-                  disabled={subiendoImagen}
-                  onClick={() => refCamara.current?.click()}
-                  className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-accion/40 bg-accion-tenue p-2 text-center text-[0.75rem] font-semibold text-accion transition active:scale-95 disabled:opacity-50"
-                >
-                  <Camera className="size-5" strokeWidth={2.2} />
-                  <span>Tomar foto</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={subiendoImagen}
-                  onClick={() => refFotos.current?.click()}
-                  className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-borde bg-papel-hundido p-2 text-center text-[0.75rem] font-semibold text-tinta-suave transition active:scale-95 disabled:opacity-50"
-                >
-                  <ImageUp className="size-5" strokeWidth={2.2} />
-                  <span>Subir foto</span>
-                </button>
-              </>
-            )}
-          </div>
-
-          <input
-            ref={refCamara}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              const archivo = e.target.files?.[0]
-              e.target.value = ''
-              if (archivo) setFotoParaRecortar(archivo)
-            }}
-          />
-
-          <input
-            ref={refFotos}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              const archivos = e.target.files
-              e.target.value = ''
-              if (!archivos || archivos.length === 0) return
-              if (archivos.length === 1 && archivos[0]) {
-                setFotoParaRecortar(archivos[0])
-                return
-              }
-              void (async () => {
-                setSubiendoImagen(true)
-                try {
-                  const disponibles = 5 - (galeria.data?.imagenes.length ?? 0)
-                  const lista = Array.from(archivos).slice(0, disponibles)
-                  for (const archivo of lista) {
-                    const preparada = await prepararFoto(archivo)
-                    await api.agregarImagenProducto(ficha.id, preparada.archivo)
-                  }
-                  void cliente.invalidateQueries({ queryKey: ['imagenes', id] })
-                  void cliente.invalidateQueries({ queryKey: ['producto', id] })
-                  avisos.exito(lista.length === 1 ? 'Foto agregada' : `${lista.length} fotos agregadas`)
-                } catch (causa) {
-                  avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo agregar la foto')
-                } finally {
-                  setSubiendoImagen(false)
-                }
-              })()
-            }}
-          />
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-3">
-            <Etiqueta>Equipos individuales</Etiqueta>
-            <button type="button" onClick={() => setAltaEquipo(true)} className="min-h-11 rounded-xl bg-accion-tenue px-3 text-[0.875rem] font-semibold text-accion">
-              + Registrar equipo
-            </button>
-          </div>
-          {equipos.isPending && <Esqueleto filas={2} />}
-          {equipos.isSuccess && equipos.data.equipos.length > 0 && (
-            <ul className="flex flex-col gap-2">
-              {equipos.data.equipos.map((equipo) => (
-                <li
-                  key={equipo.id}
-                  className={`rounded-2xl border p-3 ${
-                    equipo.activo ? 'border-borde bg-superficie' : 'border-borde bg-papel-hundido opacity-70'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <Miniatura nombre={ficha.nombre} claveImagen={ficha.claveImagen} tamano="pequena" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[0.875rem] font-semibold">{equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI registrado'}</p>
-                      {equipo.imei2 !== null && (
-                        <p className="cifras mt-0.5 text-[0.75rem] text-tinta-tenue">IMEI 2 · {equipo.imei2}</p>
-                      )}
-                      {(equipo.ram || equipo.almacenamiento || equipo.color || ficha.ram || ficha.almacenamiento || ficha.color) && (
-                        <p className="mt-0.5 text-[0.75rem] font-medium text-tinta-suave">
-                          {[equipo.ram ?? ficha.ram, equipo.almacenamiento ?? ficha.almacenamiento, equipo.color ?? ficha.color].filter(Boolean).join(' · ')}
-                        </p>
-                      )}
-                      <p className="mt-1 text-[0.75rem] text-tinta-tenue" title={fechaLarga(equipo.creadoEn)}>
-                        Agregado {fechaLarga(equipo.creadoEn)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      {!equipo.activo && (
-                        <span className="rounded-full bg-papel-hundido px-2 py-1 text-[0.6875rem] font-semibold text-tinta-suave">
-                          Vendido o retirado
-                        </span>
-                      )}
-                      <span
-                        className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${
-                          equipo.listaBlanca === 'registered' ? 'bg-exito-tenue text-exito' : 'bg-falta-tenue text-falta'
-                        }`}
-                      >
-                        {equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-1 text-[0.6875rem] font-semibold ${
-                          equipo.condicion === 'new' ? 'bg-accion-tenue text-accion' : 'bg-alerta-tenue text-alerta'
-                        }`}
-                      >
-                        {equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-borde/60 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setEquipoParaEditar(equipo)}
-                      className="flex min-h-9 items-center gap-1.5 rounded-xl border border-accion/30 bg-accion-tenue px-3 text-[0.8125rem] font-semibold text-accion transition active:scale-95"
-                      title="Editar IMEI y datos de esta unidad"
-                    >
-                      <Pencil className="size-3.5" strokeWidth={2.2} aria-hidden="true" />
-                      <span>Editar</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEquipoParaEliminar(equipo)}
-                      className="flex min-h-9 items-center gap-1.5 rounded-xl border border-falta/30 bg-falta-tenue px-3 text-[0.8125rem] font-semibold text-falta transition active:scale-95"
-                      title="Eliminar esta unidad del inventario"
-                    >
-                      <Trash2 className="size-3.5" strokeWidth={2.2} aria-hidden="true" />
-                      <span>Eliminar</span>
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {(ficha.precioVenta > 0 || ficha.precioCosto > 0) && (
-          <section className="flex flex-col gap-2">
-            <Etiqueta>Precios</Etiqueta>
-            <div className="grid grid-cols-3 gap-2">
-              <Dato titulo="Venta" valor={dinero(ficha.precioVenta)} />
-              <Dato titulo="Costo" valor={dinero(ficha.precioCosto)} />
-              <Dato
-                titulo="Margen"
-                valor={dinero(margen)}
-                tono={margen < 0 ? 'falta' : 'exito'}
+      <div className="flex flex-col gap-4">
+        {/* =================================================================== */}
+        {/* 1. TARJETA HERO DEL PRODUCTO CON MÉTRICAS INTEGRADAS               */}
+        {/* =================================================================== */}
+        <section className="flex flex-col rounded-2xl border border-borde bg-superficie p-3.5 shadow-2xs">
+          <div className="flex items-start gap-3.5">
+            {/* Miniatura grande vertical */}
+            <div className="shrink-0">
+              <Miniatura
+                nombre={ficha.nombre}
+                claveImagen={ficha.claveImagen}
+                tamano="grande"
+                forma="vertical"
               />
             </div>
-          </section>
+
+            {/* Información principal */}
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex items-start justify-between gap-1.5">
+                <h1 className="text-[1.125rem] font-bold leading-snug text-tinta line-clamp-2">
+                  {ficha.nombre}
+                </h1>
+
+                {/* Acciones de administración */}
+                <div className="flex items-center gap-1 shrink-0 -mr-1">
+                  <button
+                    type="button"
+                    aria-label={`Editar ficha de ${ficha.nombre}`}
+                    title="Editar producto"
+                    onClick={() => setAdministrar(true)}
+                    className="inline-flex size-9 items-center justify-center rounded-xl text-tinta-suave hover:bg-papel-hundido hover:text-accion active:scale-95 transition"
+                  >
+                    <Edit3 className="size-4.5" strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Eliminar ${ficha.nombre}`}
+                    title="Eliminar producto"
+                    onClick={() => setAccionProducto('eliminar')}
+                    className="inline-flex size-9 items-center justify-center rounded-xl text-tinta-suave hover:bg-falta-tenue hover:text-falta active:scale-95 transition"
+                  >
+                    <Trash2 className="size-4.5" strokeWidth={2} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Marca, modelo y categoría */}
+              <p className="text-[0.8125rem] font-medium text-tinta-suave truncate">
+                {[ficha.marca, ficha.modelo, ficha.categoriaNombre]
+                  .filter(Boolean)
+                  .join(' · ') || 'Sin clasificar'}
+              </p>
+
+              {/* Chips de variantes: RAM, Almacenamiento, Color */}
+              {(ficha.ram || ficha.almacenamiento || ficha.color) && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  {ficha.ram && (
+                    <span className="rounded-lg border border-borde/70 bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta">
+                      {ficha.ram} RAM
+                    </span>
+                  )}
+                  {ficha.almacenamiento && (
+                    <span className="rounded-lg border border-borde/70 bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta">
+                      {ficha.almacenamiento}
+                    </span>
+                  )}
+                  {ficha.color && (
+                    <span className="rounded-lg border border-borde/70 bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta">
+                      {ficha.color}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Código de barras con botón copiar */}
+              {ficha.codigo && (
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="cifras text-[0.75rem] font-medium text-tinta-tenue">
+                    {ficha.codigo}
+                  </span>
+                  <button
+                    type="button"
+                    title="Copiar código"
+                    onClick={() => copiarTexto(ficha.codigo, 'codigo')}
+                    className="inline-flex size-5 items-center justify-center text-tinta-tenue hover:text-tinta active:scale-90"
+                  >
+                    {copiadoImei === 'codigo' ? (
+                      <Check className="size-3 text-exito" strokeWidth={2.5} />
+                    ) : (
+                      <Copy className="size-3" strokeWidth={2} />
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Fila de KPIs Financieros y Stock */}
+          <div className="mt-3.5 grid grid-cols-3 gap-2 border-t border-borde/70 pt-3">
+            {/* Existencias */}
+            <div className="flex flex-col justify-center rounded-xl bg-papel-hundido p-2.5 text-center">
+              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-tinta-suave">
+                Existencias
+              </span>
+              <div className="mt-0.5 flex items-center justify-center gap-1">
+                {bajoMinimo && (
+                  <AlertTriangle className="size-4 shrink-0 text-alerta" strokeWidth={2.5} />
+                )}
+                <span
+                  className={`cifras text-[1.25rem] font-extrabold leading-none ${
+                    bajoMinimo ? 'text-alerta' : 'text-tinta'
+                  }`}
+                >
+                  {numero(ficha.stockTotal)}
+                </span>
+              </div>
+              <span className="text-[0.625rem] font-medium text-tinta-tenue mt-0.5">
+                {bajoMinimo ? `Mínimo: ${ficha.stockMinimo}` : 'unidades'}
+              </span>
+            </div>
+
+            {/* Precio Venta */}
+            <div className="flex flex-col justify-center rounded-xl bg-papel-hundido p-2.5 text-center">
+              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-tinta-suave">
+                Precio Venta
+              </span>
+              <span className="cifras mt-0.5 text-[1.125rem] font-extrabold leading-tight text-accion">
+                {dinero(ficha.precioVenta)}
+              </span>
+              <span className="text-[0.625rem] font-medium text-tinta-tenue mt-0.5">por unidad</span>
+            </div>
+
+            {/* Margen */}
+            <div className="flex flex-col justify-center rounded-xl bg-papel-hundido p-2.5 text-center">
+              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-tinta-suave">
+                Margen
+              </span>
+              <span
+                className={`cifras mt-0.5 text-[1.125rem] font-extrabold leading-tight ${
+                  margen < 0 ? 'text-falta' : 'text-exito'
+                }`}
+              >
+                {dinero(margen)}
+              </span>
+              <span className="text-[0.625rem] font-medium text-tinta-tenue mt-0.5">
+                {margenPorcentaje !== null ? `${margenPorcentaje}% rentabilidad` : 'ganancia'}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* Alerta de Stock Mínimo */}
+        {bajoMinimo && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-alerta/40 bg-alerta-tenue px-3.5 py-2.5 text-[0.875rem] text-tinta">
+            <AlertTriangle className="size-5 shrink-0 text-alerta" strokeWidth={2} />
+            <p className="flex-1 leading-tight font-medium">
+              Stock bajo mínimo: quedan <strong>{numero(ficha.stockTotal)}</strong> unidades de las{' '}
+              {numero(ficha.stockMinimo)} requeridas.
+            </p>
+          </div>
         )}
 
-        <section className="flex flex-col gap-2">
-          <Etiqueta>Historial</Etiqueta>
+        {/* =================================================================== */}
+        {/* 2. BARRA DE ACCIONES RÁPIDAS PRINCIPALES                           */}
+        {/* =================================================================== */}
+        <div className="grid grid-cols-3 gap-2">
+          {/* Botón Venta Rápida */}
+          <button
+            type="button"
+            onClick={() => {
+              setModoAcciones('venta')
+              setAcciones(true)
+            }}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accion px-3 text-[0.875rem] font-bold text-white shadow-xs transition active:scale-[0.98] active:bg-accion-viva"
+          >
+            <ShoppingBag className="size-4.5 shrink-0" strokeWidth={2} />
+            <span>Vender</span>
+          </button>
 
-          {movimientos.isPending && <Esqueleto filas={3} />}
+          {/* Botón Mover / Ajustar */}
+          <button
+            type="button"
+            onClick={() => {
+              setModoAcciones('rápido')
+              setAcciones(true)
+            }}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-borde-fuerte bg-superficie px-3 text-[0.875rem] font-semibold text-tinta transition active:scale-[0.98] active:bg-papel-hundido"
+          >
+            <ArrowLeftRight className="size-4.5 shrink-0 text-tinta-suave" strokeWidth={2} />
+            <span>Mover</span>
+          </button>
 
-          {movimientos.isSuccess && movimientos.data.movimientos.length === 0 && (
-            <Vacio titulo="Sin movimientos" detalle="Todavía no se ha registrado nada de este producto." />
-          )}
+          {/* Botón Registrar Equipo */}
+          <button
+            type="button"
+            onClick={() => setAltaEquipo(true)}
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-accion/40 bg-accion-tenue px-3 text-[0.875rem] font-bold text-accion transition active:scale-[0.98] hover:bg-accion-tenue/80"
+          >
+            <Plus className="size-4.5 shrink-0" strokeWidth={2.5} />
+            <span>+ Equipo</span>
+          </button>
+        </div>
 
-          {movimientos.isSuccess && movimientos.data.movimientos.length > 0 && (
-            <ul className="divide-y divide-borde overflow-hidden rounded-tarjeta border border-borde bg-superficie">
-              {movimientos.data.movimientos.map((movimiento) => {
-                const entra = movimiento.ubicacionDestinoId !== null
-                const revertido = movimiento.revertidoEn !== null
+        {/* Sugerencia de reposición automática si aplica */}
+        <SugerenciaReposicion producto={ficha} />
 
-                return (
-                  <li key={movimiento.id} className="flex items-center gap-3 px-3.5 py-3">
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <p className="text-[0.9375rem] font-medium">
-                        {NOMBRE_MOVIMIENTO[movimiento.tipo] ?? movimiento.tipo}
-                        {revertido && (
-                          <span className="ml-2 rounded-md bg-papel-hundido px-1.5 py-0.5 text-[0.6875rem] font-semibold text-tinta-tenue">
-                            deshecho
-                          </span>
+        {/* =================================================================== */}
+        {/* 3. NAVEGACIÓN POR PESTAÑAS (Segmented Control Simétrico)          */}
+        {/* =================================================================== */}
+        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-papel-hundido p-1 border border-borde">
+          <button
+            type="button"
+            onClick={() => setPestanaActiva('equipos')}
+            className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl text-[0.8125rem] font-bold transition leading-none ${
+              pestanaActiva === 'equipos'
+                ? 'bg-superficie text-accion shadow-2xs'
+                : 'text-tinta-suave hover:text-tinta'
+            }`}
+          >
+            <Smartphone className="size-4 shrink-0" strokeWidth={2} />
+            <span>Equipos ({listaEquipos.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPestanaActiva('detalles')}
+            className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl text-[0.8125rem] font-bold transition leading-none ${
+              pestanaActiva === 'detalles'
+                ? 'bg-superficie text-accion shadow-2xs'
+                : 'text-tinta-suave hover:text-tinta'
+            }`}
+          >
+            <Info className="size-4 shrink-0" strokeWidth={2} />
+            <span>Detalles</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPestanaActiva('historial')}
+            className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl text-[0.8125rem] font-bold transition leading-none ${
+              pestanaActiva === 'historial'
+                ? 'bg-superficie text-accion shadow-2xs'
+                : 'text-tinta-suave hover:text-tinta'
+            }`}
+          >
+            <History className="size-4 shrink-0" strokeWidth={2} />
+            <span>Historial</span>
+          </button>
+        </div>
+
+        {/* =================================================================== */}
+        {/* 4. CONTENIDO DE LAS PESTAÑAS                                      */}
+        {/* =================================================================== */}
+
+        {/* PESTAÑA 1: EXISTENCIAS Y EQUIPOS INDIVIDUALES */}
+        {pestanaActiva === 'equipos' && (
+          <div className="flex flex-col gap-4">
+            {/* Desglose por tienda */}
+            <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3.5 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[0.8125rem] font-bold text-tinta">
+                  <MapPin className="size-4 text-accion" strokeWidth={2} />
+                  Stock por ubicación
+                </span>
+                <span className="text-[0.75rem] font-medium text-tinta-suave">
+                  {ficha.stock.length} {ficha.stock.length === 1 ? 'sede' : 'sedes'}
+                </span>
+              </div>
+              <DesgloseStock producto={ficha} ubicacionActivaId={ubicacionDeVenta?.id} />
+            </section>
+
+            {/* Listado de unidades físicas (Equipos por IMEI) */}
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-[0.875rem] font-bold text-tinta">
+                  <Smartphone className="size-4 text-accion" strokeWidth={2} />
+                  Unidades físicas con IMEI
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAltaEquipo(true)}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-accion-tenue px-3 text-[0.8125rem] font-bold text-accion active:scale-95 transition"
+                >
+                  <Plus className="size-3.5" strokeWidth={2.5} />
+                  <span>Nuevo equipo</span>
+                </button>
+              </div>
+
+              {/* Buscador interno si hay más de 2 equipos */}
+              {listaEquipos.length > 2 && (
+                <div className="relative flex items-center">
+                  <Search className="pointer-events-none absolute left-3 size-4 text-tinta-tenue select-none" />
+                  <input
+                    type="text"
+                    value={filtroImei}
+                    onChange={(e) => setFiltroImei(e.target.value)}
+                    placeholder="Filtrar por IMEI o variante…"
+                    className="min-h-10 w-full rounded-xl border border-borde bg-superficie pl-9 pr-8 text-[0.8125rem] text-tinta placeholder:text-tinta-tenue focus:border-accion focus:outline-none"
+                  />
+                  {filtroImei && (
+                    <button
+                      type="button"
+                      onClick={() => setFiltroImei('')}
+                      className="absolute right-2 text-tinta-tenue hover:text-tinta p-1"
+                    >
+                      <X className="size-3.5" strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {equipos.isPending && <Esqueleto filas={3} />}
+
+              {equipos.isSuccess && listaEquipos.length === 0 && (
+                <Vacio
+                  titulo="Sin equipos registrados"
+                  detalle="Este producto tiene existencias registradas a nivel global, pero ninguna unidad física con IMEI asignado."
+                  accion={{
+                    texto: 'Registrar primer equipo',
+                    onClick: () => setAltaEquipo(true),
+                  }}
+                />
+              )}
+
+              {equipos.isSuccess && listaEquipos.length > 0 && equiposFiltrados.length === 0 && (
+                <div className="rounded-xl border border-borde bg-superficie p-6 text-center text-tinta-suave text-[0.875rem]">
+                  No hay equipos que coincidan con &quot;{filtroImei}&quot;.
+                </div>
+              )}
+
+              {equipos.isSuccess && equiposFiltrados.length > 0 && (
+                <ul className="flex flex-col gap-2.5">
+                  {equiposFiltrados.map((equipo) => {
+                    const imeiPrincipal = equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI'
+                    return (
+                      <li
+                        key={equipo.id}
+                        className={`rounded-2xl border p-3 transition shadow-2xs ${
+                          equipo.activo
+                            ? 'border-borde bg-superficie'
+                            : 'border-borde/60 bg-papel-hundido opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            {/* IMEI 1 con botón copiar */}
+                            <div className="flex items-center gap-2">
+                              <span className="cifras text-[0.9375rem] font-bold text-tinta tracking-wide">
+                                {imeiPrincipal}
+                              </span>
+                              {equipo.imei1 && (
+                                <button
+                                  type="button"
+                                  title="Copiar IMEI 1"
+                                  onClick={() => copiarTexto(equipo.imei1!, `imei1-${equipo.id}`)}
+                                  className="inline-flex size-6 items-center justify-center rounded-lg text-tinta-tenue hover:bg-papel-hundido hover:text-tinta active:scale-90"
+                                >
+                                  {copiadoImei === `imei1-${equipo.id}` ? (
+                                    <Check className="size-3.5 text-exito" strokeWidth={2.5} />
+                                  ) : (
+                                    <Copy className="size-3.5" strokeWidth={2} />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* IMEI 2 si existe */}
+                            {equipo.imei2 && (
+                              <div className="flex items-center gap-1.5 mt-0.5 text-[0.75rem] text-tinta-suave">
+                                <span className="font-semibold text-tinta-tenue">IMEI 2:</span>
+                                <span className="cifras">{equipo.imei2}</span>
+                                <button
+                                  type="button"
+                                  title="Copiar IMEI 2"
+                                  onClick={() => copiarTexto(equipo.imei2!, `imei2-${equipo.id}`)}
+                                  className="inline-flex size-5 items-center justify-center text-tinta-tenue hover:text-tinta active:scale-90"
+                                >
+                                  {copiadoImei === `imei2-${equipo.id}` ? (
+                                    <Check className="size-3 text-exito" strokeWidth={2.5} />
+                                  ) : (
+                                    <Copy className="size-3" strokeWidth={2} />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Variantes específicas del equipo */}
+                            {(equipo.ram ||
+                              equipo.almacenamiento ||
+                              equipo.color ||
+                              ficha.ram ||
+                              ficha.almacenamiento ||
+                              ficha.color) && (
+                              <p className="mt-1 text-[0.75rem] font-medium text-tinta-suave">
+                                {[
+                                  equipo.ram ?? ficha.ram,
+                                  equipo.almacenamiento ?? ficha.almacenamiento,
+                                  equipo.color ?? ficha.color,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+                            )}
+
+                            {/* Notas del equipo */}
+                            {equipo.notas && (
+                              <p className="mt-1 text-[0.75rem] text-tinta-suave italic">
+                                {equipo.notas}
+                              </p>
+                            )}
+
+                            <p
+                              className="mt-1 text-[0.6875rem] text-tinta-tenue"
+                              title={fechaLarga(equipo.creadoEn)}
+                            >
+                              Ingreso: {fechaLarga(equipo.creadoEn)}
+                            </p>
+                          </div>
+
+                          {/* Badges de estado */}
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            {!equipo.activo && (
+                              <span className="rounded-md bg-papel-hundido px-2 py-0.5 text-[0.6875rem] font-bold text-tinta-suave">
+                                Retirado
+                              </span>
+                            )}
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[0.6875rem] font-bold ${
+                                equipo.listaBlanca === 'registered'
+                                  ? 'bg-exito-tenue text-exito'
+                                  : 'bg-falta-tenue text-falta'
+                              }`}
+                            >
+                              {equipo.listaBlanca === 'registered' ? (
+                                <BadgeCheck className="size-3" strokeWidth={2.5} />
+                              ) : (
+                                <ShieldAlert className="size-3" strokeWidth={2.5} />
+                              )}
+                              <span>{equipo.listaBlanca === 'registered' ? 'Registrado' : 'No registrado'}</span>
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[0.6875rem] font-bold ${
+                                equipo.condicion === 'new'
+                                  ? 'bg-accion-tenue text-accion'
+                                  : 'bg-alerta-tenue text-alerta'
+                              }`}
+                            >
+                              {equipo.condicion === 'new' ? (
+                                <Sparkles className="size-3" strokeWidth={2.5} />
+                              ) : (
+                                <RefreshCw className="size-3" strokeWidth={2.5} />
+                              )}
+                              <span>{equipo.condicion === 'new' ? 'Nuevo' : 'Segunda mano'}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Botones de acción del equipo */}
+                        <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-borde/60 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setEquipoParaEditar(equipo)}
+                            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-accion/30 bg-accion-tenue px-2.5 text-[0.75rem] font-bold text-accion transition active:scale-95 hover:bg-accion-tenue/80"
+                            title="Editar datos de esta unidad"
+                          >
+                            <Pencil className="size-3.5" strokeWidth={2.2} />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEquipoParaEliminar(equipo)}
+                            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-falta/30 bg-falta-tenue px-2.5 text-[0.75rem] font-bold text-falta transition active:scale-95 hover:bg-falta-tenue/80"
+                            title="Eliminar esta unidad"
+                          >
+                            <Trash2 className="size-3.5" strokeWidth={2.2} />
+                            <span>Eliminar</span>
+                          </button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* PESTAÑA 2: DETALLES, FOTOS Y ADMINISTRACIÓN */}
+        {pestanaActiva === 'detalles' && (
+          <div className="flex flex-col gap-4">
+            {/* Galería de fotos */}
+            <section className="flex flex-col gap-2.5 rounded-2xl border border-borde bg-superficie p-3.5 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[0.8125rem] font-bold text-tinta">
+                  <Camera className="size-4 text-accion" strokeWidth={2} />
+                  Galería de fotos
+                </span>
+                <span className="text-[0.75rem] font-semibold text-tinta-tenue">
+                  {galeria.data?.imagenes.length ?? 0}/5 fotos
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {(galeria.data?.imagenes ?? []).map((imagen) => (
+                  <div
+                    key={imagen.id}
+                    className="relative aspect-square overflow-hidden rounded-xl border border-borde bg-papel-hundido group"
+                  >
+                    <img
+                      src={urlDeImagen(imagen.clave) ?? ''}
+                      alt={`Foto ${imagen.posicion + 1} de ${ficha.nombre}`}
+                      className="size-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Quitar foto ${imagen.posicion + 1}`}
+                      onClick={() => setImagenPorQuitar(imagen)}
+                      className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full bg-tinta/80 text-white transition active:scale-90 hover:bg-falta"
+                    >
+                      <X className="size-3.5" strokeWidth={2.5} />
+                    </button>
+                  </div>
+                ))}
+
+                {(galeria.data?.imagenes.length ?? 0) < 5 && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={subiendoImagen}
+                      onClick={() => refCamara.current?.click()}
+                      className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-accion/40 bg-accion-tenue p-2 text-center text-[0.75rem] font-bold text-accion transition active:scale-95 disabled:opacity-50 hover:bg-accion-tenue/80"
+                    >
+                      <Camera className="size-5" strokeWidth={2} />
+                      <span>Cámara</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={subiendoImagen}
+                      onClick={() => refFotos.current?.click()}
+                      className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-borde bg-papel-hundido p-2 text-center text-[0.75rem] font-bold text-tinta-suave transition active:scale-95 disabled:opacity-50 hover:bg-superficie"
+                    >
+                      <ImageUp className="size-5" strokeWidth={2} />
+                      <span>Galería</span>
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <input
+                ref={refCamara}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const archivo = e.target.files?.[0]
+                  e.target.value = ''
+                  if (archivo) setFotoParaRecortar(archivo)
+                }}
+              />
+
+              <input
+                ref={refFotos}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const archivos = e.target.files
+                  e.target.value = ''
+                  if (!archivos || archivos.length === 0) return
+                  if (archivos.length === 1 && archivos[0]) {
+                    setFotoParaRecortar(archivos[0])
+                    return
+                  }
+                  void (async () => {
+                    setSubiendoImagen(true)
+                    try {
+                      const disponibles = 5 - (galeria.data?.imagenes.length ?? 0)
+                      const lista = Array.from(archivos).slice(0, disponibles)
+                      for (const archivo of lista) {
+                        const preparada = await prepararFoto(archivo)
+                        await api.agregarImagenProducto(ficha.id, preparada.archivo)
+                      }
+                      void cliente.invalidateQueries({ queryKey: ['imagenes', id] })
+                      void cliente.invalidateQueries({ queryKey: ['producto', id] })
+                      avisos.exito(
+                        lista.length === 1 ? 'Foto agregada' : `${lista.length} fotos agregadas`,
+                      )
+                    } catch (causa) {
+                      avisos.error(
+                        causa instanceof ErrorDeApi ? causa.message : 'No se pudo agregar la foto',
+                      )
+                    } finally {
+                      setSubiendoImagen(false)
+                    }
+                  })()
+                }}
+              />
+            </section>
+
+            {/* Precios detallados */}
+            <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3.5 shadow-2xs">
+              <span className="text-[0.8125rem] font-bold text-tinta">Estructura de precios</span>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="flex flex-col rounded-xl border border-borde bg-papel-hundido p-3">
+                  <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-tinta-suave">
+                    Precio Costo
+                  </span>
+                  <span className="cifras mt-0.5 text-[1.125rem] font-bold text-tinta">
+                    {dinero(ficha.precioCosto)}
+                  </span>
+                </div>
+                <div className="flex flex-col rounded-xl border border-borde bg-papel-hundido p-3">
+                  <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-tinta-suave">
+                    Precio Venta
+                  </span>
+                  <span className="cifras mt-0.5 text-[1.125rem] font-bold text-accion">
+                    {dinero(ficha.precioVenta)}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Notas del producto */}
+            {ficha.notas && (
+              <section className="flex flex-col gap-1.5 rounded-2xl border border-borde bg-superficie p-3.5 shadow-2xs">
+                <span className="text-[0.8125rem] font-bold text-tinta">Notas u observaciones</span>
+                <p className="text-[0.875rem] text-tinta-suave leading-relaxed">{ficha.notas}</p>
+              </section>
+            )}
+
+            {/* Opciones avanzadas de administración */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-borde">
+              <button
+                type="button"
+                onClick={() => setAdministrar(true)}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-borde-fuerte bg-superficie text-[0.875rem] font-bold text-tinta transition active:bg-papel-hundido"
+              >
+                <Edit3 className="size-4 text-accion" strokeWidth={2} />
+                <span>Modificar datos de la ficha</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* PESTAÑA 3: HISTORIAL DE MOVIMIENTOS */}
+        {pestanaActiva === 'historial' && (
+          <div className="flex flex-col gap-3">
+            <span className="text-[0.875rem] font-bold text-tinta">
+              Historial de movimientos y trazabilidad
+            </span>
+
+            {movimientos.isPending && <Esqueleto filas={4} />}
+
+            {movimientos.isSuccess && movimientos.data.movimientos.length === 0 && (
+              <Vacio
+                titulo="Sin movimientos registrados"
+                detalle="Aún no se ha realizado ninguna venta, entrada o traspaso de este producto."
+              />
+            )}
+
+            {movimientos.isSuccess && movimientos.data.movimientos.length > 0 && (
+              <ul className="divide-y divide-borde overflow-hidden rounded-2xl border border-borde bg-superficie shadow-2xs">
+                {movimientos.data.movimientos.map((movimiento) => {
+                  const entra = movimiento.ubicacionDestinoId !== null
+                  const revertido = movimiento.revertidoEn !== null
+
+                  return (
+                    <li key={movimiento.id} className="flex items-center gap-3 px-3.5 py-3">
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <p className="text-[0.875rem] font-bold text-tinta flex items-center gap-2">
+                          <span>{NOMBRE_MOVIMIENTO[movimiento.tipo] ?? movimiento.tipo}</span>
+                          {revertido && (
+                            <span className="rounded-md bg-papel-hundido px-1.5 py-0.5 text-[0.625rem] font-bold text-tinta-tenue">
+                              Deshecho
+                            </span>
+                          )}
+                        </p>
+
+                        <p className="text-[0.75rem] text-tinta-suave">
+                          {[movimiento.ubicacionOrigenNombre, movimiento.ubicacionDestinoNombre]
+                            .filter(Boolean)
+                            .join(' → ')}
+                        </p>
+
+                        {movimiento.nota && (
+                          <p className="text-[0.75rem] text-tinta-suave italic">
+                            {movimiento.nota}
+                          </p>
                         )}
-                      </p>
 
-                      <p className="text-[0.8125rem] text-tinta-tenue">
-                        {[movimiento.ubicacionOrigenNombre, movimiento.ubicacionDestinoNombre]
-                          .filter((x) => x !== null)
-                          .join(' → ')}
-                      </p>
-
-                      {movimiento.nota !== null && movimiento.nota !== '' && (
-                        <p className="text-[0.8125rem] text-tinta-suave italic">{movimiento.nota}</p>
-                      )}
-
-                      <p
-                        className="text-[0.75rem] text-tinta-tenue"
-                        title={fechaLarga(movimiento.creadoEn)}
-                      >
-                        {cuandoFue(movimiento.creadoEn)}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span
-                        className={[
-                          'cifras text-[1.0625rem] font-semibold',
-                          revertido
-                            ? 'text-tinta-tenue line-through'
-                            : entra
-                              ? 'text-exito'
-                              : 'text-falta',
-                        ].join(' ')}
-                      >
-                        {entra ? '+' : '−'}
-                        {numero(movimiento.cantidad)}
-                      </span>
-
-                      {!revertido && (
-                        <button
-                          type="button"
-                          onClick={() => void deshacer(movimiento.id)}
-                          className="min-h-11 px-2 text-[0.8125rem] font-semibold text-accion"
+                        <p
+                          className="text-[0.6875rem] text-tinta-tenue mt-0.5"
+                          title={fechaLarga(movimiento.creadoEn)}
                         >
-                          Deshacer
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </section>
+                          {cuandoFue(movimiento.creadoEn)}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span
+                          className={`cifras text-[1rem] font-bold ${
+                            revertido
+                              ? 'text-tinta-tenue line-through'
+                              : entra
+                                ? 'text-exito'
+                                : 'text-falta'
+                          }`}
+                        >
+                          {entra ? '+' : '−'}
+                          {numero(movimiento.cantidad)}
+                        </span>
+
+                        {!revertido && (
+                          <button
+                            type="button"
+                            onClick={() => void deshacer(movimiento.id)}
+                            className="min-h-7 px-2 text-[0.75rem] font-bold text-accion hover:underline"
+                          >
+                            Deshacer
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
-      <HojaInferior abierta={acciones} onCerrar={() => setAcciones(false)} titulo={modoAcciones === 'venta' ? `Vender · ${ficha.nombre}` : 'Registrar'}>
+      {/* =================================================================== */}
+      {/* 5. HOJAS INFERIORES Y MODALES                                      */}
+      {/* =================================================================== */}
+
+      {/* Hoja de Ventas y Movimientos */}
+      <HojaInferior
+        abierta={acciones}
+        onCerrar={() => setAcciones(false)}
+        titulo={modoAcciones === 'venta' ? `Vender · ${ficha.nombre}` : 'Registrar'}
+      >
         <AccionesProducto
           key={`${ficha.id}-${ubicacionDeVenta?.id ?? 'sin-ubicacion'}-${modoAcciones}`}
           producto={ficha}
@@ -481,11 +954,31 @@ export function Producto() {
         />
       </HojaInferior>
 
-      <HojaInferior abierta={altaEquipo} onCerrar={() => setAltaEquipo(false)} titulo={`Registrar equipo · ${ficha.nombre}`}>
-        <FormularioAltaEquipo producto={ficha} onListo={() => { setAltaEquipo(false); void cliente.invalidateQueries({ queryKey: ['equipos', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos', id] }); void cliente.invalidateQueries({ queryKey: ['movimientos'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
+      {/* Hoja de Registro de Nuevo Equipo */}
+      <HojaInferior
+        abierta={altaEquipo}
+        onCerrar={() => setAltaEquipo(false)}
+        titulo={`Registrar equipo · ${ficha.nombre}`}
+      >
+        <FormularioAltaEquipo
+          producto={ficha}
+          onListo={() => {
+            setAltaEquipo(false)
+            void cliente.invalidateQueries({ queryKey: ['equipos', id] })
+            void cliente.invalidateQueries({ queryKey: ['producto', id] })
+            void cliente.invalidateQueries({ queryKey: ['movimientos', id] })
+            void cliente.invalidateQueries({ queryKey: ['movimientos'] })
+            void cliente.invalidateQueries({ queryKey: ['inicio'] })
+          }}
+        />
       </HojaInferior>
 
-      <HojaInferior abierta={equipoParaEditar !== null} onCerrar={() => setEquipoParaEditar(null)} titulo={`Editar equipo · ${ficha.nombre}`}>
+      {/* Hoja de Edición de Equipo */}
+      <HojaInferior
+        abierta={equipoParaEditar !== null}
+        onCerrar={() => setEquipoParaEditar(null)}
+        titulo={`Editar equipo · ${ficha.nombre}`}
+      >
         {equipoParaEditar !== null && (
           <FormularioEdicionEquipo
             equipo={equipoParaEditar}
@@ -501,12 +994,52 @@ export function Producto() {
         )}
       </HojaInferior>
 
-      <HojaInferior abierta={administrar} onCerrar={() => setAdministrar(false)} titulo={`Administrar · ${ficha.nombre}`}>
-        <FormularioEdicionProducto producto={ficha} onCerrar={() => setAdministrar(false)} onDesactivar={() => setAccionProducto('desactivar')} onEliminar={() => setAccionProducto('eliminar')} onGuardado={() => { setAdministrar(false); void cliente.invalidateQueries({ queryKey: ['producto', id] }); void cliente.invalidateQueries({ queryKey: ['buscar'] }); void cliente.invalidateQueries({ queryKey: ['inicio'] }) }} />
+      {/* Hoja de Administración de Ficha de Producto */}
+      <HojaInferior
+        abierta={administrar}
+        onCerrar={() => setAdministrar(false)}
+        titulo={`Editar producto · ${ficha.nombre}`}
+      >
+        <FormularioEdicionProducto
+          producto={ficha}
+          onCerrar={() => setAdministrar(false)}
+          onDesactivar={() => setAccionProducto('desactivar')}
+          onEliminar={() => setAccionProducto('eliminar')}
+          onGuardado={() => {
+            setAdministrar(false)
+            void cliente.invalidateQueries({ queryKey: ['producto', id] })
+            void cliente.invalidateQueries({ queryKey: ['buscar'] })
+            void cliente.invalidateQueries({ queryKey: ['inicio'] })
+          }}
+        />
       </HojaInferior>
 
-      <Confirmacion abierta={imagenPorQuitar !== null} titulo={`¿Quitar foto de ${ficha.nombre}?`} detalle={`La imagen se eliminará de ${ficha.nombre}. Esta acción no se puede deshacer.`} confirmar="Quitar foto" peligro onCancelar={() => setImagenPorQuitar(null)} onConfirmar={() => { if (imagenPorQuitar === null) return; void (async () => { try { await api.quitarImagenProducto(ficha.id, imagenPorQuitar.id); void cliente.invalidateQueries({ queryKey: ['imagenes', id] }); void cliente.invalidateQueries({ queryKey: ['producto', id] }); avisos.exito('Foto eliminada') } catch (causa) { avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo quitar la foto') } finally { setImagenPorQuitar(null) } })() }} />
+      {/* Confirmación para quitar foto */}
+      <Confirmacion
+        abierta={imagenPorQuitar !== null}
+        titulo={`¿Quitar foto de ${ficha.nombre}?`}
+        detalle={`La imagen se eliminará definitivamente de ${ficha.nombre}. Esta acción no se puede deshacer.`}
+        confirmar="Quitar foto"
+        peligro
+        onCancelar={() => setImagenPorQuitar(null)}
+        onConfirmar={() => {
+          if (imagenPorQuitar === null) return
+          void (async () => {
+            try {
+              await api.quitarImagenProducto(ficha.id, imagenPorQuitar.id)
+              void cliente.invalidateQueries({ queryKey: ['imagenes', id] })
+              void cliente.invalidateQueries({ queryKey: ['producto', id] })
+              avisos.exito('Foto eliminada')
+            } catch (causa) {
+              avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo quitar la foto')
+            } finally {
+              setImagenPorQuitar(null)
+            }
+          })()
+        }}
+      />
 
+      {/* Confirmación para eliminar equipo */}
       <Confirmacion
         abierta={equipoParaEliminar !== null}
         titulo={`¿Eliminar unidad física (${equipoParaEliminar?.imei1 ?? equipoParaEliminar?.imei2 ?? 'Sin IMEI'})?`}
@@ -525,7 +1058,9 @@ export function Producto() {
               void cliente.invalidateQueries({ queryKey: ['buscar'] })
               void cliente.invalidateQueries({ queryKey: ['inicio'] })
             } catch (causa) {
-              avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo eliminar el equipo')
+              avisos.error(
+                causa instanceof ErrorDeApi ? causa.message : 'No se pudo eliminar el equipo',
+              )
             } finally {
               setEquipoParaEliminar(null)
             }
@@ -533,9 +1068,14 @@ export function Producto() {
         }}
       />
 
+      {/* Confirmación para desactivar o eliminar producto */}
       <Confirmacion
         abierta={accionProducto !== null}
-        titulo={accionProducto === 'eliminar' ? `¿Eliminar ${ficha.nombre}?` : `¿Desactivar ${ficha.nombre}?`}
+        titulo={
+          accionProducto === 'eliminar'
+            ? `¿Eliminar ${ficha.nombre}?`
+            : `¿Desactivar ${ficha.nombre}?`
+        }
         detalle={
           accionProducto === 'eliminar'
             ? `Se eliminará definitivamente ${ficha.nombre} y todos sus registros asociados (equipos, historial y stock). Ya no aparecerá en el inventario ni en las búsquedas.`
@@ -563,7 +1103,9 @@ export function Producto() {
                 void cliente.invalidateQueries({ queryKey: ['inicio'] })
               }
             } catch (causa) {
-              avisos.error(causa instanceof ErrorDeApi ? causa.message : 'No se pudo guardar el cambio')
+              avisos.error(
+                causa instanceof ErrorDeApi ? causa.message : 'No se pudo guardar el cambio',
+              )
             } finally {
               setAccionProducto(null)
             }
@@ -571,20 +1113,7 @@ export function Producto() {
         }}
       />
 
-      {ficha.notas !== null && ficha.notas !== '' && (
-        <p className="mt-4 rounded-xl bg-papel-hundido px-4 py-3 text-[0.9375rem] text-tinta-suave">
-          {ficha.notas}
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={() => navegar('/buscar')}
-        className="mt-6 w-full rounded-xl px-4 py-3 text-[0.9375rem] font-semibold text-accion"
-      >
-        Buscar otro producto
-      </button>
-
+      {/* Modal de recorte de foto de producto */}
       <ModalRecorteImagen
         abierto={fotoParaRecortar !== null}
         archivo={fotoParaRecortar}
@@ -613,7 +1142,14 @@ export function Producto() {
   )
 }
 
-function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStock; onListo: () => void }) {
+/** Formulario para dar de alta una nueva unidad física (equipo) */
+function FormularioAltaEquipo({
+  producto,
+  onListo,
+}: {
+  producto: ProductoConStock
+  onListo: () => void
+}) {
   const avisos = useAvisos()
   const { activa, ubicaciones } = useUbicacion()
   const [ubicacionId, setUbicacionId] = useState<string>(
@@ -711,25 +1247,11 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
       avisos.error(errorImei1 ?? errorImei2 ?? 'Revisa los IMEI ingresados')
       return
     }
-    if (imei1.trim().length > 25) {
-      setErrorImei1('El IMEI no puede tener más de 25 caracteres')
-      avisos.error('El IMEI no puede tener más de 25 caracteres')
-      return
-    }
-    if (imei2.trim().length > 25) {
-      setErrorImei2('El IMEI no puede tener más de 25 caracteres')
-      avisos.error('El IMEI no puede tener más de 25 caracteres')
-      return
-    }
-    if (imei1.trim() !== '' && imei2.trim() !== '' && imei1.trim() === imei2.trim()) {
-      setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
-      avisos.error('IMEI 1 e IMEI 2 deben ser distintos')
-      return
-    }
     setEnviando(true)
     try {
       const ramFinal = ram.trim() === '' ? null : normalizarRam(ram)
-      const almacenamientoFinal = almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
+      const almacenamientoFinal =
+        almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
       const colorFinal = color.trim() === '' ? null : normalizarColor(color)
 
       if (
@@ -747,7 +1269,15 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
       await api.registrarEquipos({
         productoId: producto.id,
         ubicacionId: ubi.id,
-        equipos: [{ imei1: imei1.trim() || null, imei2: imei2.trim() || null, listaBlanca, condicion, notas: notas.trim() || null }],
+        equipos: [
+          {
+            imei1: imei1.trim() || null,
+            imei2: imei2.trim() || null,
+            listaBlanca,
+            condicion,
+            notas: notas.trim() || null,
+          },
+        ],
       })
       avisos.exito(`${producto.nombre} registrado en ${ubi.nombre}`)
       onListo()
@@ -757,11 +1287,12 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
       setEnviando(false)
     }
   }
+
   return (
     <div className="flex flex-col gap-4 pb-3">
       {/* Selector de tienda o almacén */}
       <section className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-3">
-        <label className="text-[0.8125rem] font-semibold text-tinta-suave">
+        <label className="text-[0.8125rem] font-bold text-tinta-suave">
           ¿En qué tienda o almacén entrará este equipo?
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -776,10 +1307,10 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
                   type="button"
                   onClick={() => setUbicacionId(u.id)}
                   aria-pressed={elegida}
-                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-2.5 py-2 text-center text-[0.8125rem] font-semibold transition leading-none active:scale-[0.98] ${
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-2.5 py-2 text-center text-[0.8125rem] font-bold transition leading-none active:scale-[0.98] ${
                     elegida
                       ? 'border-transparent shadow-xs'
-                      : 'border-borde bg-papel text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
+                      : 'border-borde bg-papel text-tinta-suave hover:border-borde-fuerte'
                   }`}
                   style={
                     elegida
@@ -795,12 +1326,10 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
         </div>
       </section>
 
-      <p className="rounded-xl bg-papel-hundido px-3 py-2 text-[0.875rem] text-tinta-suave">
-        Entrada de una unidad en <strong>{ubi?.nombre ?? 'sin ubicación'}</strong>.
-      </p>
+      {/* Inputs de IMEI 1 y 2 */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
-          <label className="text-[0.8125rem] font-medium text-tinta-suave">IMEI 1</label>
+          <label className="text-[0.8125rem] font-bold text-tinta-suave">IMEI 1</label>
           <div className="flex items-center gap-1.5">
             <input
               value={imei1}
@@ -831,7 +1360,7 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
               title="Tomar foto con cámara"
               disabled={leyendoFotoImei !== null}
               onClick={() => refCamaraImei1.current?.click()}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
             >
               <Camera className="size-5" strokeWidth={2} />
             </button>
@@ -852,20 +1381,23 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
               title="Subir foto de galería"
               disabled={leyendoFotoImei !== null}
               onClick={() => refGaleriaImei1.current?.click()}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
             >
               <ImageUp className="size-5" strokeWidth={2} />
             </button>
           </div>
-          {leyendoFotoImei === 'imei1' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 1…</p>}
-          {errorImei1 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei1}</p>}
-          {!errorImei1 && imei1.trim().length > 0 && (
-            <p className="text-[0.75rem] text-tinta-tenue">{imei1.trim().length}/25 caracteres</p>
+          {leyendoFotoImei === 'imei1' && (
+            <p className="text-[0.75rem] font-medium text-accion animate-pulse">
+              Leyendo foto de IMEI 1…
+            </p>
+          )}
+          {errorImei1 !== undefined && (
+            <p className="text-[0.75rem] font-medium text-falta">{errorImei1}</p>
           )}
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-[0.8125rem] font-medium text-tinta-suave">IMEI 2</label>
+          <label className="text-[0.8125rem] font-bold text-tinta-suave">IMEI 2 (Opcional)</label>
           <div className="flex items-center gap-1.5">
             <input
               value={imei2}
@@ -895,7 +1427,7 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
               title="Tomar foto con cámara"
               disabled={leyendoFotoImei !== null}
               onClick={() => refCamaraImei2.current?.click()}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
             >
               <Camera className="size-5" strokeWidth={2} />
             </button>
@@ -916,15 +1448,18 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
               title="Subir foto de galería"
               disabled={leyendoFotoImei !== null}
               onClick={() => refGaleriaImei2.current?.click()}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
             >
               <ImageUp className="size-5" strokeWidth={2} />
             </button>
           </div>
-          {leyendoFotoImei === 'imei2' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 2…</p>}
-          {errorImei2 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei2}</p>}
-          {!errorImei2 && imei2.length >= 14 && imei2.length <= 17 && (
-            <p className="text-[0.75rem] text-tinta-tenue">IMEI válido ({imei2.length} dígitos)</p>
+          {leyendoFotoImei === 'imei2' && (
+            <p className="text-[0.75rem] font-medium text-accion animate-pulse">
+              Leyendo foto de IMEI 2…
+            </p>
+          )}
+          {errorImei2 !== undefined && (
+            <p className="text-[0.75rem] font-medium text-falta">{errorImei2}</p>
           )}
         </div>
       </div>
@@ -957,21 +1492,30 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
       <SelectorEquipo
         etiqueta="Lista blanca"
         valor={listaBlanca}
-        opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]}
+        opciones={[
+          ['registered', 'Registrado'],
+          ['not_registered', 'No registrado'],
+        ]}
         onChange={setListaBlanca}
       />
+
       <SelectorEquipo
         etiqueta="Condición"
         valor={condicion}
-        opciones={[['new', 'Nuevo'], ['used', 'Segunda mano']]}
+        opciones={[
+          ['new', 'Nuevo'],
+          ['used', 'Segunda mano'],
+        ]}
         onChange={setCondicion}
       />
+
       <CampoTexto
         etiqueta="Nota u observación"
         value={notas}
         onChange={(e) => setNotas(e.target.value)}
         placeholder="Opcional"
       />
+
       <Boton ancho cargando={enviando} onClick={() => void guardar()}>
         Guardar equipo
       </Boton>
@@ -992,6 +1536,7 @@ function FormularioAltaEquipo({ producto, onListo }: { producto: ProductoConStoc
   )
 }
 
+/** Formulario para editar un equipo individual (IMEI, Modelo, Marca, Variantes) */
 function FormularioEdicionEquipo({
   equipo,
   producto,
@@ -1009,9 +1554,13 @@ function FormularioEdicionEquipo({
   const [modelo, setModelo] = useState(producto?.modelo ?? producto?.nombre ?? '')
   const [marca, setMarca] = useState(producto?.marca ?? '')
   const [ram, setRam] = useState(equipo.ram ?? producto?.ram ?? '')
-  const [almacenamiento, setAlmacenamiento] = useState(equipo.almacenamiento ?? producto?.almacenamiento ?? '')
+  const [almacenamiento, setAlmacenamiento] = useState(
+    equipo.almacenamiento ?? producto?.almacenamiento ?? '',
+  )
   const [color, setColor] = useState(equipo.color ?? producto?.color ?? '')
-  const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>(equipo.listaBlanca)
+  const [listaBlanca, setListaBlanca] = useState<'registered' | 'not_registered'>(
+    equipo.listaBlanca,
+  )
   const [notas, setNotas] = useState(equipo.notas ?? '')
   const [enviando, setEnviando] = useState(false)
   const [recorteImei, setRecorteImei] = useState<{
@@ -1085,50 +1634,28 @@ function FormularioEdicionEquipo({
   }
 
   const guardar = async (): Promise<void> => {
-    if (!imei1.trim() && !imei2.trim()) {
-      setErrorImei1('Ingresa al menos un IMEI')
-      avisos.error('Ingresa al menos un IMEI para este equipo')
-      return
-    }
     if (errorImei1 || errorImei2) {
       avisos.error(errorImei1 ?? errorImei2 ?? 'Revisa los IMEI ingresados')
-      return
-    }
-    if (imei1.trim().length > 25) {
-      setErrorImei1('El IMEI no puede tener más de 25 caracteres')
-      avisos.error('El IMEI no puede tener más de 25 caracteres')
-      return
-    }
-    if (imei2.trim().length > 25) {
-      setErrorImei2('El IMEI no puede tener más de 25 caracteres')
-      avisos.error('El IMEI no puede tener más de 25 caracteres')
-      return
-    }
-    if (imei1.trim() !== '' && imei2.trim() !== '' && imei1.trim() === imei2.trim()) {
-      setErrorImei2('IMEI 1 e IMEI 2 deben ser distintos')
-      avisos.error('IMEI 1 e IMEI 2 deben ser distintos')
       return
     }
     setEnviando(true)
     try {
       const ramFinal = ram.trim() === '' ? null : normalizarRam(ram)
-      const almacenamientoFinal = almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
+      const almacenamientoFinal =
+        almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
       const colorFinal = color.trim() === '' ? null : normalizarColor(color)
-      const modeloFinal = modelo.trim() || null
-      const marcaFinal = marca.trim() || null
 
-      if (producto) {
-        const base = modeloFinal ?? producto.nombre
-        const partesNombre = [base]
-        if (ramFinal && !nombreIncluyeVariante(base, ramFinal)) partesNombre.push(ramFinal)
-        if (almacenamientoFinal && !nombreIncluyeVariante(base, almacenamientoFinal)) partesNombre.push(almacenamientoFinal)
-        if (colorFinal && !nombreIncluyeVariante(base, colorFinal)) partesNombre.push(colorFinal)
-        const nombreFinal = partesNombre.filter(Boolean).join(' ')
+      if (producto && (modelo.trim() || marca.trim())) {
+        const base = modelo.trim() || producto.modelo || producto.nombre
+        const partesNombre: string[] = []
+        if (marca.trim()) partesNombre.push(marca.trim())
+        partesNombre.push(base)
+        const nombreFinal = partesNombre.join(' ')
 
         await api.actualizarProducto(producto.id, {
           nombre: nombreFinal,
-          modelo: modeloFinal,
-          marca: marcaFinal,
+          modelo: modelo.trim() || null,
+          marca: marca.trim() || null,
           ram: ramFinal,
           almacenamiento: almacenamientoFinal,
           color: colorFinal,
@@ -1138,13 +1665,10 @@ function FormularioEdicionEquipo({
       await api.actualizarEquipo(equipo.id, {
         imei1: imei1.trim() || null,
         imei2: imei2.trim() || null,
-        modelo: modeloFinal,
-        marca: marcaFinal,
         ram: ramFinal,
         almacenamiento: almacenamientoFinal,
         color: colorFinal,
         listaBlanca,
-        condicion: equipo.condicion,
         notas: notas.trim() || null,
       })
       avisos.exito('Equipo actualizado')
@@ -1158,9 +1682,10 @@ function FormularioEdicionEquipo({
 
   return (
     <div className="flex flex-col gap-4 pb-3">
+      {/* IMEIs */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
-          <label className="text-[0.8125rem] font-medium text-tinta-suave">IMEI 1</label>
+          <label className="text-[0.8125rem] font-bold text-tinta-suave">IMEI 1</label>
           <div className="flex items-center gap-1.5">
             <input
               value={imei1}
@@ -1171,7 +1696,6 @@ function FormularioEdicionEquipo({
               }`}
               inputMode="text"
               placeholder="Hasta 25 caracteres"
-              autoFocus
             />
             <input
               ref={refCamaraImei1}
@@ -1191,7 +1715,7 @@ function FormularioEdicionEquipo({
               title="Tomar foto con cámara"
               disabled={leyendoFotoImei !== null}
               onClick={() => refCamaraImei1.current?.click()}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
             >
               <Camera className="size-5" strokeWidth={2} />
             </button>
@@ -1212,17 +1736,23 @@ function FormularioEdicionEquipo({
               title="Subir foto de galería"
               disabled={leyendoFotoImei !== null}
               onClick={() => refGaleriaImei1.current?.click()}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
             >
               <ImageUp className="size-5" strokeWidth={2} />
             </button>
           </div>
-          {leyendoFotoImei === 'imei1' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 1…</p>}
-          {errorImei1 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei1}</p>}
+          {leyendoFotoImei === 'imei1' && (
+            <p className="text-[0.75rem] font-medium text-accion animate-pulse">
+              Leyendo foto de IMEI 1…
+            </p>
+          )}
+          {errorImei1 !== undefined && (
+            <p className="text-[0.75rem] font-medium text-falta">{errorImei1}</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-[0.8125rem] font-medium text-tinta-suave">IMEI 2</label>
+          <label className="text-[0.8125rem] font-bold text-tinta-suave">IMEI 2 (Opcional)</label>
           <div className="flex items-center gap-1.5">
             <input
               value={imei2}
@@ -1252,7 +1782,7 @@ function FormularioEdicionEquipo({
               title="Tomar foto con cámara"
               disabled={leyendoFotoImei !== null}
               onClick={() => refCamaraImei2.current?.click()}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-accion/30 bg-accion-tenue text-accion active:scale-95 disabled:opacity-50"
             >
               <Camera className="size-5" strokeWidth={2} />
             </button>
@@ -1273,13 +1803,19 @@ function FormularioEdicionEquipo({
               title="Subir foto de galería"
               disabled={leyendoFotoImei !== null}
               onClick={() => refGaleriaImei2.current?.click()}
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-borde bg-papel-hundido text-tinta-suave active:scale-95 disabled:opacity-50"
             >
               <ImageUp className="size-5" strokeWidth={2} />
             </button>
           </div>
-          {leyendoFotoImei === 'imei2' && <p className="text-[0.75rem] font-medium text-accion">Leyendo foto de IMEI 2…</p>}
-          {errorImei2 !== undefined && <p className="text-[0.75rem] font-medium text-falta">{errorImei2}</p>}
+          {leyendoFotoImei === 'imei2' && (
+            <p className="text-[0.75rem] font-medium text-accion animate-pulse">
+              Leyendo foto de IMEI 2…
+            </p>
+          )}
+          {errorImei2 !== undefined && (
+            <p className="text-[0.75rem] font-medium text-falta">{errorImei2}</p>
+          )}
         </div>
       </div>
 
@@ -1316,24 +1852,25 @@ function FormularioEdicionEquipo({
         />
       </div>
 
-      <CampoMarcaPredictivo
-        value={marca}
-        onChange={setMarca}
-        placeholder=""
-      />
+      <CampoMarcaPredictivo value={marca} onChange={setMarca} placeholder="" />
 
       <SelectorEquipo
         etiqueta="Lista blanca"
         valor={listaBlanca}
-        opciones={[['registered', 'Registrado'], ['not_registered', 'No registrado']]}
+        opciones={[
+          ['registered', 'Registrado'],
+          ['not_registered', 'No registrado'],
+        ]}
         onChange={setListaBlanca}
       />
+
       <CampoTexto
         etiqueta="Nota u observación"
         value={notas}
         onChange={(e) => setNotas(e.target.value)}
         placeholder="Opcional"
       />
+
       <Boton ancho cargando={enviando} onClick={() => void guardar()}>
         Guardar cambios de equipo
       </Boton>
@@ -1354,6 +1891,7 @@ function FormularioEdicionEquipo({
   )
 }
 
+/** Formulario para editar la ficha global del producto */
 function FormularioEdicionProducto({
   producto,
   onCerrar,
@@ -1383,13 +1921,18 @@ function FormularioEdicionProducto({
   const [enviando, setEnviando] = useState(false)
 
   const numeroSeguro = (valor: string) => {
-    const numero = Number(valor.replace(',', '.'))
-    return Number.isFinite(numero) && numero >= 0 ? numero : 0
+    const n = Number(valor.replace(',', '.'))
+    return Number.isFinite(n) && n >= 0 ? n : 0
   }
 
-  const actualizarVariante = (cambio: { ram?: string; almacenamiento?: string; color?: string }) => {
+  const actualizarVariante = (cambio: {
+    ram?: string
+    almacenamiento?: string
+    color?: string
+  }) => {
     const nuevaRam = cambio.ram !== undefined ? cambio.ram : ram
-    const nuevoAlmacenamiento = cambio.almacenamiento !== undefined ? cambio.almacenamiento : almacenamiento
+    const nuevoAlmacenamiento =
+      cambio.almacenamiento !== undefined ? cambio.almacenamiento : almacenamiento
     const nuevoColor = cambio.color !== undefined ? cambio.color : color
 
     if (cambio.ram !== undefined) setRam(cambio.ram)
@@ -1397,7 +1940,8 @@ function FormularioEdicionProducto({
     if (cambio.color !== undefined) setColor(cambio.color)
 
     const rFinal = nuevaRam.trim() === '' ? null : normalizarRam(nuevaRam)
-    const aFinal = nuevoAlmacenamiento.trim() === '' ? null : normalizarAlmacenamiento(nuevoAlmacenamiento)
+    const aFinal =
+      nuevoAlmacenamiento.trim() === '' ? null : normalizarAlmacenamiento(nuevoAlmacenamiento)
     const cFinal = nuevoColor.trim() === '' ? null : normalizarColor(nuevoColor)
 
     setNombre((prev) =>
@@ -1420,7 +1964,8 @@ function FormularioEdicionProducto({
     setEnviando(true)
     try {
       const ramFinal = ram.trim() === '' ? null : normalizarRam(ram)
-      const almacenamientoFinal = almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
+      const almacenamientoFinal =
+        almacenamiento.trim() === '' ? null : normalizarAlmacenamiento(almacenamiento)
       const colorFinal = color.trim() === '' ? null : normalizarColor(color)
 
       await api.actualizarProducto(producto.id, {
@@ -1447,7 +1992,12 @@ function FormularioEdicionProducto({
 
   return (
     <div className="flex flex-col gap-3 pb-3">
-      <CampoTexto etiqueta="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus />
+      <CampoTexto
+        etiqueta="Nombre"
+        value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        autoFocus
+      />
       <div className="grid grid-cols-2 gap-3">
         <CampoMarcaPredictivo value={marca} onChange={setMarca} />
         <CampoTexto etiqueta="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
@@ -1479,24 +2029,76 @@ function FormularioEdicionProducto({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <CampoTexto etiqueta="Precio venta" value={venta} onChange={(e) => setVenta(e.target.value)} inputMode="decimal" sufijo="S/" />
-        <CampoTexto etiqueta="Costo" value={costo} onChange={(e) => setCosto(e.target.value)} inputMode="decimal" sufijo="S/" />
+        <CampoTexto
+          etiqueta="Precio venta"
+          value={venta}
+          onChange={(e) => setVenta(e.target.value)}
+          inputMode="decimal"
+          sufijo="S/"
+        />
+        <CampoTexto
+          etiqueta="Costo"
+          value={costo}
+          onChange={(e) => setCosto(e.target.value)}
+          inputMode="decimal"
+          sufijo="S/"
+        />
       </div>
-      <CampoTexto etiqueta="Stock mínimo" value={minimo} onChange={(e) => setMinimo(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
-      <CampoTexto etiqueta="Notas u observaciones" value={notas} onChange={(e) => setNotas(e.target.value)} />
-      <div className="grid grid-cols-2 gap-2">
-        <Boton tono="contorno" onClick={onCerrar}>Cancelar</Boton>
-        <Boton cargando={enviando} onClick={() => setConfirmando(true)}>Guardar cambios</Boton>
+
+      <CampoTexto
+        etiqueta="Stock mínimo"
+        value={minimo}
+        onChange={(e) => setMinimo(e.target.value.replace(/\D/g, ''))}
+        inputMode="numeric"
+      />
+      <CampoTexto
+        etiqueta="Notas u observaciones"
+        value={notas}
+        onChange={(e) => setNotas(e.target.value)}
+      />
+
+      <div className="grid grid-cols-2 gap-2 mt-1">
+        <Boton tono="contorno" onClick={onCerrar}>
+          Cancelar
+        </Boton>
+        <Boton cargando={enviando} onClick={() => setConfirmando(true)}>
+          Guardar cambios
+        </Boton>
       </div>
-      <div className="mt-2 border-t border-borde pt-3">
-        <button type="button" onClick={onDesactivar} className="min-h-11 w-full rounded-xl text-[0.9375rem] font-semibold text-alerta active:bg-alerta-tenue">Desactivar producto</button>
-        <button type="button" onClick={onEliminar} className="min-h-11 w-full rounded-xl text-[0.9375rem] font-semibold text-falta active:bg-falta-tenue">Eliminar producto</button>
+
+      <div className="mt-2 border-t border-borde pt-3 flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={onDesactivar}
+          className="min-h-11 w-full rounded-xl text-[0.875rem] font-bold text-alerta active:bg-alerta-tenue transition"
+        >
+          Desactivar producto
+        </button>
+        <button
+          type="button"
+          onClick={onEliminar}
+          className="min-h-11 w-full rounded-xl text-[0.875rem] font-bold text-falta active:bg-falta-tenue transition"
+        >
+          Eliminar producto definitivamente
+        </button>
       </div>
-      <Confirmacion abierta={confirmando} titulo={`¿Guardar cambios de ${nombre.trim() || producto.nombre}?`} detalle={`Confirma la edición de ${nombre.trim() || producto.nombre}.`} confirmar="Guardar cambios" onCancelar={() => setConfirmando(false)} onConfirmar={() => { setConfirmando(false); void guardar() }} />
+
+      <Confirmacion
+        abierta={confirmando}
+        titulo={`¿Guardar cambios de ${nombre.trim() || producto.nombre}?`}
+        detalle={`Confirma la edición de ${nombre.trim() || producto.nombre}.`}
+        confirmar="Guardar cambios"
+        onCancelar={() => setConfirmando(false)}
+        onConfirmar={() => {
+          setConfirmando(false)
+          void guardar()
+        }}
+      />
     </div>
   )
 }
 
+/** Selector genérico de opciones para equipos (Lista Blanca / Condición) */
 function SelectorEquipo<T extends string>({
   etiqueta,
   valor,
@@ -1510,7 +2112,7 @@ function SelectorEquipo<T extends string>({
 }) {
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      <span className="text-[0.8125rem] font-medium text-tinta-suave">{etiqueta}</span>
+      <span className="text-[0.8125rem] font-bold text-tinta-suave">{etiqueta}</span>
       <div className="grid grid-cols-2 gap-2 w-full">
         {opciones.map(([id, texto]) => {
           const seleccionado = valor === id
@@ -1520,7 +2122,7 @@ function SelectorEquipo<T extends string>({
               type="button"
               aria-pressed={seleccionado}
               onClick={() => onChange(id)}
-              className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-3 py-2 text-[1rem] font-bold tracking-wide transition leading-none active:scale-[0.98] ${
+              className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-3 py-2 text-[0.9375rem] font-bold tracking-wide transition leading-none active:scale-[0.98] ${
                 seleccionado
                   ? 'border-accion bg-accion text-white shadow-xs'
                   : 'border-borde bg-white text-tinta-suave hover:border-borde-fuerte active:bg-papel-hundido'
@@ -1531,27 +2133,6 @@ function SelectorEquipo<T extends string>({
           )
         })}
       </div>
-    </div>
-  )
-}
-
-function Dato({
-  titulo,
-  valor,
-  tono = 'normal',
-}: {
-  titulo: string
-  valor: string
-  tono?: 'normal' | 'exito' | 'falta'
-}) {
-  const color = tono === 'exito' ? 'text-exito' : tono === 'falta' ? 'text-falta' : 'text-tinta'
-
-  return (
-    <div className="flex flex-col gap-1 rounded-xl border border-borde bg-superficie px-3 py-2.5">
-      <span className="text-[0.6875rem] font-semibold tracking-wide text-tinta-tenue uppercase">
-        {titulo}
-      </span>
-      <span className={`cifras text-[1rem] font-semibold ${color}`}>{valor}</span>
     </div>
   )
 }
