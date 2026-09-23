@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   ArrowLeftRight,
+  ArrowRight,
   BadgeCheck,
   Camera,
   Check,
@@ -994,11 +995,17 @@ export function Producto() {
                           )}
                         </p>
 
-                        <p className="text-[0.75rem] text-tinta-suave">
-                          {[movimiento.ubicacionOrigenNombre, movimiento.ubicacionDestinoNombre]
-                            .filter(Boolean)
-                            .join(' → ')}
-                        </p>
+                        {movimiento.ubicacionOrigenNombre && movimiento.ubicacionDestinoNombre ? (
+                          <p className="inline-flex items-center gap-1.5 text-[0.75rem] text-tinta-suave">
+                            <span>{movimiento.ubicacionOrigenNombre}</span>
+                            <ArrowRight className="h-3 w-3 shrink-0 opacity-70" />
+                            <span>{movimiento.ubicacionDestinoNombre}</span>
+                          </p>
+                        ) : (
+                          <p className="text-[0.75rem] text-tinta-suave">
+                            {movimiento.ubicacionOrigenNombre ?? movimiento.ubicacionDestinoNombre ?? 'Sin ubicación'}
+                          </p>
+                        )}
 
                         {movimiento.nota && (
                           <p className="text-[0.75rem] text-tinta-suave italic">

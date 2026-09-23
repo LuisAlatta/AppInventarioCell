@@ -12,6 +12,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowRight } from 'lucide-react'
 import type { Equipo, ProductoConStock, Ubicacion } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from './Boton'
@@ -278,7 +279,11 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
 
       {(modo === 'entrada' || modo === 'venta') && (
         <div className="flex flex-col gap-4">
-          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {ubicacion.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'entrada' ? cantidad : -(controlaPorImei ? 1 : cantidad)))} piezas</strong></p>
+          <p role="status" className="inline-flex flex-wrap items-center gap-1.5 rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">
+            <span>En {ubicacion.nombre}: {numero(enUbicacion)}</span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-accion-viva" />
+            <strong>{numero(enUbicacion + (modo === 'entrada' ? cantidad : -(controlaPorImei ? 1 : cantidad)))} piezas</strong>
+          </p>
           {modo === 'venta' && controlaPorImei ? (
             <SelectorEquipo
               equipos={equiposDisponibles}
@@ -330,7 +335,11 @@ export function AccionesProducto({ producto, ubicacionSeleccionada, modoInicial 
 
       {(modo === 'merma' || modo === 'ajuste') && (
         <div className="flex flex-col gap-4">
-          <p role="status" className="rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">En {ubicacion.nombre}: {numero(enUbicacion)} → <strong>{numero(enUbicacion + (modo === 'merma' ? -(controlaPorImei ? 1 : cantidad) : cantidad * signo))} piezas</strong></p>
+          <p role="status" className="inline-flex flex-wrap items-center gap-1.5 rounded-xl bg-accion-tenue p-3 text-[0.9375rem]">
+            <span>En {ubicacion.nombre}: {numero(enUbicacion)}</span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-accion-viva" />
+            <strong>{numero(enUbicacion + (modo === 'merma' ? -(controlaPorImei ? 1 : cantidad) : cantidad * signo))} piezas</strong>
+          </p>
           {modo === 'ajuste' && (
             <div className="flex gap-2">
               {([1, -1] as const).map((valor) => (

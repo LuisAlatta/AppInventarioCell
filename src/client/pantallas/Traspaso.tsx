@@ -17,7 +17,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Check, ShieldAlert, ShieldCheck } from 'lucide-react'
 import type { Equipo, ProductoConStock } from '@compartido/tipos'
 import { ErrorDeApi, api } from '../api/cliente'
 import { Boton } from '../componentes/Boton'
@@ -271,10 +271,16 @@ function FormularioTraspaso({ preparado }: { preparado?: { origenId: string; des
                         <p className="truncate text-[0.9375rem] font-semibold">
                           {renglon.producto.nombre}
                         </p>
-                        <p className="text-[0.8125rem] text-tinta-tenue">
-                          {origen.nombre}: {numero(disponible(renglon.producto))} → {numero(disponible(renglon.producto) - renglon.cantidad)}
+                        <p className="inline-flex items-center gap-1.5 text-[0.8125rem] text-tinta-tenue">
+                          <span>{origen.nombre}: {numero(disponible(renglon.producto))}</span>
+                          <ArrowRight className="h-3 w-3 shrink-0 opacity-70" />
+                          <span>{numero(disponible(renglon.producto) - renglon.cantidad)}</span>
                         </p>
-                        <p className="text-[0.8125rem] text-tinta-suave">{destino.nombre}: {numero(renglon.producto.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0)} → {numero((renglon.producto.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0) + renglon.cantidad)}</p>
+                        <p className="inline-flex items-center gap-1.5 text-[0.8125rem] text-tinta-suave">
+                          <span>{destino.nombre}: {numero(renglon.producto.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0)}</span>
+                          <ArrowRight className="h-3 w-3 shrink-0 opacity-70" />
+                          <span>{numero((renglon.producto.stock.find(s => s.ubicacionId === destinoId)?.cantidad ?? 0) + renglon.cantidad)}</span>
+                        </p>
                         {renglon.equipos.length > 0 && <p className="mt-1 line-clamp-2 text-[0.75rem] font-medium text-accion">{numero(renglon.equipos.length)} equipos: {renglon.equipos.map((equipo) => equipo.imei1 ?? equipo.imei2 ?? 'Sin IMEI').join(' · ')}</p>}
                       </div>
 

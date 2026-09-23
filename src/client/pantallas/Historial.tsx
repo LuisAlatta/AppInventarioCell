@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { ArrowLeftRight, ArrowRight } from "lucide-react";
 import type { Movimiento, TipoMovimiento } from "@compartido/tipos";
 import { api } from "../api/cliente";
 import { Esqueleto, ErrorEnPantalla, Vacio } from "../componentes/Estados";
@@ -341,15 +342,7 @@ function RenglonMovimiento({
   const salida =
     movimiento.ubicacionOrigenId !== null &&
     movimiento.ubicacionDestinoId === null;
-  const signo = entrada ? "+" : salida ? "−" : "↔";
   const color = entrada ? "text-exito" : salida ? "text-falta" : "text-accion";
-  const ruta =
-    movimiento.ubicacionOrigenNombre !== null &&
-    movimiento.ubicacionDestinoNombre !== null
-      ? `${movimiento.ubicacionOrigenNombre} → ${movimiento.ubicacionDestinoNombre}`
-      : (movimiento.ubicacionDestinoNombre ??
-        movimiento.ubicacionOrigenNombre ??
-        "Sin ubicación");
   const total =
     movimiento.tipo === "purchase_in"
       ? movimiento.costoUnitario * movimiento.cantidad
@@ -372,9 +365,9 @@ function RenglonMovimiento({
               {movimiento.productoNombre}
             </p>
             <span
-              className={`cifras shrink-0 text-[1rem] font-semibold ${movimiento.revertidoEn !== null ? "text-tinta-tenue line-through" : color}`}
+              className={`cifras shrink-0 inline-flex items-center gap-0.5 text-[1rem] font-semibold ${movimiento.revertidoEn !== null ? "text-tinta-tenue line-through" : color}`}
             >
-              {signo}
+              {entrada ? "+" : salida ? "−" : <ArrowLeftRight className="h-3.5 w-3.5" />}
               {numero(movimiento.cantidad)}
             </span>
           </div>
@@ -390,7 +383,19 @@ function RenglonMovimiento({
             >
               {NOMBRE_MOVIMIENTO[movimiento.tipo] ?? movimiento.tipo}
             </span>
-            <p className="truncate text-[0.75rem] text-tinta-tenue">{ruta}</p>
+            {movimiento.ubicacionOrigenNombre !== null && movimiento.ubicacionDestinoNombre !== null ? (
+              <span className="inline-flex min-w-0 items-center gap-1 truncate text-[0.75rem] text-tinta-tenue">
+                <span className="truncate">{movimiento.ubicacionOrigenNombre}</span>
+                <ArrowRight className="h-3 w-3 shrink-0 opacity-70" />
+                <span className="truncate">{movimiento.ubicacionDestinoNombre}</span>
+              </span>
+            ) : (
+              <p className="truncate text-[0.75rem] text-tinta-tenue">
+                {movimiento.ubicacionDestinoNombre ??
+                  movimiento.ubicacionOrigenNombre ??
+                  "Sin ubicación"}
+              </p>
+            )}
           </div>
         </div>
       </div>
