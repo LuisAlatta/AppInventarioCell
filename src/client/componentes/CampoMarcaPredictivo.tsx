@@ -21,6 +21,23 @@ interface CampoMarcaPredictivoProps {
   autoFocus?: boolean
 }
 
+const MARCAS_DESTACADAS = [
+  'Apple',
+  'Samsung',
+  'Xiaomi',
+  'Motorola',
+  'Honor',
+  'Infinix',
+  'OPPO',
+  'Realme',
+  'Vivo',
+  'ZTE',
+  'Huawei',
+  'Poco',
+  'Google',
+  'Tecno',
+]
+
 function normalizar(texto: string): string {
   return texto
     .toLowerCase()
@@ -74,10 +91,16 @@ export function CampoMarcaPredictivo({
 
   const consultaLimpia = normalizar(value)
 
-  // Filtramos y ordenamos marcas predictivamente
+  // Filtramos y ordenamos marcas predictivamente priorizando las más usadas
   const sugerencias = useMemo(() => {
     if (consultaLimpia === '') {
-      return marcas.slice(0, 10)
+      const mapa = new Map(marcas.map((m) => [m.nombre.toLowerCase(), m]))
+      const prioritarias: typeof marcas = []
+      for (const dest of MARCAS_DESTACADAS) {
+        const item = mapa.get(dest.toLowerCase())
+        if (item) prioritarias.push(item)
+      }
+      return prioritarias.length > 0 ? prioritarias : marcas.slice(0, 10)
     }
 
     const queEmpiezan = marcas.filter((m) =>
@@ -89,7 +112,16 @@ export function CampoMarcaPredictivo({
         normalizar(m.nombre).includes(consultaLimpia),
     )
 
-    return [...queEmpiezan, ...queContienen].slice(0, 8)
+    const ordenarRelevancia = (lista: typeof marcas) =>
+      [...lista].sort((a, b) => {
+        const esDestA = MARCAS_DESTACADAS.some((d) => d.toLowerCase() === a.nombre.toLowerCase())
+        const esDestB = MARCAS_DESTACADAS.some((d) => d.toLowerCase() === b.nombre.toLowerCase())
+        if (esDestA && !esDestB) return -1
+        if (!esDestA && esDestB) return 1
+        return a.nombre.localeCompare(b.nombre)
+      })
+
+    return [...ordenarRelevancia(queEmpiezan), ...ordenarRelevancia(queContienen)].slice(0, 10)
   }, [marcas, consultaLimpia])
 
   // Verificamos si lo que escribió el usuario ya existe idéntico en las marcas
