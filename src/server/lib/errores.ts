@@ -137,13 +137,23 @@ export function comoErrorApp(e: unknown): ErrorApp {
       return new ErrorApp('no_autenticado', 'Tu sesión ya no es válida. Vuelve a entrar con tu PIN.', { causa: e })
     }
     if (
+      texto.includes('daily row read limit') ||
+      (texto.includes("exceeded D1's free tier") && texto.includes('read'))
+    ) {
+      return new ErrorApp(
+        'error_interno',
+        'Límite diario de lecturas en Cloudflare D1 alcanzado en el plan gratuito (5,000,000 operaciones). Se restablece a medianoche UTC (~19:00 hora local) o actualizando a Workers Paid ($5/mes).',
+        { causa: e },
+      )
+    }
+    if (
       texto.includes('daily row write limit') ||
       texto.includes("exceeded D1's free tier") ||
       texto.includes('free tier daily row write limit')
     ) {
       return new ErrorApp(
         'error_interno',
-        'Límite diario de escrituras en Cloudflare D1 alcanzado (100,000 operaciones). Se restablece a medianoche UTC (~19:00 hora local) o con Workers Paid. El catálogo sigue disponible en modo lectura.',
+        'Límite diario de escrituras en Cloudflare D1 alcanzado en el plan gratuito (100,000 operaciones). Se restablece a medianoche UTC (~19:00 hora local) o actualizando a Workers Paid ($5/mes).',
         { causa: e },
       )
     }

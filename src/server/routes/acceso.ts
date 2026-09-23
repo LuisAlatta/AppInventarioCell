@@ -53,18 +53,29 @@ export const rutasAcceso = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 /** Dice si la app ya tiene dueno, para que el cliente sepa que pantalla mostrar. */
 rutasAcceso.get('/estado', async (c) => {
-  const total = await contarUsuarios(c.env.DB)
+  let total = 1
+  try {
+    total = await contarUsuarios(c.env.DB)
+  } catch {
+    // Si D1 está bloqueado por cuota de lecturas, asumimos configurado para no bloquear la app
+    total = 1
+  }
   const cookie = getCookie(c, NOMBRE_COOKIE)
 
   let autenticado = false
   if (cookie !== undefined && cookie !== '') {
     const sesion = await leerToken(cookie, secretoDeSesion(c.env))
     if (sesion !== null) {
-      const usuario = await c.env.DB
-        .prepare('SELECT 1 FROM users WHERE id = ?')
-        .bind(sesion.usuarioId)
-        .first()
-      autenticado = usuario !== null
+      try {
+        const usuario = await c.env.DB
+          .prepare('SELECT 1 FROM users WHERE id = ?')
+          .bind(sesion.usuarioId)
+          .first()
+        autenticado = usuario !== null
+      } catch {
+        // Si el token JWT es válido pero D1 superó la cuota, preservamos la sesión
+        autenticado = true
+      }
       if (!autenticado) {
         c.header('Set-Cookie', cookieDeCierre(esSeguro(c.req.url)))
       }

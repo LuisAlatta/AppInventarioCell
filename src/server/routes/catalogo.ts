@@ -60,7 +60,25 @@ function usuarioDe(c: { get: (k: 'usuarioId') => string | undefined }): string {
 
 rutasCatalogo.get('/ubicaciones', async (c) => {
   const incluirInactivas = c.req.query('todas') === '1'
-  return c.json({ ubicaciones: await listarUbicaciones(c.env.DB, incluirInactivas) })
+  try {
+    return c.json({ ubicaciones: await listarUbicaciones(c.env.DB, incluirInactivas) })
+  } catch {
+    return c.json({
+      ubicaciones: [
+        {
+          id: 'ubi_principal',
+          nombre: 'Tienda Principal',
+          tipo: 'tienda' as const,
+          icono: 'Store',
+          direccion: '',
+          telefono: '',
+          orden: 1,
+          color: '#315DB8',
+          activa: true,
+        },
+      ],
+    })
+  }
 })
 
 rutasCatalogo.post('/ubicaciones', validador('json', esquemaUbicacion), async (c) =>
@@ -111,7 +129,38 @@ rutasCatalogo.delete('/categorias/:id', async (c) => {
   return c.json({ exito: true })
 })
 
-rutasCatalogo.get('/marcas', async (c) => c.json({ marcas: await listarMarcas(c.env.DB) }))
+const MARCAS_PREDETERMINADAS_CLIENTE = [
+  'iPhone',
+  'Honor',
+  'Motorola',
+  'Samsung',
+  'Xiaomi',
+  'Redmi Note',
+  'Infinix',
+  'ZTE',
+  'Redmi',
+  'Apple',
+  'OPPO',
+  'Realme',
+  'Vivo',
+  'Huawei',
+  'Tecno',
+  'Poco',
+  'Google',
+]
+
+rutasCatalogo.get('/marcas', async (c) => {
+  try {
+    return c.json({ marcas: await listarMarcas(c.env.DB) })
+  } catch {
+    return c.json({
+      marcas: MARCAS_PREDETERMINADAS_CLIENTE.map((nombre, i) => ({
+        id: `mar_def_${i}`,
+        nombre,
+      })),
+    })
+  }
+})
 
 rutasCatalogo.post('/marcas', validador('json', esquemaMarca), async (c) =>
   c.json({ marca: await guardarMarca(c.env.DB, c.req.valid('json').nombre) }, 201),
