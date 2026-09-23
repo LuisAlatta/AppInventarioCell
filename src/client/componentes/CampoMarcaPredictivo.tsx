@@ -22,21 +22,37 @@ interface CampoMarcaPredictivoProps {
 }
 
 const MARCAS_DESTACADAS = [
-  'Apple',
+  'iPhone',
+  'Honor',
+  'Motorola',
   'Samsung',
   'Xiaomi',
-  'Motorola',
-  'Honor',
+  'Redmi Note',
   'Infinix',
+  'ZTE',
+  'Redmi',
+  'Apple',
+  'Xiomi',
+  'Red mi note',
   'OPPO',
   'Realme',
   'Vivo',
-  'ZTE',
   'Huawei',
+  'Tecno',
   'Poco',
   'Google',
-  'Tecno',
 ]
+
+const ALIAS_MAP: Record<string, string[]> = {
+  xiomi: ['xiaomi', 'xiomi'],
+  xiaomi: ['xiaomi', 'xiomi'],
+  'red mi': ['redmi', 'redmi note', 'red mi note'],
+  redmi: ['redmi', 'redmi note', 'red mi note'],
+  'red mi note': ['redmi note', 'red mi note', 'redmi'],
+  redminote: ['redmi note', 'red mi note', 'redmi'],
+  iphone: ['iphone', 'apple'],
+  apple: ['apple', 'iphone'],
+}
 
 function normalizar(texto: string): string {
   return texto
@@ -112,6 +128,13 @@ export function CampoMarcaPredictivo({
         normalizar(m.nombre).includes(consultaLimpia),
     )
 
+    const aliasRelacionados = ALIAS_MAP[consultaLimpia] ?? []
+    const porAlias = marcas.filter(
+      (m) =>
+        aliasRelacionados.some((al) => normalizar(m.nombre).includes(al)) &&
+        !normalizar(m.nombre).startsWith(consultaLimpia),
+    )
+
     const ordenarRelevancia = (lista: typeof marcas) =>
       [...lista].sort((a, b) => {
         const esDestA = MARCAS_DESTACADAS.some((d) => d.toLowerCase() === a.nombre.toLowerCase())
@@ -121,7 +144,22 @@ export function CampoMarcaPredictivo({
         return a.nombre.localeCompare(b.nombre)
       })
 
-    return [...ordenarRelevancia(queEmpiezan), ...ordenarRelevancia(queContienen)].slice(0, 10)
+    const combinados = [
+      ...ordenarRelevancia(queEmpiezan),
+      ...ordenarRelevancia(porAlias),
+      ...ordenarRelevancia(queContienen),
+    ]
+
+    const idsVistos = new Set<string>()
+    const unicos: typeof marcas = []
+    for (const item of combinados) {
+      if (!idsVistos.has(item.id)) {
+        idsVistos.add(item.id)
+        unicos.push(item)
+      }
+    }
+
+    return unicos.slice(0, 10)
   }, [marcas, consultaLimpia])
 
   // Verificamos si lo que escribió el usuario ya existe idéntico en las marcas

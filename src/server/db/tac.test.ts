@@ -63,6 +63,12 @@ describe('Catálogo TAC', () => {
 
     const resIPhoneAir = await buscarTac(mockDb, '35001019')
     expect(resIPhoneAir).toMatchObject({ brand: 'Apple', model: 'iPhone Air' })
+
+    const resInfinixHot50 = await buscarTac(mockDb, '35128012')
+    expect(resInfinixHot50).toMatchObject({ brand: 'Infinix', model: 'Hot 50' })
+
+    const resZteBlade = await buscarTac(mockDb, '86544005')
+    expect(resZteBlade).toMatchObject({ brand: 'ZTE', model: 'Blade A75 5G' })
   })
 
   it('retorna null para un TAC no existente', async () => {

@@ -172,10 +172,31 @@ export function FormularioProducto({
           if (vigente && resTac.encontrado && resTac.marca && resTac.modelo) {
             if (ultimoTacDetectado.current !== tac) {
               ultimoTacDetectado.current = tac
-              setMarca(resTac.marca)
+              let marcaAsignada = resTac.marca
+              if (
+                resTac.marca.toLowerCase() === 'apple' &&
+                resTac.modelo.toLowerCase().includes('iphone')
+              ) {
+                marcaAsignada = 'iPhone'
+              } else if (
+                resTac.marca.toLowerCase() === 'xiaomi' &&
+                (resTac.modelo.toLowerCase().includes('redmi note') ||
+                  /^note\s*\d+/i.test(resTac.modelo))
+              ) {
+                marcaAsignada = 'Redmi Note'
+              } else if (
+                resTac.marca.toLowerCase() === 'xiaomi' &&
+                resTac.modelo.toLowerCase().includes('redmi')
+              ) {
+                marcaAsignada = 'Redmi'
+              } else if (resTac.marca.toLowerCase() === 'zte') {
+                marcaAsignada = 'ZTE'
+              }
+
+              setMarca(marcaAsignada)
               setNombre(resTac.modelo)
               avisarDeteccion()
-              avisos.exito(`Equipo detectado: ${resTac.marca} ${resTac.modelo}`)
+              avisos.exito(`Equipo detectado: ${marcaAsignada} ${resTac.modelo}`)
             }
           }
         } catch {
