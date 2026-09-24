@@ -78,8 +78,8 @@ export function Escanear() {
   }
 
   return (
-    <Marco titulo="Registrar" claseMain="pb-28 flex flex-col min-h-0">
-      <div className="flex flex-1 flex-col justify-between gap-2.5 min-h-0">
+    <Marco titulo="Registrar" claseMain="pb-36">
+      <div className="flex flex-col gap-3">
         {/* Selector de tienda o almacén en una sola fila simétrica */}
         <div className="flex flex-col gap-1">
           <span className="text-[0.875rem] font-semibold text-tinta-suave">

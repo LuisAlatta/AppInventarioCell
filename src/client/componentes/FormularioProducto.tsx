@@ -670,7 +670,7 @@ export function FormularioProducto({
   }
 
   return (
-    <div className="flex flex-1 flex-col justify-between gap-2.5 min-h-0">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2.5">
         <CampoConEscaner
           etiqueta="IMEI 1"
@@ -869,7 +869,7 @@ export function FormularioProducto({
         }}
       />
 
-      <div className="mt-auto grid grid-cols-3 gap-2 pt-2 pb-2">
+      <div className="grid grid-cols-3 gap-2 pt-2 pb-6">
         <Boton tono="contorno" onClick={onCancelar} disabled={enviando} className="px-2 text-[0.9375rem] font-semibold">
           Cancelar
         </Boton>
